@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.UserModel;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
@@ -16,4 +17,6 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
 
     @Query("SELECT n FROM UserModel n WHERE n.name = :name AND n.status = 'ACTIVE' ")
     Set<String> findByName(String name);
+
+    boolean existsByEmailAndIdAndStatus(String email, UUID id, GeneralStatus status);
 }
