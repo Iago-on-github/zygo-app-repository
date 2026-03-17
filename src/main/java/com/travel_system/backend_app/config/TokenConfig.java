@@ -112,6 +112,14 @@ public class TokenConfig {
         else return null;
     }
 
+    public String getSubjectFromToken(String token) {
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+
+        DecodedJWT decodedJWT = JWT.require(algorithm).build().verify(token); // se inválido, lança exceção
+
+        return decodedJWT.getSubject();
+    }
+
     // verifica se o token é valido ou não é expirado
     // cache por alguns minutos (2)
     @Cacheable(value = "validateToken", key = "#token")
