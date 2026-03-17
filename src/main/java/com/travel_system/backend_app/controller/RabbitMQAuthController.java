@@ -1,7 +1,8 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.config.TokenConfig;
-import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.repository.UserRepository;
 import com.travel_system.backend_app.service.TravelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,34 +20,47 @@ import java.util.UUID;
 public class RabbitMQAuthController {
     private final TokenConfig tokenConfig;
     private final TravelService travelService;
+    private final UserRepository userRepository;
 
     private final Logger log = LoggerFactory.getLogger(RabbitMQAuthController.class);
 
-    public RabbitMQAuthController(TokenConfig tokenConfig, TravelService travelService) {
+    public RabbitMQAuthController(TokenConfig tokenConfig, TravelService travelService, UserRepository userRepository) {
         this.tokenConfig = tokenConfig;
         this.travelService = travelService;
+        this.userRepository = userRepository;
     }
 
     // rabbitMq authorization - valida token e libera acesso
     @PostMapping(value = "/user", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateMessaging(@RequestParam("user") String username, @RequestParam("password") String jwt) {
-        if (tokenConfig.validateToken(jwt)) {
-            log.info(" RabbitMQ auth: token do user válido. {}", username);
-            return ResponseEntity.ok("allow");
+    public ResponseEntity<String> authenticateMessaging(@RequestParam("user") String usernameId, @RequestParam("password") String jwt) {
+        if (!tokenConfig.validateToken(jwt)) {
+            log.warn("token não é válido. {}: ", usernameId);
+            return ResponseEntity.ok("deny");
         }
-        log.info(" RabbitMQ auth: token do user inválido. {} {}", username, jwt);
-        return ResponseEntity.ok("deny");
+
+        String subjectFromToken = tokenConfig.getSubjectFromToken(jwt);
+
+        UUID id = UUID.fromString(usernameId);
+        boolean validateUser = userRepository.existsByEmailAndIdAndStatus(subjectFromToken, id, GeneralStatus.ACTIVE);
+
+        if (!validateUser) {
+            log.warn("Tentativa de login com ID divergente do Token! User: {}", usernameId);
+            return ResponseEntity.ok("deny");
+        }
+
+        log.info("tentativa de login autorizada com sucesso {}:", usernameId);
+        return ResponseEntity.ok("allow");
     }
 
     @PostMapping(value = "/vhost", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateVHost(@RequestParam("user") String username, @RequestParam("vhost") String vhost, @RequestParam("ip") String ip) {
+    public ResponseEntity<String> authenticateVHost(@RequestParam("user") String usernameId, @RequestParam("vhost") String vhost, @RequestParam("ip") String ip) {
 
         if (vhost.equals("/")) {
-            log.info("acesso ao vHost permitido ao ip: {} {}", username, ip);
+            log.info("acesso ao vHost permitido ao user e ip: {} {}", usernameId, ip);
             return ResponseEntity.ok("allow");
         }
 
-        log.warn("vHost negado. user={} vhost={} ip={}", username, vhost, ip);
+        log.warn("vHost negado. user={} vhost={} ip={}", usernameId, vhost, ip);
         return ResponseEntity.ok("deny");
     }
 
@@ -59,7 +73,7 @@ public class RabbitMQAuthController {
 
         // nunca permite criar ou deletar estruturas no servidor
         if (permission.equals("configure")) {
-            log.info("tentativa de configuração negada ao usuário: {}", username);
+            log.warn("tentativa de configuração negada ao usuário: {}", username);
             return ResponseEntity.ok("deny");
         }
 
@@ -77,10 +91,10 @@ public class RabbitMQAuthController {
         String[] routingKeyParts = routingKey.split("[/.]");
         String travelIdStr = routingKeyParts[routingKeyParts.length - 1];
 
-        UUID travelId = UUID.fromString(travelIdStr);
-        UUID studentId = UUID.fromString(username);
-
         try {
+            UUID travelId = UUID.fromString(travelIdStr);
+            UUID studentId = UUID.fromString(username);
+            
             if (permission.equals("publish")) {
                 boolean isDriverLogged = travelService.isDriverLogged(username, travelId);
                 return isDriverLogged ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
