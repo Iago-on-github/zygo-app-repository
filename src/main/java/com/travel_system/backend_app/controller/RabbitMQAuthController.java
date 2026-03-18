@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.UUID;
 
@@ -21,6 +22,11 @@ public class RabbitMQAuthController {
     private final TokenConfig tokenConfig;
     private final TravelService travelService;
     private final UserRepository userRepository;
+
+    @Value("${rabbitmq_user}")
+    private String rabbitmq_user;
+    @Value("${rabbitmq_password}")
+    private String rabbitmq_password;
 
     private final Logger log = LoggerFactory.getLogger(RabbitMQAuthController.class);
 
@@ -32,24 +38,38 @@ public class RabbitMQAuthController {
 
     // rabbitMq authorization - valida token e libera acesso
     @PostMapping(value = "/user", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateMessaging(@RequestParam("user") String usernameId, @RequestParam("password") String jwt) {
-        if (!tokenConfig.validateToken(jwt)) {
-            log.warn("token não é válido. {}: ", usernameId);
-            return ResponseEntity.ok("deny");
+    public ResponseEntity<String> authenticateMessaging(@RequestParam("user") String username, @RequestParam("password") String password) {
+
+        // verifica se é o próprio sistema tentando autenticar
+        if (username.equals(rabbitmq_user) && password.equals(rabbitmq_password)) {
+            log.info("Backend do sistema autorizado com sucesso: {}", username);
+            return ResponseEntity.ok("allow");
         }
 
-        String subjectFromToken = tokenConfig.getSubjectFromToken(jwt);
+        // validação de users (student/driver)
+        try {
+            if (!tokenConfig.validateToken(password)) {
+                log.warn("Token inválido para o usuário: {}", username);
+                return ResponseEntity.ok("deny");
+            }
 
-        UUID id = UUID.fromString(usernameId);
-        boolean validateUser = userRepository.existsByEmailAndIdAndStatus(subjectFromToken, id, GeneralStatus.ACTIVE);
+            String subjectFromToken = tokenConfig.getSubjectFromToken(password);
+            UUID id = UUID.fromString(username);
 
-        if (!validateUser) {
-            log.warn("Tentativa de login com ID divergente do Token! User: {}", usernameId);
+            boolean validateUser = userRepository.existsByEmailAndIdAndStatus(subjectFromToken, id, GeneralStatus.ACTIVE);
+
+            if (!validateUser) {
+                log.warn("ID divergente do Token ou usuário inativo! User: {}", username);
+                return ResponseEntity.ok("deny");
+            }
+
+            log.info("Login de usuário autorizado: {}", username);
+            return ResponseEntity.ok("allow");
+
+        } catch (Exception e) {
+            log.error("Erro ao processar autenticação de mensageria: {}", e.getMessage());
             return ResponseEntity.ok("deny");
         }
-
-        log.info("tentativa de login autorizada com sucesso {}:", usernameId);
-        return ResponseEntity.ok("allow");
     }
 
     @PostMapping(value = "/vhost", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
