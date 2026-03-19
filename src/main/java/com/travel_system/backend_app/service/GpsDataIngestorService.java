@@ -14,13 +14,9 @@ import java.util.UUID;
 public class GpsDataIngestorService {
 
     private final RabbitTemplate rabbitTemplate;
-    private final RedisTrackingService redisTrackingService;
-    private final TravelHistoryPingsService travelHistoryPingsService;
 
-    public GpsDataIngestorService(RabbitTemplate rabbitTemplate, RedisTrackingService redisTrackingService, TravelHistoryPingsService travelHistoryPingsService) {
+    public GpsDataIngestorService(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
-        this.redisTrackingService = redisTrackingService;
-        this.travelHistoryPingsService = travelHistoryPingsService;
     }
 
     // envia ao rabbitmq as informações de gps da viagem + a routing_key contendo ids específicos
@@ -28,6 +24,7 @@ public class GpsDataIngestorService {
         final String ROUTING_KEY = "v1.gps." + city + "." + travelId;
 
         Instant now = Instant.now();
+        UUID cityId = UUID.fromString(city);
 
         GpsPayload gpsPayload = new GpsPayload(
                 vehicleLocation.latitude(),
@@ -35,7 +32,8 @@ public class GpsDataIngestorService {
                 vehicleLocation.speed(),
                 vehicleLocation.heading(),
                 now,
-                vehicleLocation.travelId()
+                vehicleLocation.travelId(),
+                cityId
         );
 
         // QoS 0
@@ -43,17 +41,5 @@ public class GpsDataIngestorService {
             location.getMessageProperties().setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
             return location;
         });
-
-        // datahistory dos pings durante a viagem
-        boolean locationUpdateAllowed = redisTrackingService.isLocationUpdateAllowed(UUID.fromString(travelId));
-
-        if (!locationUpdateAllowed) return;
-
-        travelHistoryPingsService.saveTravelLocationHistoryData(city, travelId, now, vehicleLocation);
-
-        // salva os novos pings que chegarão
-        redisTrackingService.saveHistoryPingLocation(UUID.fromString(travelId), now);
     }
-
-
 }
