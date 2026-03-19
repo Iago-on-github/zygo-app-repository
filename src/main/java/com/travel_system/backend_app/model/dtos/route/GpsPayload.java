@@ -9,5 +9,6 @@ public record GpsPayload(
         Double speed,
         Double heading,
         Instant timestamp,
-        UUID travelId) {
+        UUID travelId,
+        UUID cityId) {
 }
