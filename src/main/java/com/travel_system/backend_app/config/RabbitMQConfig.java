@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
     public static final String QUEUE_NOTIFICATION_NAME = "queue.notification";
     public static final String QUEUE_ERR_DLQ = "dlq.queue";
+    public static final String QUEUE_PROCESSING_COORDINATES = "process.gps.coords";
 
     public static final String EXCHANGE_NOTIFICATION_NAME = "push.distance.notification";
     public static final String EXCHANGE_GPS_NAME = "tg.gps.exchange";
@@ -42,6 +43,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue processingGpsCoordinates() {
+        return new Queue(QUEUE_PROCESSING_COORDINATES, true);
+    }
+
+    @Bean
     public TopicExchange exchangeNotification() {
         return new TopicExchange(EXCHANGE_NOTIFICATION_NAME);
     }
@@ -60,6 +66,7 @@ public class RabbitMQConfig {
     public TopicExchange parkingLotExchange() {
         return new TopicExchange(EXCHANGE_PARKING_LOT);
     }
+
 
     // faz o mqtt olhar para a exchange custom e não para a padrão amqTopic
     @Bean
@@ -81,6 +88,12 @@ public class RabbitMQConfig {
     @Bean
     public Binding bindingParkingLot(Queue queueParkingLot, TopicExchange parkingLotExchange) {
         return BindingBuilder.bind(queueParkingLot).to(parkingLotExchange).with(ROUTING_KEY_PARKING_LOT);
+    }
+
+    @Bean
+    public Binding bindingProcessGpsCoordinates(Queue queueProcessGpsCoordinates, TopicExchange exchangeGpsName) {
+        // usa "v1.gps.#" para capturar todas as cidades
+        return BindingBuilder.bind(queueProcessGpsCoordinates).to(exchangeGpsName).with("v1.gps.#");
     }
 
     // serialização
