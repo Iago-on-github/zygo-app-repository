@@ -19,7 +19,7 @@ public class GpsService implements RealTimeMessagingContract {
 
     @Override
     public void sendLocalizationToNotification(String city, UUID travelId, MessagingDTO messagingDTO) {
-        final String ROUTING_GPS_KEY = "gps." + city + "." + travelId;
+        final String ROUTING_GPS_KEY = "v1.gps." + city + "." + travelId;
 
         // QoS 0: Mensagem não persistente
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_GPS_NAME, ROUTING_GPS_KEY, messagingDTO, message -> {
