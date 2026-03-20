@@ -350,6 +350,8 @@ public class RedisTrackingService {
         if (travelId == null) return;
         String key = HASH_KEY_PREFIX + travelId;
 
+        logger.info("[redis] saveHistoryPingLocation called, saving data... {}", travelId);
+
         hashOperations.put(key, "last_ping_history", lastPing.toString());
     }
 
