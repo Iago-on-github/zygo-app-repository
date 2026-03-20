@@ -67,7 +67,6 @@ public class RabbitMQConfig {
         return new TopicExchange(EXCHANGE_PARKING_LOT);
     }
 
-
     // faz o mqtt olhar para a exchange custom e não para a padrão amqTopic
     @Bean
     public Binding bindGpsExchangeToTopicExchange() {
@@ -91,9 +90,9 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding bindingProcessGpsCoordinates(Queue queueProcessGpsCoordinates, TopicExchange exchangeGpsName) {
+    public Binding bindingProcessGpsCoordinates(Queue processingGpsCoordinates, TopicExchange exchangeGps) {
         // usa "v1.gps.#" para capturar todas as cidades
-        return BindingBuilder.bind(queueProcessGpsCoordinates).to(exchangeGpsName).with("v1.gps.#");
+        return BindingBuilder.bind(processingGpsCoordinates).to(exchangeGps).with("v1.gps.#");
     }
 
     // serialização
