@@ -6,7 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "TRAVEL_LOCATION_HISTORY")
+@Table(name = "TRAVEL_LOCATION_HISTORY", indexes = {
+        @Index(name = "idx_travel_timestamp", columnList = "travelId, recordedAt")
+})
 public class TravelLocationHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
