@@ -2,7 +2,6 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.StudentProximityEvents;
 import com.travel_system.backend_app.events.VehicleMovementEvents;
-import com.travel_system.backend_app.listeners.GpsMessagingListener;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
@@ -36,20 +35,18 @@ public class PushNotificationService {
     private final RedisNotificationService redisNotificationService;
     private final RedisTrackingService redisTrackingService;
     private final TravelRepository travelRepository;
-    private final GpsMessagingListener gpsMessagingListener;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
 
-    public PushNotificationService(TravelTrackingService travelTrackingService, TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, TravelRepository travelRepository, GpsMessagingListener gpsMessagingListener, ApplicationEventPublisher eventPublisher) {
+    public PushNotificationService(TravelTrackingService travelTrackingService, TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, TravelRepository travelRepository, ApplicationEventPublisher eventPublisher) {
         this.travelTrackingService = travelTrackingService;
         this.travelService = travelService;
         this.routeCalculationService = routeCalculationService;
         this.redisNotificationService = redisNotificationService;
         this.redisTrackingService = redisTrackingService;
         this.travelRepository = travelRepository;
-        this.gpsMessagingListener = gpsMessagingListener;
         this.eventPublisher = eventPublisher;
     }
 
