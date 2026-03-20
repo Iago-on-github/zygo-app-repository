@@ -2,12 +2,14 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.service.TravelTrackingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,9 +39,14 @@ public class TravelTrackingController {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
 
-    @PostMapping("/locationUpdate/{travelId}")
-    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
-        travelTrackingService.markDriverCheckpoint(vehicleLocationRequest);
+    @PostMapping("/locationUpdate/{cityId}/{travelId}")
+    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
+        travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{travelId}/historyPoints")
+    public ResponseEntity<List<LocationPointDTO>> getTravelHistory(@PathVariable UUID travelId) {
+        return ResponseEntity.ok().body(travelTrackingService.getTravelHistory(travelId));
     }
 }
