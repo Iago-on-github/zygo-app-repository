@@ -7,15 +7,20 @@ import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
+import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -26,25 +31,28 @@ public class TravelTrackingService {
     private final MapboxAPIService mapboxAPIService;
     private final RouteCalculationService routeCalculationService;
     private final StudentTravelRepository studentTravelRepository;
+    private final GpsDataIngestorService gpsDataIngestorService;
+    private final TravelLocationHistoryRepository travelLocationHistoryRepository;
 
     private final ApplicationEventPublisher eventPublisher;
 
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
         this.routeCalculationService = routeCalculationService;
         this.studentTravelRepository = studentTravelRepository;
+        this.gpsDataIngestorService = gpsDataIngestorService;
+        this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
-    public void markDriverCheckpoint(VehicleLocationRequestDTO vehicleLocationRequest) {
-        UUID travelId = vehicleLocationRequest.travelId();
+    public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
         Double latitude = vehicleLocationRequest.latitude();
         Double longitude = vehicleLocationRequest.longitude();
         Double speed = vehicleLocationRequest.speed();
@@ -78,6 +86,8 @@ public class TravelTrackingService {
                 speed, heading);
 
         eventPublisher.publishEvent(event);
+
+        gpsDataIngestorService.sendVehicleGps(cityId.toString(), travelId.toString(), new VehicleLocationRequestDTO(travelId, latitude, longitude, speed, heading));
     }
 
     // Orquestra o sistema de tracking em tempo real, verificando desvios de rota,
@@ -217,6 +227,13 @@ public class TravelTrackingService {
                 distance,
                 lastCalcLatitude,
                 lastCalcLongitude);
+    }
+
+    // fornece um histórico de points salvos no banco
+    public List<LocationPointDTO> getTravelHistory(UUID travelId) {
+        Pageable pageable = PageRequest.of(0, 100);
+
+        return travelLocationHistoryRepository.findLatLongByTravelIdAsc(travelId, pageable);
     }
 
     // MÉTODOS AUXILIARES
