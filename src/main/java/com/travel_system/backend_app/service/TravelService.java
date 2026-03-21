@@ -5,7 +5,6 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
@@ -14,7 +13,8 @@ import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +35,8 @@ public class TravelService {
     private final TravelReportsRepository travelReportsRepository;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final PolylineService polylineService;
+
+    private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
     public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService) {
         this.travelRepository = travelRepository;
@@ -101,6 +103,8 @@ public class TravelService {
 
         // adiciona viagem ativa ao redis para métricas de self-health do sistema
         redisTrackingService.addActiveTravel(travelId);
+
+        log.info("viagem iniciada com sucesso: {}", travelId);
     }
 
     @Transactional
@@ -167,6 +171,8 @@ public class TravelService {
         travelRepository.save(actualTrip);
 
         redisTrackingService.clearTravelLocationCache(travelId);
+
+        log.info("Viagem encerrada: {}", travelId);
     }
 
     @Transactional
