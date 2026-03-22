@@ -45,6 +45,7 @@ O **Zygo** utiliza uma arquitetura baseada no Event-Driven-Design (EDD), utiliza
 
 ---
 
+```mermaid
 graph LR
     subgraph Ingestao [Ingestão e Controle]
         A[App Motorista] -->|HTTP POST| B(Spring Boot API)
@@ -65,6 +66,7 @@ graph LR
     style E fill:#FF6600,stroke:#333,color:#fff
     style C fill:#D82C20,stroke:#333,color:#fff
     style D fill:#336791,stroke:#333,color:#fff
+```
 
 ---
 
