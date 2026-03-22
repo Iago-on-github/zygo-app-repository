@@ -26,25 +26,6 @@ O **Zygo** vem com a premissa de eliminar a dependência de mensagens manuais e 
 ## 🏗️ Arquitetura do Sistema
 O **Zygo** utiliza uma arquitetura baseada no Event-Driven-Design (EDD), utilizando RabbitMQ com o protocolo MQTT para sustentar o fluxo de dados em tempo real, garantindo a entrega estratégica e eficiente da telemetria aos usuários finais. 
 
-### ⚡ Engenharia e Fluxo de Dados
-* **Orquestração de Mensageria (RabbitMQ and MQTT protocol):** Utilização do RabbitMQ como Message Broker central, convertendo dados de telemetria via protocolo MQTT para entrega eficiente em dispositios móveis.
-* **Processamento dos dados:** Spring Backend robusto responsável pela validação da viagens, gestão de life-cycle e despacho de eventos de localização, coleta de métricas de cada viagem, authenticação da aplicação e de conexão ao Message Broker, envio de notificações dinâmicas aos alunos com base nos dados das viagens e etc.
-* **Streaming com MapBox API:** Integração com a MapBox para geração de rotas, cálculo de ETA (tempo estimado de chegada), validação de dados de coordenadas e renderização de geometria do trajeto.
-* **Persistência (PostgreSQL & Redis):** Redis agindo como cache de altissíma velocidade para lidar com "estados atuais", como em dados de posições. PostgreSQL usado para armazenamento de longo prazo para histócio de pings (breadcrumbs), usuários em geral e relatórios de cada viagem.
-* **Comunicação em Real-Time:** Fluxo hibrído de ingestão de dados via REST/HTTP, e distribuição ocorrendo via Websockets/MQTT, garantindo escalabilidade, seguraça e resiliência para cargas de milhares de conexões simultâneas.
-
----
-### 🛠️ Backend Stack
-* **Linguagem:** Java
-* **Framework Principal:** Spring Boot, Spring Data Jpa, Spring Security, Spring AMQP, Hibernate, slf4j (logging), Swagger
-* **Mensageria:** RabbitMQ (com protocolo MQTT)
-* **Bancos de Dados:** PostgreSQL, Redis
-* **Integração de Mapas:** MapBox API
-* **DevOps:** Docker & Docker Compose
-* **Migrações:** Flyway
-
----
-
 ```mermaid
 graph LR
     subgraph Ingestao [Ingestão e Controle]
@@ -67,6 +48,25 @@ graph LR
     style C fill:#D82C20,stroke:#333,color:#fff
     style D fill:#336791,stroke:#333,color:#fff
 ```
+
+---
+
+### ⚡ Engenharia e Fluxo de Dados
+* **Orquestração de Mensageria (RabbitMQ and MQTT protocol):** Utilização do RabbitMQ como Message Broker central, convertendo dados de telemetria via protocolo MQTT para entrega eficiente em dispositios móveis.
+* **Processamento dos dados:** Spring Backend robusto responsável pela validação da viagens, gestão de life-cycle e despacho de eventos de localização, coleta de métricas de cada viagem, authenticação da aplicação e de conexão ao Message Broker, envio de notificações dinâmicas aos alunos com base nos dados das viagens e etc.
+* **Streaming com MapBox API:** Integração com a MapBox para geração de rotas, cálculo de ETA (tempo estimado de chegada), validação de dados de coordenadas e renderização de geometria do trajeto.
+* **Persistência (PostgreSQL & Redis):** Redis agindo como cache de altissíma velocidade para lidar com "estados atuais", como em dados de posições. PostgreSQL usado para armazenamento de longo prazo para histócio de pings (breadcrumbs), usuários em geral e relatórios de cada viagem.
+* **Comunicação em Real-Time:** Fluxo hibrído de ingestão de dados via REST/HTTP, e distribuição ocorrendo via Websockets/MQTT, garantindo escalabilidade, seguraça e resiliência para cargas de milhares de conexões simultâneas.
+
+---
+### 🛠️ Backend Stack
+* **Linguagem:** Java
+* **Framework Principal:** Spring Boot, Spring Data Jpa, Spring Security, Spring AMQP, Hibernate, slf4j (logging), Swagger
+* **Mensageria:** RabbitMQ (com protocolo MQTT)
+* **Bancos de Dados:** PostgreSQL, Redis
+* **Integração de Mapas:** MapBox API
+* **DevOps:** Docker & Docker Compose
+* **Migrações:** Flyway
 
 ---
 
