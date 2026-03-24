@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.service.TravelTrackingService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,7 +47,7 @@ public class TravelTrackingController {
     }
 
     @GetMapping("/{travelId}/historyPoints")
-    public ResponseEntity<List<LocationPointDTO>> getTravelHistory(@PathVariable UUID travelId) {
+    public ResponseEntity<Page<LocationPointDTO>> getTravelHistory(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getTravelHistory(travelId));
     }
 }

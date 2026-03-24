@@ -14,6 +14,7 @@ import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -230,7 +231,7 @@ public class TravelTrackingService {
     }
 
     // fornece um histórico de points salvos no banco
-    public List<LocationPointDTO> getTravelHistory(UUID travelId) {
+    public Page<LocationPointDTO> getTravelHistory(UUID travelId) {
         Pageable pageable = PageRequest.of(0, 100);
 
         return travelLocationHistoryRepository.findLatLongByTravelIdAsc(travelId, pageable);
