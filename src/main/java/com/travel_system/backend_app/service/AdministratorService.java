@@ -43,8 +43,6 @@ public class AdministratorService {
     public List<AdministratorResponseDTO> getAllAdministrators() {
         List<Administrator> allAdmins = administratorRepository.findAll();
 
-        if (allAdmins.isEmpty()) return Collections.emptyList();
-
         return allAdmins.stream().map(this::admConverted).toList();
     }
 
@@ -154,8 +152,6 @@ public class AdministratorService {
 
     private List<AdministratorResponseDTO> findAdmsByStatus(GeneralStatus status) {
         List<Administrator> activeAdms = administratorRepository.findByStatus(status);
-
-        if (activeAdms.isEmpty()) return Collections.emptyList();
 
         return activeAdms.stream().map(this::admConverted).toList();
     }
