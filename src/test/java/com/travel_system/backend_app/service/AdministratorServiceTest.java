@@ -1,20 +1,27 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.exceptions.DuplicateResourceException;
+import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
+import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.model.Administrator;
+import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.AdministratorRepository;
+import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.convert.DataSizeUnit;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -22,11 +29,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AdministratorServiceTest {
@@ -48,7 +55,13 @@ class AdministratorServiceTest {
     @Mock
     private AdministratorRepository administratorRepository;
 
-    private PasswordEncoder passwordEncoder;
+    @Mock
+    private PermissionsRepository permissionsRepository;
+
+    @Spy
+    private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    ArgumentCaptor<Administrator> admCaptor = ArgumentCaptor.forClass(Administrator.class);
 
     @Nested
     class getAllAdministrators {
@@ -212,7 +225,112 @@ class AdministratorServiceTest {
         @Test
         @DisplayName("Should create a new administrator with success")
         void shouldCreateAdministratorWithSuccess() {
+            // arrange
+            String ROLE_ADMIN = "ROLE_ADMIN";
+            String passEncoded = passwordEncoder.encode("123");
 
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", passEncoded, "adm", "teste", "75981736299", null);
+
+            Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
+            Permissions perms = new Permissions(ROLE_ADMIN);
+
+            when(administratorRepository.findByEmail(admDto.email())).thenReturn(Optional.empty());
+            when(administratorRepository.findByTelephone(admDto.telephone())).thenReturn(Optional.empty());
+            when(administratorRepository.save(any(Administrator.class))).thenReturn(admToReturn);
+
+            when(permissionsRepository.findByDescription(ROLE_ADMIN)).thenReturn(Optional.of(perms));
+
+            // act
+            AdministratorResponseDTO result = administratorService.createAdministrator(admDto);
+
+            // assert
+            assertNotNull(result);
+            assertNotNull(result.email());
+            assertNotNull(result.telephone());
+            assertNotNull(result.id());
+
+            assertEquals(GeneralStatus.ACTIVE, result.status());
+            assertEquals(admDto.email(), result.email());
+            assertEquals(admDto.telephone(), result.telephone());
+
+            // using argument captor for capturing savedAdm values
+            verify(administratorRepository).save(admCaptor.capture());
+            Administrator savedAdm = admCaptor.getValue();
+
+
+            assertNotNull(savedAdm.getPassword());
+            assertNotNull(savedAdm.getPermissions());
+            assertEquals(ROLE_ADMIN, savedAdm.getPermissions().getFirst().getAuthority());
+
+            assertNotEquals("123", savedAdm.getPassword());
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception if mandatory fields like email or telephone are null")
+        @MethodSource("nullFieldsProvider")
+        void throwExceptionIfMandatoryFieldsAreNull(AdministratorRequestDTO admReqDTO) {
+            assertThrows(EmptyMandatoryFieldsFound.class, () -> administratorService.createAdministrator(admReqDTO));
+
+            verify(administratorRepository, never()).save(any(Administrator.class));
+        }
+
+        private static Stream<AdministratorRequestDTO> nullFieldsProvider() {
+            return Stream.of(
+                    new AdministratorRequestDTO(null, "fsdf", "adm", "teste", "75981736299", null),
+                    new AdministratorRequestDTO("adm@email.com", null, "adm", "teste", "75981736299", null),
+                    new AdministratorRequestDTO("adm@email.com", "fsdf", null, "teste", "75981736299", null),
+                    new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", null, null)
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when administrator already registered with this email")
+        void throwExceptionWhenAdministratorAlreadyRegisteredWithEmail() {
+            // arrange
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null);
+            Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
+
+            when(administratorRepository.findByEmail(admDto.email())).thenReturn(Optional.of(admToReturn));
+
+            // act & assert
+            assertThrows(DuplicateResourceException.class, () -> {
+                administratorService.createAdministrator(admDto);
+            });
+
+            verify(administratorRepository, never()).save(any(Administrator.class));
+        }
+
+        @Test
+        @DisplayName("throw exception when administrator already registered with this telephone")
+        void throwExceptionWhenAdministratorAlreadyRegisteredWithTelephone() {
+            // arrange
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null);
+            Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
+
+            when(administratorRepository.findByTelephone(admDto.telephone())).thenReturn(Optional.of(admToReturn));
+
+            // act & assert
+            assertThrows(DuplicateResourceException.class, () -> {
+                administratorService.createAdministrator(admDto);
+            });
+
+            verify(administratorRepository, never()).save(any(Administrator.class));
+        }
+
+        @Test
+        @DisplayName("throw exception when 'ROLE_ADMIN' permission not found from database")
+        void throwExceptionWhenRoleAdminPermissionNotFound() {
+            // arrange
+            String ROLE_ADMIN = "ROLE_ADMIN";
+
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm23@email.com", "fsdf", "adm", "teste", "75981736299", null);
+
+            when(permissionsRepository.findByDescription(ROLE_ADMIN)).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThrows(PermissionNotFoundException.class, () -> administratorService.createAdministrator(admDto));
+
+            verify(administratorRepository, never()).save(any(Administrator.class));
         }
     }
 }
