@@ -63,12 +63,12 @@ public class AdministratorService {
 
     @Transactional
     public AdministratorResponseDTO createAdministrator(AdministratorRequestDTO admRequestDTO) {
-        Administrator adm = admMapper(admRequestDTO);
-
         checkFieldsIsNull(admRequestDTO);
 
+        Administrator adm = admMapper(admRequestDTO);
+
         Optional<Administrator> existingAdministratorEmail = administratorRepository.findByEmail(adm.getEmail());
-        Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(adm.getEmail());
+        Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(adm.getTelephone());
 
         if (existingAdministratorEmail.isPresent()) throw new DuplicateResourceException("Email já registrado");
         if (existingAdministratorTelephone.isPresent()) throw new DuplicateResourceException("Telefone já registrado");
