@@ -13,6 +13,13 @@ public class Permissions implements GrantedAuthority {
     private UUID id;
     private String description;
 
+    public Permissions() {
+    }
+
+    public Permissions(String description) {
+        this.description = description;
+    }
+
     public UUID getId() {
         return id;
     }
