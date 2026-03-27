@@ -77,7 +77,7 @@ public class AsyncNotificationService {
                 // enviar notificação para cada estudante
                 firebaseNotificationSender.pushNotificationToFirebase(new MovementNotificationEventDTO(studentId, travelId, movementState, priority, message, traceId));
             } catch (Exception e) {
-                logger.error("Falha no envio de notificação para o aluno: {} {}", studentId, e.getMessage());
+                logger.error("[slowNotification] Falha no envio de notificação para o aluno: {} {}", studentId, e.getMessage());
             }
         });
     }
@@ -106,7 +106,7 @@ public class AsyncNotificationService {
                 // enviar notificação para cada estudante
                 firebaseNotificationSender.pushNotificationToFirebase(new MovementNotificationEventDTO(studentId, travelId, movementState, priority, message, traceId));
             } catch (Exception e) {
-                logger.error("Falha no envio de notificação para o aluno: {} {}", studentId, e.getMessage());
+                logger.error("[stoppedNotification] Falha no envio de notificação para o aluno: {} {}", studentId, e.getMessage());
             }
         });
     }
