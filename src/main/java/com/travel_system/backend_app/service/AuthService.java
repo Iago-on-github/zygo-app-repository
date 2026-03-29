@@ -27,19 +27,18 @@ public class AuthService {
     public ResponseEntity signing(LoginRequestDTO loginRequestDto) {
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequestDto.email(), loginRequestDto.password()));
-
-            var user = userRepository.findUserByEmail(loginRequestDto.email());
-
-            if (user == null){
-                throw new EmailNotFoundException("Email não encontrado. Tente novamente");
-            }
-
-            var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles());
-            return ResponseEntity.ok().body(tokenResponse);
-
         } catch (Exception e) {
             throw new BadCredentialsException("Email ou senha inválidos. Tente novamente");
         }
+
+        var user = userRepository.findUserByEmail(loginRequestDto.email());
+
+        if (user == null){
+            throw new EmailNotFoundException("Email não encontrado. Tente novamente");
+        }
+
+        var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles());
+        return ResponseEntity.ok().body(tokenResponse);
     }
 
     @SuppressWarnings("rawtypes")
