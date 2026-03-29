@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.exceptions.EtaDataStatesInvalidException;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import com.travel_system.backend_app.model.enums.ShouldNotify;
@@ -130,6 +131,80 @@ class AsyncNotificationServiceTest {
                             event.travelId().equals(travelId) &&
                             event.movementState().equals(MovementState.STOPPED) &&
                             event.traceId().equals(traceId)));
+        }
+
+        @Test
+        @DisplayName("throw exception when travelId is null")
+        void throwExceptionWhenTravelIdIsNull() {
+            // arrange
+            VelocityAnalysisDTO velocityAnalysis = new VelocityAnalysisDTO(3.2, 4L, 8.0, 2.1, MovementState.STOPPED);
+            UUID traceId = UUID.randomUUID();
+
+            // act & assert
+            assertThrows(EtaDataStatesInvalidException.class, () -> {
+               asyncNotificationService.processNotificationType(null, velocityAnalysis, ShouldNotify.SHOULD_NOTIFY_SLOW, traceId);
+            });
+
+            verifyNoInteractions(redisTrackingService, studentTravelRepository, firebaseNotificationSender);
+        }
+
+        @Test
+        @DisplayName("throw exception when velocity analysis dto is null")
+        void throwExceptionWhenVelocityAnalysisIsNull() {
+            // arrange
+            VelocityAnalysisDTO velocityAnalysis = new VelocityAnalysisDTO(3.2, 4L, 8.0, 2.1, MovementState.STOPPED);
+            UUID traceId = UUID.randomUUID();
+            UUID travelId = UUID.randomUUID();
+
+            // act & assert
+            assertThrows(EtaDataStatesInvalidException.class, () -> {
+                asyncNotificationService.processNotificationType(travelId, null, ShouldNotify.SHOULD_NOTIFY_SLOW, traceId);
+            });
+
+            verifyNoInteractions(redisTrackingService, studentTravelRepository, firebaseNotificationSender);
+        }
+
+        @Test
+        @DisplayName("should returns if movement state are inconsistent with should notify")
+        void shouldReturnsIfMovementStateAreInconsistentWithShouldNotify() {
+            // arrange
+            VelocityAnalysisDTO velocityAnalysis = new VelocityAnalysisDTO(3.2, 4L, 8.0, 2.1, MovementState.STOPPED);
+            UUID traceId = UUID.randomUUID();
+            UUID travelId = UUID.randomUUID();
+
+            // act
+            asyncNotificationService.processNotificationType(travelId, velocityAnalysis, ShouldNotify.SHOULD_NOTIFY_SLOW, traceId);
+
+            // assert
+            verifyNoInteractions(redisTrackingService, studentTravelRepository, firebaseNotificationSender);
+        }
+
+        @Test
+        @DisplayName("it should throw an exception when Firebase crashes and not interrupt any other services.")
+        void shouldThrowAnExceptionWhenFirebaseFailsAndNotInterruptAnyOtherElseSenders() {
+            // arrange
+            VelocityAnalysisDTO velocityAnalysis = new VelocityAnalysisDTO(3.2, 4L, 8.0, 2.1, MovementState.SLOW);
+            UUID traceId = UUID.randomUUID();
+            UUID travelId = UUID.randomUUID();
+
+            UUID studentIdThatFails = UUID.randomUUID();
+            UUID studentIdThatSucceeds = UUID.randomUUID();
+
+            List<UUID> studentList = List.of(studentIdThatFails, studentIdThatSucceeds);
+
+            when(studentTravelRepository.findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId)).thenReturn(studentList);
+
+            // throw exception to first student
+            doThrow(new RuntimeException("Firebase unavailable"))
+                    .when(firebaseNotificationSender)
+                    .pushNotificationToFirebase(argThat(event -> event.studentId().equals(studentIdThatFails)));
+
+            // assert
+            assertDoesNotThrow(() -> {
+                asyncNotificationService.processNotificationType(travelId, velocityAnalysis, ShouldNotify.SHOULD_NOTIFY_SLOW, traceId);
+            });
+
+            verify(firebaseNotificationSender, times(2)).pushNotificationToFirebase(any());
         }
     }
 }
