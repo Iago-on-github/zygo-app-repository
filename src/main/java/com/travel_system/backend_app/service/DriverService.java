@@ -39,10 +39,6 @@ public class DriverService {
     public List<DriverResponseDTO> getAllDrivers() {
         List<Driver> allDrivers = repository.findAll();
 
-        if (allDrivers.isEmpty()) {
-            return Collections.emptyList();
-        }
-
         return allDrivers.stream().map(this::driverConverted).toList();
     }
 
@@ -63,8 +59,8 @@ public class DriverService {
         Optional<Driver> email = repository.findByEmail(newDriver.getEmail());
         Optional<Driver> telephone = repository.findByTelephone(newDriver.getTelephone());
 
-        if (email.isPresent()) throw new RuntimeException("Email já existe");
-        if (telephone.isPresent()) throw new RuntimeException("Telefone já existe");
+        if (email.isPresent()) throw new DuplicateResourceException("Email já existe");
+        if (telephone.isPresent()) throw new DuplicateResourceException("Telefone já existe");
 
         String rawPassword = newDriver.getPassword();
         newDriver.setPassword(passwordEncoder.encode(rawPassword));
@@ -137,10 +133,6 @@ public class DriverService {
     private List<DriverResponseDTO> getDriversByStatus(GeneralStatus status) {
         List<Driver> drivers = repository.findAllByStatus(status);
 
-        if (drivers.isEmpty()) {
-            return Collections.emptyList();
-        }
-
         return drivers.stream().map(this::driverConverted).toList();
     }
 
@@ -173,6 +165,7 @@ public class DriverService {
                 driver.getEmail(),
                 driver.getTelephone(),
                 driver.getCreatedAt(),
+                driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips()
         );
