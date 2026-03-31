@@ -301,6 +301,7 @@ public class TravelService {
                 driver.getEmail(),
                 driver.getTelephone(),
                 driver.getCreatedAt(),
+                driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips());
     }
