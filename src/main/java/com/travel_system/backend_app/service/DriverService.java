@@ -127,6 +127,20 @@ public class DriverService {
         repository.save(driver);
     }
 
+    @Transactional
+    public void enableDriver(UUID id) {
+        Driver driver = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado: " + id));
+
+        if (driver.getStatus().equals(GeneralStatus.ACTIVE)) {
+            throw new IllegalStateException("Driver já ativo: " + id);
+        }
+
+        driver.setStatus(GeneralStatus.ACTIVE);
+
+        repository.save(driver);
+    }
+
     // METODOS AUXILIARES
     // METODOS AUXILIARES
     // METODOS AUXILIARES
