@@ -519,6 +519,93 @@ class DriverServiceTest {
 
             verify(repository, times(1)).save(driverArgumentCaptor.capture());
             Driver savedDriver = driverArgumentCaptor.getValue();
+
+            assertEquals(GeneralStatus.INACTIVE, savedDriver.getStatus());
         }
+
+        @Test
+        @DisplayName("throw exception when driver not found from database")
+        void throwExceptionWhenDriverNotFound() {
+            // arrange
+            Driver driver = new Driver();
+
+            when(repository.findById(any())).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThrows(EntityNotFoundException.class, () -> driverService.disableDriver(driver.getId()));
+
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver already disable")
+        void throwExceptionWhenDriverAlreadyDisable() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setId(UUID.randomUUID());
+            driver.setStatus(GeneralStatus.INACTIVE);
+
+            when(repository.findById(driver.getId())).thenReturn(Optional.of(driver));
+
+            // act & assert
+            assertThrows(InactiveAccountModificationException.class, () -> driverService.disableDriver(driver.getId()));
+
+            verify(repository, never()).save(driver);
+        }
+
+    }
+
+    @Nested
+    class enableDriver {
+
+        @Test
+        @DisplayName("should enable driver with success")
+        void shouldEnableDriverWithSuccess() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setStatus(GeneralStatus.INACTIVE);
+            driver.setId(UUID.randomUUID());
+
+            when(repository.findById(driver.getId())).thenReturn(Optional.of(driver));
+
+            // act
+            driverService.enableDriver(driver.getId());
+
+            verify(repository, times(1)).save(driverArgumentCaptor.capture());
+            Driver savedDriver = driverArgumentCaptor.getValue();
+
+            assertEquals(GeneralStatus.ACTIVE, savedDriver.getStatus());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver not found from database")
+        void throwExceptionWhenDriverNotFound() {
+            // arrange
+            Driver driver = new Driver();
+
+            when(repository.findById(any())).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThrows(EntityNotFoundException.class, () -> driverService.enableDriver(driver.getId()));
+
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver already Enable")
+        void throwExceptionWhenDriverAlreadyEnable() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setId(UUID.randomUUID());
+            driver.setStatus(GeneralStatus.ACTIVE);
+
+            when(repository.findById(driver.getId())).thenReturn(Optional.of(driver));
+
+            // act & assert
+            assertThrows(IllegalStateException.class, () -> driverService.enableDriver(driver.getId()));
+
+            verify(repository, never()).save(driver);
+        }
+
     }
 }
