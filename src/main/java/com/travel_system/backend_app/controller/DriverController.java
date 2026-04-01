@@ -58,9 +58,15 @@ public class DriverController {
         return ResponseEntity.ok().body(loggedDriver);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/disable/{id}")
     public ResponseEntity<Void> disableDriver(@PathVariable UUID id) {
         driverService.disableDriver(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/enable/{id}")
+    public ResponseEntity<Void> enableUser(@PathVariable UUID id) {
+        driverService.enableDriver(id);
         return ResponseEntity.noContent().build();
     }
 }
