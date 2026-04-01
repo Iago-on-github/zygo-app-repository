@@ -92,6 +92,7 @@ public class DriverService {
                 driverRequestDTO.telephone(),
                 driverLogged.getId()
         );
+
         if (existingUser.isPresent()) throw new DuplicateResourceException("Email ou telefone já em uso por outro usuário.");
 
         driverLogged.setEmail(driverRequestDTO.email());
@@ -109,7 +110,7 @@ public class DriverService {
     public DriverResponseDTO getLoggedInDriverProfile(String email) {
         Driver getDriverLoggedProfile = repository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado. Email: " + email));
-        return driverConverted(getDriverLoggedProfile);
+        return driverConverted(getDriverLoggedProfile) ;
     }
 
     @Transactional
