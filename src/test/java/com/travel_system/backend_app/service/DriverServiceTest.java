@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
+import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
@@ -10,6 +11,8 @@ import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.apache.coyote.Request;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -384,6 +387,138 @@ class DriverServiceTest {
             assertEquals("newPass", savedDriver.getPassword());
             assertEquals("Feira de Santana - BA", savedDriver.getAreaOfActivity());
             assertNotNull(result.id());
+        }
+
+        @Test
+        @DisplayName("throw exception when logged driver not found from database")
+        void throwExceptionWhenLoggedDriverNotFound() {
+            // arrange
+            DriverRequestDTO driverRequestDTO = new DriverRequestDTO(
+                    "new@email.com",
+                    "newPass",
+                    "NewName",
+                    "NewLast",
+                    "75888888888",
+                    null,
+                    GeneralStatus.ACTIVE,
+                    "Feira de Santana - BA"
+            );
+
+            when(repository.findByEmail(driverRequestDTO.email())).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThrows(EntityNotFoundException.class, () -> driverService.updateLoggedDriver(driverRequestDTO.email(), driverRequestDTO));
+
+            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(repository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver is inactive")
+        void throwExceptionWhenDriverIsInactive() {
+            // arrange
+            DriverRequestDTO driverRequestDTO = new DriverRequestDTO(
+                    "new@email.com",
+                    "newPass",
+                    "NewName",
+                    "NewLast",
+                    "75888888888",
+                    null,
+                    GeneralStatus.INACTIVE,
+                    "Feira de Santana - BA"
+            );
+
+            Driver driver = new Driver();
+            driver.setStatus(GeneralStatus.INACTIVE);
+
+            when(repository.findByEmail(driverRequestDTO.email())).thenReturn(Optional.of(driver));
+
+            // act & assert
+            assertThrows(InactiveAccountModificationException.class, () -> driverService.updateLoggedDriver(driverRequestDTO.email(), driverRequestDTO));
+
+            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(repository, never()).save(any());
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when already exists driver with email or telephone")
+        @MethodSource("filledPropsProvier")
+        void throwExceptionWhenAlreadyExistingDriverWithTelephoneOrEmail(DriverRequestDTO driverRequestDTO) {
+            Driver driver = new Driver();
+            driver.setEmail("teste@gmail.com");
+            driver.setStatus(GeneralStatus.ACTIVE);
+            driver.setId(UUID.randomUUID());
+
+            when(repository.findByEmail(any())).thenReturn(Optional.of(driver));
+            when(repository.findByEmailOrTelephoneAndIdNot(any(), any(), any())).thenReturn(Optional.of(driver));
+
+            assertThrows(DuplicateResourceException.class, () -> driverService.updateLoggedDriver(driverRequestDTO.email(), driverRequestDTO));
+
+            verify(repository, never()).save(any());
+        }
+
+        public static Stream<DriverRequestDTO> filledPropsProvier() {
+            return Stream.of(
+                    new DriverRequestDTO("filled@email.com", null, null, null, null, null, null, null),
+                    new DriverRequestDTO(null, null, null, null, "74739204403", null, null, null)
+            );
+        }
+
+    }
+
+    @Nested
+    class getLoggedDriverInProfile {
+
+        @Test
+        @DisplayName("should return actual logged driver")
+        void shouldReturnLoggedDriver() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setEmail("teste@gmail.com");
+
+            when(repository.findByEmail(driver.getEmail())).thenReturn(Optional.of(driver));
+
+            // act
+            DriverResponseDTO result = driverService.getLoggedInDriverProfile(driver.getEmail());
+
+            // assert
+            assertNotNull(result, "result must never be null");
+
+            assertEquals(result.email(), driver.getEmail());
+        }
+
+        @Test
+        @DisplayName("throw exception when logged driver not found from database")
+        void throwExceptionWhenLoggedDriverNotFound() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setEmail("teste@gmail.com");
+
+            when(repository.findByEmail(driver.getEmail())).thenReturn(Optional.empty());
+
+            // act & assert
+            assertThrows(EntityNotFoundException.class, () -> driverService.getLoggedInDriverProfile(driver.getEmail()));
+        }
+    }
+
+    @Nested
+    class disableDriver {
+
+        @Test
+        @DisplayName("should disable driver with success")
+        void shouldDisableDriverWithSuccess() {
+            // arrange
+            Driver driver = new Driver();
+            driver.setStatus(GeneralStatus.ACTIVE);
+            driver.setId(UUID.randomUUID());
+
+            when(repository.findById(driver.getId())).thenReturn(Optional.of(driver));
+
+            // act
+            driverService.disableDriver(driver.getId());
+
+            verify(repository, times(1)).save(driverArgumentCaptor.capture());
+            Driver savedDriver = driverArgumentCaptor.getValue();
         }
     }
 }
