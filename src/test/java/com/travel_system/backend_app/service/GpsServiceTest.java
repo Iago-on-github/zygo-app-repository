@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledForJreRange;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -20,6 +23,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -114,6 +118,24 @@ class GpsServiceTest {
             msgPostProcessorCaptor.getValue().postProcessMessage(mockMessage);
 
             assertEquals(MessageDeliveryMode.NON_PERSISTENT, props.getDeliveryMode());
+        }
+
+        @ParameterizedTest
+        @DisplayName("should return silently when any parameter is null")
+        @MethodSource("nullParamsProvider")
+        void shouldReturnSilentlyWhenAnyParameterIsNull(String city, UUID travelId, MessagingDTO msgDTO) {
+            gpsService.sendLocalizationToNotification(city, travelId, msgDTO);
+
+            verifyNoInteractions(rabbitTemplate);
+        }
+
+        public static Stream<Arguments> nullParamsProvider() {
+            MessagingDTO validMsg = new MessagingDTO(-12.2597, -38.9647, 270.0, 35.2, Instant.now(), UUID.randomUUID());
+            return Stream.of(
+                    Arguments.of(null, UUID.randomUUID(), validMsg),
+                    Arguments.of(UUID.randomUUID().toString(), null, validMsg),
+                    Arguments.of(null, UUID.randomUUID().toString(), null)
+            );
         }
     }
 }
