@@ -9,6 +9,8 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RoutesDTO;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ public class MapboxAPIService implements MapboxAPICalling {
     private final WebClient webClient;
     private final TravelRepository travelRepository;
 
+    private Logger logger = LoggerFactory.getLogger(MapboxAPIService.class);
+
     @Autowired
     public MapboxAPIService(WebClient webClient, TravelRepository travelRepository) {
         this.webClient = webClient;
@@ -35,11 +39,8 @@ public class MapboxAPIService implements MapboxAPICalling {
         String waypoints = originLong + "," + originLat + ";" + destLong + "," + destLat;
 
         if (originLong == null || originLat == null || destLong == null || destLat == null) {
-            throw new NoSuchCoordinates("Coordenadas não encontradas, "
-                    + "originLong: " + originLong
-                    + "originLong: " + originLat
-                    + "destLong: " + destLong
-                    + "destLat:" + destLat);
+            logger.debug("[calculateRoute] dados de coordenada inválidos ou insuficientes:{}, {}, {}, {}", originLong, originLat, destLong, destLat);
+            return null;
         }
 
         return webClient.get()
@@ -57,19 +58,23 @@ public class MapboxAPIService implements MapboxAPICalling {
 
     // retorna distância/tempo restante com base na localização atual
     public RouteDetailsDTO recalculateETA(Double currentLng, Double currentLat, Double finalLong, Double finalLat) {
-        RouteDetailsDTO routeDetails = calculateRoute(currentLng, currentLat, finalLong, finalLat);
+        if (currentLng == null || currentLat == null || finalLong == null || finalLat == null) {
+            logger.debug("[recalculateETA] dados de coordenada inválidos ou insuficientes: {}, {}, {}, {}", currentLng, currentLat, finalLong, finalLat);
+            return null;
+        }
 
-        if (routeDetails == null) throw new NoSuchCoordinates("Sem dados de rota");
-
-        return routeDetails;
+        return calculateRoute(currentLng, currentLat, finalLong, finalLat);
     }
 
     // salva os dados de distance, duration e polyline na entidade Travel
     @Transactional
     public void getRouteDetailsDTO(Double originLong, Double originLat, Double destLong, Double destLat) {
-        RouteDetailsDTO staticRouteDetails = calculateRoute(originLong, originLat, destLong, destLat);
+        if (originLong == null || originLat == null || destLong == null || destLat == null) {
+            logger.debug("[getRouteDetailsDTO] dados de coordenada inválidos ou insuficientes:{}, {}, {}, {}", originLong, originLat, destLong, destLat);
+            return;
+        }
 
-        if (staticRouteDetails == null) throw new NoSuchCoordinates("Dados de rota estão nulos");
+        RouteDetailsDTO staticRouteDetails = calculateRoute(originLong, originLat, destLong, destLat);
 
         travelRepository.save(travelMapper(staticRouteDetails));
     }
