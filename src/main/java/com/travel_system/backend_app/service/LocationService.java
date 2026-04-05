@@ -8,6 +8,8 @@ import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -20,6 +22,8 @@ public class LocationService {
     private final StudentTravelRepository studentTravelRepository;
     private final RouteCalculationService routeCalculationService;
 
+    private Logger logger = LoggerFactory.getLogger(LocationService.class);
+
     public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService) {
         this.geoPositionRepository = geoPositionRepository;
         this.studentTravelRepository = studentTravelRepository;
@@ -29,7 +33,8 @@ public class LocationService {
     @Transactional
     public void updateStudentPosition(UUID studentTravelId, LiveCoordinates coordinates) {
         if (coordinates.latitude() == null || coordinates.longitude() == null) {
-            throw new NoSuchCoordinates("Dados de Latitude/Longitude são nulos ou inválidos.");
+            logger.debug("[updateStudentPosition] Dados de Latitude/Longitude são nulos ou inválidos para o estudante: {} ", studentTravelId);
+            return;
         }
 
         applyStudentPositionUpdate(studentTravelId, coordinates);
@@ -41,6 +46,7 @@ public class LocationService {
 
         GeoPosition anterior = studentTravel.getPosition();
 
+        // primeiro ping, não há deslocamento
         if (anterior == null) {
             GeoPosition newPosition = new GeoPosition();
 
