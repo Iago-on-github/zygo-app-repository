@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.model.dtos.mapboxApi;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record RouteDetailsDTO(
-        Double duration,
-        Double distance,
-        String geometry
+        @JsonProperty("duration") Double duration,
+        @JsonProperty("distance") Double distance,
+        @JsonProperty("geometry") String geometry
 ) {
 }
