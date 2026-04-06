@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 
 @Service
@@ -36,12 +37,14 @@ public class MapboxAPIService implements MapboxAPICalling {
     // chamada bruta da api
     @Override
     public RouteDetailsDTO calculateRoute(Double originLong, Double originLat, Double destLong, Double destLat) {
-        String waypoints = originLong + "," + originLat + ";" + destLong + "," + destLat;
-
         if (originLong == null || originLat == null || destLong == null || destLat == null) {
             logger.debug("[calculateRoute] dados de coordenada inválidos ou insuficientes:{}, {}, {}, {}", originLong, originLat, destLong, destLat);
             return null;
         }
+
+        logger.info("[calculateRoute] dados de coordenadas validados, criando waypoints e fazendo chamada à api...");
+
+        String waypoints = originLong + "," + originLat + ";" + destLong + "," + destLat;
 
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -52,7 +55,7 @@ public class MapboxAPIService implements MapboxAPICalling {
                         .build(waypoints))
                 .retrieve()
                 .bodyToMono(MapboxApiResponse.class)
-                .map(this::RouteDetailsMapper)
+                .flatMap(response -> Mono.justOrEmpty(RouteDetailsMapper(response)))
                 .block();
     }
 
@@ -94,7 +97,8 @@ public class MapboxAPIService implements MapboxAPICalling {
         System.out.println("DEBUGGING ROUTE: " + mapboxApiResponse.code());
 
         if (mapboxApiResponse.routes().isEmpty()) {
-            throw new NoSuchCoordinates("Routes is empty.");
+            logger.debug("[RouteDetailsMapper] routes is empty: {}", mapboxApiResponse.routes());
+            return null;
         }
 
         RoutesDTO routesDto = mapboxApiResponse.routes().getFirst();
