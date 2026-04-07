@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.repository.TravelRepository;
 import okhttp3.mockwebserver.MockResponse;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -46,7 +48,7 @@ class MapboxAPIServiceTest {
     @Mock
     private TravelRepository travelRepository;
 
-    private String accessToken;
+    private ArgumentCaptor<Travel> travelArgCaptor = ArgumentCaptor.forClass(Travel.class);
 
     @BeforeAll
     static void startServer() throws IOException {
@@ -61,12 +63,6 @@ class MapboxAPIServiceTest {
 
     @BeforeEach
     void setUp() throws InterruptedException {
-        // limpa as requsições anteriores
-        int count = mockWebServer.getRequestCount();
-        for (int i = 0; i < count; i++) {
-            mockWebServer.takeRequest(1, TimeUnit.MILLISECONDS);
-        }
-
         // aponta o webclient para o servidor fake
         WebClient webClient = WebClient.builder().
                 baseUrl(mockWebServer.url("/").toString())
@@ -224,5 +220,109 @@ class MapboxAPIServiceTest {
     @Nested
     class recalculateETA {
 
+        @Test
+        @DisplayName("should return the distance and remaining time based on actual location with success")
+        void shouldRecalculateETAWithSuccess() {
+            // arrange - prepara para o servidor fake
+            String fakeResponse = """
+                    {
+                        "code": "Ok",
+                        "uuid": "123bc",
+                        "waypoints": [],
+                        "routes": [{
+                            "duration": 1200.7,
+                            "distance": 4130.3,
+                            "geometry": "polyline_decoded_string"
+                        }]
+                    }
+                    """;
+
+            mockWebServer.enqueue(new MockResponse().setBody(fakeResponse)
+                    .setHeader("Content-Type", "application/json"));
+
+            // act
+            RouteDetailsDTO result = mapboxAPIService.recalculateETA(-38.5014, -12.9714, -38.4500, -12.9000);
+
+            // asserts
+            assertNotNull(result);
+
+            assertEquals(1201.0, result.duration()); // math.round
+            assertEquals(4130.0, result.distance()); // math.round
+            assertEquals("polyline_decoded_string", result.geometry());
+        }
+
+        @ParameterizedTest
+        @DisplayName("should return silently if any require coords data are null")
+        @MethodSource("nullFieldsProvider")
+        void shouldReturnSilentlyWhenRequireCoordsDataAreNull(Double currentLng, Double currentLat, Double finalLong, Double finalLat) {
+            RouteDetailsDTO result = mapboxAPIService.recalculateETA(currentLng, currentLat, finalLong, finalLat);
+
+            assertNull(result);
+        }
+
+        public static Stream<Arguments> nullFieldsProvider() {
+            return Stream.of(
+                    Arguments.of(null, -12.9714, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, null, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, null, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, -38.4500, null)
+            );
+        }
+    }
+
+    @Nested
+    class getRouteDetailsDTO {
+
+        @Test
+        @DisplayName("should get and save route details data in entity travel with success")
+        void shouldGetAndSaveRouteDetailsInEntityTravelWithSuccess() {
+            // arrange
+            String fakeResponse = """
+                    {
+                        "code": "Ok",
+                        "uuid": "123bc",
+                        "waypoints": [],
+                        "routes": [{
+                            "duration": 1200.7,
+                            "distance": 4130.3,
+                            "geometry": "polyline_decoded_string"
+                        }]
+                    }
+                    """;
+
+            mockWebServer.enqueue(new MockResponse().setBody(fakeResponse)
+                    .addHeader("Content-Type", "application/json"));
+
+            // act
+            mapboxAPIService.getAndSaveRouteDetailsDTO(-38.5014, -12.9714, -38.4500, -12.9000);
+
+            // asserts
+            verify(travelRepository, times(1)).save(travelArgCaptor.capture());
+            Travel savedTravel = travelArgCaptor.getValue();
+
+            assertEquals(1201.0, savedTravel.getDuration());
+            assertEquals(4130.0, savedTravel.getDistance());
+            assertEquals("polyline_decoded_string", savedTravel.getPolylineRoute());
+
+            verifyNoMoreInteractions(travelRepository);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should return silently if any require coords data are null")
+        @MethodSource("nullFieldsProvider")
+        void shouldReturnSilentlyWhenRequireCoordsDataAreNull(Double currentLng, Double currentLat, Double finalLong, Double finalLat) {
+            mapboxAPIService.getAndSaveRouteDetailsDTO(currentLng, currentLat, finalLong, finalLat);
+
+            verify(travelRepository, never()).save(any());
+        }
+
+        public static Stream<Arguments> nullFieldsProvider() {
+            return Stream.of(
+                    Arguments.of(null, -12.9714, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, null, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, null, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, -38.4500, null)
+            );
+        }
     }
 }
