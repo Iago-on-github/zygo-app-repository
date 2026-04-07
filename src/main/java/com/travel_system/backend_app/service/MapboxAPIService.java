@@ -71,7 +71,7 @@ public class MapboxAPIService implements MapboxAPICalling {
 
     // salva os dados de distance, duration e polyline na entidade Travel
     @Transactional
-    public void getRouteDetailsDTO(Double originLong, Double originLat, Double destLong, Double destLat) {
+    public void getAndSaveRouteDetailsDTO(Double originLong, Double originLat, Double destLong, Double destLat) {
         if (originLong == null || originLat == null || destLong == null || destLat == null) {
             logger.debug("[getRouteDetailsDTO] dados de coordenada inválidos ou insuficientes:{}, {}, {}, {}", originLong, originLat, destLong, destLat);
             return;
