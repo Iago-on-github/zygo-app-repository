@@ -29,24 +29,20 @@ import java.util.stream.Collectors;
 
 @Service
 public class PushNotificationService {
-    private final TravelTrackingService travelTrackingService;
     private final TravelService travelService;
     private final RouteCalculationService routeCalculationService;
     private final RedisNotificationService redisNotificationService;
     private final RedisTrackingService redisTrackingService;
-    private final TravelRepository travelRepository;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
 
-    public PushNotificationService(TravelTrackingService travelTrackingService, TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, TravelRepository travelRepository, ApplicationEventPublisher eventPublisher) {
-        this.travelTrackingService = travelTrackingService;
+    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, ApplicationEventPublisher eventPublisher) {
         this.travelService = travelService;
         this.routeCalculationService = routeCalculationService;
         this.redisNotificationService = redisNotificationService;
         this.redisTrackingService = redisTrackingService;
-        this.travelRepository = travelRepository;
         this.eventPublisher = eventPublisher;
     }
 
