@@ -142,7 +142,53 @@ class NotificationServiceTest {
         @Test
         @DisplayName("should retry messages to the expected queue")
         void shouldRetryingMessagesToTheQueue() {
+            // assert
+            Message failedMessage = Mockito.mock(Message.class);
 
+            MessageProperties props = new MessageProperties();
+            props.getHeaders().put("x-retries-count", 1);
+
+            when(failedMessage.getMessageProperties()).thenReturn(props);
+
+            // act
+            notificationService.processFailedMessagesRetryWithParkingLotStrategy(failedMessage);
+
+            // assert
+            verify(rabbitTemplate, times(1)).send(
+                    eq(RabbitMQConfig.EXCHANGE_NOTIFICATION_NAME),
+                    eq(props.getReceivedRoutingKey()),
+                    eq(failedMessage)
+            );
+        }
+
+        @Test
+        @DisplayName("should retry message when retries count header is absent")
+        void shouldRetryMessageWhenRetriesCountHeaderIsAbsent() {
+            // arrange
+            Message failedMessage = Mockito.mock(Message.class);
+
+            MessageProperties props = new MessageProperties();
+            // não seta o header - simula a primeira falha
+
+            when(failedMessage.getMessageProperties()).thenReturn(props);
+
+            // act
+            notificationService.processFailedMessagesRetryWithParkingLotStrategy(failedMessage);
+
+            // assert
+            verify(rabbitTemplate, times(1)).send(
+                    eq(RabbitMQConfig.EXCHANGE_NOTIFICATION_NAME),
+                    eq(props.getReceivedRoutingKey()),
+                    eq(failedMessage)
+            );
+
+            verify(rabbitTemplate, never()).send(
+                    eq(RabbitMQConfig.EXCHANGE_PARKING_LOT),
+                    eq(RabbitMQConfig.ROUTING_KEY_PARKING_LOT),
+                    eq(failedMessage)
+            );
+
+            assertEquals(2, props.getHeaders().get("x-retries-count"));
         }
     }
 }
