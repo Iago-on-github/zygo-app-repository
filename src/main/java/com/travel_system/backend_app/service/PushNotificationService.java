@@ -106,7 +106,12 @@ public class PushNotificationService {
                             }
                         }
                     } catch (Exception e) {
-                        alertType = "STATE_RECOVERY"; // Caso o dado no Redis esteja corrompido
+                        // caso os dados do redis estejam corrompidos, reseta para um estado limpo e retorna sem notificar
+                        alertType = "STATE_RECOVERY";
+                        logger.warn("[checkProximityAlerts] Dado corrompido no Redis para aluno {} na viagem {}. Resetando estado.", student.studentId(), travelId);
+
+                        redisNotificationService.updateNotificationState(travelId, student.studentId(), new NotificationStateDTO(zone, distance.toString(), nowMillis, timestamp));
+                        return;
                     }
                 }
             }
