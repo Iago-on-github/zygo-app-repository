@@ -68,13 +68,17 @@ public class PushNotificationService {
             NotificationStateDTO readNotificationState = redisNotificationService.readNotificationState(travelId, student.studentId());
 
             Double distance = distances.get(student.studentId());
-            if (distance == null) return; // Segurança caso o aluno não tenha distância calculada
+            if (distance == null) {
+                // Segurança caso o aluno não tenha distância calculada
+                logger.warn("[checkProximityAlerts] aluno sem propriedade 'distance' calculada, retornando... {}", student.studentId());
+                return;
+            }
 
             String zone = distance >= 1000 ? "FAR" : "NEAR";
             String nowMillis = String.valueOf(Instant.now().toEpochMilli());
             String timestamp = String.valueOf(Instant.now());
 
-            Boolean shouldPushNotification = redisNotificationService.verifyNotificationState(
+                Boolean shouldPushNotification = redisNotificationService.verifyNotificationState(
                     travelId,
                     student.studentId(),
                     distance,
@@ -108,9 +112,14 @@ public class PushNotificationService {
                     } catch (Exception e) {
                         // caso os dados do redis estejam corrompidos, reseta para um estado limpo e retorna sem notificar
                         alertType = "STATE_RECOVERY";
-                        logger.warn("[checkProximityAlerts] Dado corrompido no Redis para aluno {} na viagem {}. Resetando estado.", student.studentId(), travelId);
 
-                        redisNotificationService.updateNotificationState(travelId, student.studentId(), new NotificationStateDTO(zone, distance.toString(), nowMillis, timestamp));
+                        logger.warn("[checkProximityAlerts] corrupted redis data for the student {} trip {}. recovery state...",
+                                student.studentId(), travelId);
+
+                        redisNotificationService.updateNotificationState(travelId,
+                                student.studentId(),
+                                new NotificationStateDTO(zone, distance.toString(), nowMillis, timestamp));
+
                         return;
                     }
                 }
@@ -166,7 +175,6 @@ public class PushNotificationService {
     // usa analyzeVehicleMovement e decide se deve notificar
     private ShouldNotify shouldSendNotification(UUID travelId, VelocityAnalysisDTO velocityAnalysis, UUID traceId) {
         // verificar mudanças de estado
-
         AnalyzeMovementStateDTO lastMovementState = redisTrackingService.getLastMovementState(String.valueOf(travelId));
         MovementState actualMovementState = velocityAnalysis.movementState();
 
@@ -231,6 +239,7 @@ public class PushNotificationService {
                 return ShouldNotify.SHOULD_NOTIFY_STOPPED;
             }
         }
+
         logger.info("[Trace: {}] Decisão: NO_NOTIFY (Motivo: Cooldown/Tempo de estado não atingido)", traceId);
         return ShouldNotify.SHOULD_NO_NOTIFY;
     }
@@ -252,7 +261,13 @@ public class PushNotificationService {
 
         // Primeiro ping
         if (lastLocation == null) {
-            return new VelocityAnalysisDTO(null, null, null, null, MovementState.INSUFFICIENT_DATA);
+            logger.warn("[analyzeVehicleMovement] lastLocation is null, that's fist ping. Return silently. Travel: {}", travelId);
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
         }
 
         long elapsedSeconds = Duration
@@ -261,6 +276,7 @@ public class PushNotificationService {
 
         final int MIN_SECONDS = 5;
         if (elapsedSeconds < MIN_SECONDS) {
+            logger.warn("[analyzeVehicleMovement] elapsedSeconds {} is less than min seconds, return silently. Travel: {} ", elapsedSeconds, travelId);
             return new VelocityAnalysisDTO(null, null, null, null, MovementState.INSUFFICIENT_DATA);
         }
 
@@ -287,7 +303,7 @@ public class PushNotificationService {
             distanceRemaining = previousEta.distanceRemaining();
         }
 
-        logger.info("[ANALYSIS DEBUG] Travel: {} | Elapsed: {}s | Distance: {}m | Speed: {}m/s | Threshold: {}m/s | Lat/Lng: {} , {}",
+        logger.info("[analyzeVehicleMovement] Travel: {} | Elapsed: {}s | Distance: {}m | Speed: {}m/s | Threshold: {}m/s | Lat/Lng: {} , {}",
                 travelId, elapsedSeconds, String.format("%.2f", distanceBetweenPings), String.format("%.2f", avgSpeed), MIN_SPEED_THRESHOLD, latitude, longitude);
 
         // moveu menos q 1m = está parado
