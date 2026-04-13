@@ -514,7 +514,7 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
-            when(redisTrackingService.getLastLocation(travelId)).thenReturn(any());
+            when(redisTrackingService.getLastLocation(travelId)).thenReturn(null);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -641,6 +641,145 @@ class PushNotificationServiceTest {
                         v.velocityAnalysis().averageSpeed() != null &&
                         v.decision().equals(ShouldNotify.SHOULD_NOTIFY_STOPPED);
             }));
+        }
+
+        @Test
+        @DisplayName("should set Should Notify with 'SHOULD_NOTIFY_SLOW' when avg speed less than solid speed")
+        void shouldMarkStateWithStoppedAndShouldNotifyWithFlagSlow() {
+            // arrange
+            UUID travelId = UUID.randomUUID();
+
+            VehicleLocationRequestDTO request = new VehicleLocationRequestDTO(
+                    travelId, -12.9714, -38.5014, 10.0, 180.0
+            );
+
+            LiveLocationDTO liveLocation = new LiveLocationDTO(
+                    -12.2674,
+                    -38.9663,
+                    "POINT(-38.9663 -12.2674)",
+                    152.75,
+                    -12.2669,
+                    -38.9658
+            );
+
+            long timestamp = Instant.now().minusSeconds(10).toEpochMilli();
+
+            LastLocationDTO lastLocationDTO = new LastLocationDTO(
+                    -32.932,
+                    -73.133,
+                    timestamp
+            );
+
+            PreviousStateDTO previousState = new PreviousStateDTO(
+                    480.5,
+                    1250.75,
+                    1712683200000L
+            );
+
+            AnalyzeMovementStateDTO lastMovementState = new AnalyzeMovementStateDTO(
+                    MovementState.SLOW,
+                    Instant.now().minusSeconds(10),
+                    null,
+                    null
+            );
+
+            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+
+            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
+
+            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenReturn(2.0);
+
+            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+
+            // act
+            pushNotificationService.processVehicleMovement(request);
+
+            // asserts
+            verify(redisTrackingService, times(1)).getLiveLocation(any());
+            verify(redisTrackingService, times(1)).getLastLocation(any());
+
+            verify(eventPublisher, times(1)).publishEvent((Object) argThat(event -> {
+                if (!(event instanceof VehicleMovementEvents v)) return false;
+                return v.travelId().equals(travelId) &&
+                        v.velocityAnalysis().movementState().equals(MovementState.SLOW) &&
+                        v.velocityAnalysis().averageSpeed() != null &&
+                        v.decision().equals(ShouldNotify.SHOULD_NOTIFY_SLOW);
+            }));
+        }
+
+        @Test
+        @DisplayName("should set Should Notify with 'SHOULD_NO_NOTIFY' when the bus' speed normal")
+        void shouldMarkStateWithNormalAndShouldNoNotify() {
+            // arrange
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+
+            VehicleLocationRequestDTO request = new VehicleLocationRequestDTO(
+                    travelId, -12.9714, -38.5014, 20.0, 180.0
+            );
+
+            LiveLocationDTO liveLocation = new LiveLocationDTO(
+                    -12.2674,
+                    -38.9663,
+                    "POINT(-38.9663 -12.2674)",
+                    152.75,
+                    -12.2669,
+                    -38.9658
+            );
+
+            long timestamp = Instant.now().minusSeconds(10).toEpochMilli();
+
+            LastLocationDTO lastLocationDTO = new LastLocationDTO(
+                    -32.932,
+                    -73.133,
+                    timestamp
+            );
+
+            PreviousStateDTO previousState = new PreviousStateDTO(
+                    480.5,
+                    1250.75,
+                    1712683200000L
+            );
+
+            AnalyzeMovementStateDTO lastMovementState = new AnalyzeMovementStateDTO(
+                    MovementState.NORMAL,
+                    Instant.now().minusSeconds(10),
+                    null,
+                    null
+            );
+
+            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+
+            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
+
+            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenReturn(23.0);
+
+            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+
+            // act
+            pushNotificationService.processVehicleMovement(request);
+
+            // asserts
+            verify(redisTrackingService, times(1)).getLiveLocation(any());
+            verify(redisTrackingService, times(1)).getLastLocation(any());
+
+            verify(eventPublisher, times(1)).publishEvent((Object) argThat(event -> {
+                if (!(event instanceof VehicleMovementEvents v)) return false;
+                return v.travelId().equals(travelId) &&
+                        v.velocityAnalysis().movementState().equals(MovementState.NORMAL) &&
+                        v.velocityAnalysis().averageSpeed() != null &&
+                        v.decision().equals(ShouldNotify.SHOULD_NO_NOTIFY);
+            }));
+
+            verify(redisTrackingService, times(1)).updateTripEtaState(
+                    eq(travelId),
+                    eq(previousState.distanceRemaining()),
+                    anyDouble(),
+                    any(Instant.class));
         }
     }
 }
