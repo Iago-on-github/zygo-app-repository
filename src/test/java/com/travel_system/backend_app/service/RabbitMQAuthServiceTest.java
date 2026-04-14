@@ -1,6 +1,10 @@
 package com.travel_system.backend_app.service;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.travel_system.backend_app.config.TokenConfig;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,7 +16,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RabbitMQAuthServiceTest {
@@ -56,6 +63,94 @@ class RabbitMQAuthServiceTest {
             boolean result = rabbitMQAuthService.authenticateMessaging(username, password);
 
             assertTrue(result);
+
+            verify(userRepository, never()).existsByEmailAndIdAndStatus(anyString(), any(), any());
+            verifyNoInteractions(tokenConfig);
+        }
+
+        @Test
+        @DisplayName("should return false if 'token' is invalid for the current user")
+        void shouldReturnFalseIfTokenIsInvalidForTheUser() {
+            // arrange
+            String username = "backend_system_username";
+            String password = "invalid_password";
+
+            when(tokenConfig.validateToken(password)).thenReturn(false);
+
+            // act
+            boolean result = rabbitMQAuthService.authenticateMessaging(username, password);
+
+            // asserts
+            assertFalse(result);
+
+            verify(userRepository, never()).existsByEmailAndIdAndStatus(anyString(), any(), any());
+            verifyNoMoreInteractions(tokenConfig);
+        }
+
+        @Test
+        @DisplayName("should return false if user invalid")
+        void shouldReturnFalseIfUserInvalid() {
+            // arrange
+            String username = UUID.randomUUID().toString();
+            String password = "backend_system_password";
+
+            when(tokenConfig.validateToken(password)).thenReturn(true);
+            when(tokenConfig.getSubjectFromToken(password)).thenReturn("emailteste@gmail.com");
+
+            when(userRepository.existsByEmailAndIdAndStatus(anyString(), any(), eq(GeneralStatus.ACTIVE)))
+                    .thenReturn(false);
+
+            // act
+            boolean result = rabbitMQAuthService.authenticateMessaging(username, password);
+
+            // asserts
+            assertFalse(result);
+
+            verify(userRepository, times(1)).existsByEmailAndIdAndStatus(anyString(), any(), any());
+
+            verify(tokenConfig, times(1)).validateToken(any());
+            verify(tokenConfig, times(1)).getSubjectFromToken(any());
+        }
+
+        @Test
+        @DisplayName("should auth login for valid user with success")
+        void shouldAuthorizedLoginForValidUserWithSuccess() {
+            // arrange
+            String username = UUID.randomUUID().toString();
+            String password = "backend_system_password";
+
+            when(tokenConfig.validateToken(password)).thenReturn(true);
+            when(tokenConfig.getSubjectFromToken(password)).thenReturn("emailteste@gmail.com");
+
+            when(userRepository.existsByEmailAndIdAndStatus(anyString(), any(), eq(GeneralStatus.ACTIVE)))
+                    .thenReturn(true);
+
+            // act
+            boolean result = rabbitMQAuthService.authenticateMessaging(username, password);
+
+            // asserts
+            assertTrue(result);
+
+            verify(userRepository, times(1)).existsByEmailAndIdAndStatus(anyString(), any(), any());
+
+            verify(tokenConfig, times(1)).validateToken(any());
+            verify(tokenConfig, times(1)).getSubjectFromToken(any());
+        }
+
+        @Test
+        @DisplayName("should return false when error occurs in auth messaging process")
+        void shouldReturnFalseWhenErrorOccursInAuthMessagingProcess() {
+            // arrange
+            String username = UUID.randomUUID().toString();
+            String password = "invalid_password";
+
+            when(tokenConfig.validateToken(password)).thenThrow(RuntimeException.class);
+
+            // act
+            boolean result = rabbitMQAuthService.authenticateMessaging(username, password);
+
+            // asserts
+            assertFalse(result);
         }
     }
 }
