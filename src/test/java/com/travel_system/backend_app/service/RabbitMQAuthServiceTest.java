@@ -11,12 +11,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -151,6 +156,169 @@ class RabbitMQAuthServiceTest {
 
             // asserts
             assertFalse(result);
+        }
+    }
+
+    @Nested
+    class authenticateVHost {
+
+        @Test
+        @DisplayName("should allow access to the vHost from user and ip with success ")
+        void shouldAllowAccessToTheVHostWithSuccess() {
+            String usernameId = UUID.randomUUID().toString();
+            String vHost = "/";
+            String ip = "192.383.221.93";
+
+            boolean result = rabbitMQAuthService.authenticateVHost(usernameId, vHost, ip);
+
+            assertTrue(result);
+        }
+
+        @Test
+        @DisplayName("should return false and not allow access to the vHost")
+        void shouldReturnFalseAndNotAllowAccessToTheVHost() {
+            String usernameId = UUID.randomUUID().toString();
+            String vHost = "invalid_vHost";
+            String ip = "192.383.221.93";
+
+            boolean result = rabbitMQAuthService.authenticateVHost(usernameId, vHost, ip);
+
+            assertFalse(result);
+        }
+    }
+
+    @Nested
+    class authenticateResource {
+
+        @Test
+        @DisplayName("should never allow permission for create or delete server structures")
+        void shouldNeverAllowPermissionForModifyServerStructures() {
+            String username = "username";
+            String resource = "resource";
+            String permission = "configure";
+            String vhost = "/";
+            String name = "name";
+
+            boolean result = rabbitMQAuthService.authenticateResource(username, vhost, resource, name, permission);
+
+            assertFalse(result);
+        }
+
+        @ParameterizedTest
+        @DisplayName("should allow read and/or write in public exchanges with success")
+        @CsvSource({
+                "user_test, /, topic, topic_name, read, true",    // valid
+                "user_test, /, topic, topic_name, write, true",   // valid
+                "user_test, /, queue_name, write, queue, false",  // invalid
+                "user_test, /, ex_name, read, exchange, false",   // invalid
+                "user_test, /, any_name, configure, topic, false" // invalid
+        })
+        void shouldAllowReadAndWriteInPublicExchanges(String username, String vhost, String resource, String name, String permission, boolean expectedResult) {
+            boolean result = rabbitMQAuthService.authenticateResource(username, vhost, resource, name, permission);
+
+            assertEquals(expectedResult, result);
+        }
+
+        @ParameterizedTest
+        @DisplayName("")
+        @CsvSource({
+                "ex1_invalid, /, invalid_topic, ex1_topic_name, not_read, false",    // invalid
+                "ex2_invalid, /, invalid_topic, ex2_topic_name, not_write, false",   // invalid
+                "ex3_invalid, /, queue_name, not_write, queue, false",  // invalid
+                "ex4_invalid, /, ex_name, not_read, exchange, false",   // invalid
+        })
+        void shouldReturnFalseWhenThePermissionNotAllowed(String username, String vhost, String resource, String name, String permission, boolean expectedResult) {
+            boolean result = rabbitMQAuthService.authenticateResource(username, vhost, resource, name, permission);
+
+            assertEquals(expectedResult, result);
+        }
+
+    }
+
+    @Nested
+    class authenticateTopic {
+
+        @Test
+        @DisplayName("should return driver logged if permission equals 'publish' ")
+        void shouldReturnDriverLoggedIfPermissionEqualsPublish() {
+            String username = UUID.randomUUID().toString();
+            UUID travelId = UUID.randomUUID();
+
+
+            String routingKey = "v1.gps.city." + travelId;
+            String permission = "publish";
+
+            when(travelService.isDriverLogged(eq(username), eq(travelId))).thenReturn(true);
+
+            boolean result = rabbitMQAuthService.authenticateTopic(username, routingKey, permission);
+
+            assertTrue(result);
+
+            verify(travelService, times(1)).isDriverLogged(anyString(), any());
+
+            verify(travelService, never()).isStudentLogged(any(), any());
+        }
+
+        @Test
+        @DisplayName("should return student logged if permission equals 'subscribe' ")
+        void shouldReturnStudentLoggedIfPermissionEqualsSubscribe() {
+            String username = UUID.randomUUID().toString();
+            UUID travelId = UUID.randomUUID();
+
+            UUID studentId = UUID.fromString(username);
+
+            String routingKey = "v1.gps.city." + travelId;
+            String permission = "subscribe";
+
+            when(travelService.isStudentLogged(eq(studentId), eq(travelId))).thenReturn(true);
+
+            boolean result = rabbitMQAuthService.authenticateTopic(username, routingKey, permission);
+
+            assertTrue(result);
+
+            verify(travelService, times(1)).isStudentLogged(any(), any());
+
+            verify(travelService, never()).isDriverLogged(any(), any());
+        }
+
+        @Test
+        @DisplayName("should return false when error occurs in topic auth for the user")
+        void shouldReturnFalseWhenErrorOccursInTopicAuthForTheUser() {
+            String username = UUID.randomUUID().toString();
+            UUID travelId = UUID.randomUUID();
+
+            UUID studentId = UUID.fromString(username);
+
+            String routingKey = "v1.gps.city." + travelId;
+            String permission = "subscribe";
+
+            when(travelService.isStudentLogged(eq(studentId), eq(travelId))).thenThrow(RuntimeException.class);
+
+            boolean result = rabbitMQAuthService.authenticateTopic(username, routingKey, permission);
+
+            assertFalse(result);
+
+            verify(travelService, times(1)).isStudentLogged(any(), any());
+
+            verify(travelService, never()).isDriverLogged(any(), any());
+        }
+
+        @Test
+        @DisplayName("should return false when permissions non matching")
+        void shouldReturnFalseWhenPermissionsNonMatching() {
+            String username = UUID.randomUUID().toString();
+            UUID travelId = UUID.randomUUID();
+
+            String routingKey = "v1.gps.city." + travelId;
+            String permission = "permission-non-matching";
+
+            boolean result = rabbitMQAuthService.authenticateTopic(username, routingKey, permission);
+
+            assertFalse(result);
+
+            verify(travelService, never()).isStudentLogged(any(), any());
+
+            verify(travelService, never()).isDriverLogged(any(), any());
         }
     }
 }
