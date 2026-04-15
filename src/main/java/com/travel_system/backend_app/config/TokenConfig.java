@@ -29,9 +29,12 @@ public class TokenConfig {
 
     @Value("${jwt_secret}")
     private String secret;
+
     @Value("${jwt.token.expires-length}")
     private Integer validityInMilliseconds;
+
     Algorithm algorithm = null;
+
     private final UserDetailsService userDetailsService;
 
     public TokenConfig(UserDetailsService userDetailsService) {
@@ -121,7 +124,7 @@ public class TokenConfig {
     }
 
     // verifica se o token é valido ou não é expirado
-    // cache por alguns minutos (2)
+    // cache por alguns (2) minutos
     @Cacheable(value = "validateToken", key = "#token")
     public Boolean validateToken(String token) {
         DecodedJWT decodedJWT = decodedToken(token);
