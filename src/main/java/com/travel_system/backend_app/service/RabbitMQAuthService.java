@@ -68,7 +68,7 @@ public class RabbitMQAuthService {
 
     public boolean authenticateVHost(String usernameId, String vhost, String ip) {
         if (vhost.equals("/")) {
-            log.info("acesso ao vHost permitido ao user e ip: {} {}", usernameId, ip);
+            log.info("acesso ao vHost permitido ao user {}, e ip: {}", usernameId, ip);
             return true;
         }
 
@@ -100,14 +100,16 @@ public class RabbitMQAuthService {
             UUID studentId = UUID.fromString(username);
 
             if (permission.equals("publish")) {
+                log.info("[authenticateTopic] Motorista autenticado: {}, viagem: {} ", username, travelId);
                 return travelService.isDriverLogged(username, travelId);
             }
 
             if (permission.equals("subscribe")) {
+                log.info("[authenticateTopic] Estudante autenticado: {}, viagem: {} ", studentId, travelId);
                 return travelService.isStudentLogged(studentId, travelId);
             }
         } catch (Exception e) {
-            log.error("Erro na autorização de tópico para o usuário {}: {}", username, e.getMessage());
+            log.error("[authenticateTopic] Erro na autorização de tópico para o usuário {}: {}", username, e.getMessage());
             return false;
         }
 
