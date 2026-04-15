@@ -4,6 +4,8 @@ import com.travel_system.backend_app.exceptions.InvalidNotificationStateExceptio
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.NotificationStateDTO;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ public class RedisNotificationService {
 
     private final String HASH_KEY_PREFIX = "notification:";
 
+    private Logger log = LoggerFactory.getLogger(RedisNotificationService.class);
+
     public RedisNotificationService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.hashOperations = redisTemplate.opsForHash();
@@ -27,7 +31,10 @@ public class RedisNotificationService {
 
     // read
     public NotificationStateDTO readNotificationState(UUID travelId, UUID studentId) {
-        if (travelId == null || studentId == null) throw new EntityNotFoundException("Student ou Travel não encontrados");
+        if (travelId == null || studentId == null) {
+            log.warn("[readNotificationState] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return null;
+        }
 
         String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
 
@@ -41,10 +48,14 @@ public class RedisNotificationService {
 
     // verification
     public Boolean verifyNotificationState(UUID travelId, UUID studentId, Double currentDistanceMeters, NotificationStateDTO state) {
-        if (state == null || state.zone() == null || state.zone().isEmpty()) return true;
+        if (state == null || state.zone() == null || state.zone().isEmpty()) {
+            log.info("[verifyNotificationState] notificando, state está null ou vazio");
+            return true;
+        }
 
         // se nao hoyver ultima notificação confiável, notifica
         if (state.lastNotificationAt() == null || state.lastNotificationAt().isEmpty() || state.lastNotificationAt().isBlank()) {
+            log.info("[verifyNotificationState] notificando por falta de última notificação confiável.");
             return true;
         }
 
@@ -62,13 +73,18 @@ public class RedisNotificationService {
         }
 
         if (!currentZone.equals(state.zone())) {
+            log.info("[verifyNotificationState] notificando pelo zone atual (currentZone), {}, " +
+                    "difere do zone no NotificationStateDTO, {}", currentZone, state.zone());
             return true;
         }
 
         double lastDistanceNotified = Double.parseDouble(state.lastDistanceNotified());
         double distanceDelta = Math.abs(lastDistanceNotified - currentDistanceMeters);
 
-        if (distanceDelta >= step) return true;
+        if (distanceDelta >= step) {
+            log.info("[verifyNotificationState] notificando, distanciaDelta: {} maior ou igual ao step: {}", distanceDelta, step);
+            return true;
+        }
 
         // evita spam de notificação caso o onibus fique mt tempo parado (12 min)
         return elapsedTime >= timeToNotify;
@@ -76,7 +92,10 @@ public class RedisNotificationService {
 
     // update
     public void updateNotificationState(UUID travelId, UUID studentId, NotificationStateDTO newState) {
-        if (travelId == null || studentId == null) throw new EntityNotFoundException("Student ou Travel não encontrados");
+        if (travelId == null || studentId == null) {
+            log.warn("[updateNotificationState] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return;
+        }
 
         String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
 
@@ -92,6 +111,8 @@ public class RedisNotificationService {
             initialState.put("timeStamp", timeStamp);
 
             hashOperations.putAll(key, initialState);
+
+            log.info("[updateNotificationState] currentState não encontrado no redis, salvando os dados provindos do newState: {}", newState);
             return;
         }
 
