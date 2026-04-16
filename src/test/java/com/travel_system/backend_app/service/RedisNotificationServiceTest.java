@@ -6,9 +6,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.CsvSources;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -79,6 +81,23 @@ class RedisNotificationServiceTest {
             verify(hashOperations, times(1)).entries(any());
         }
 
+        @ParameterizedTest
+        @DisplayName("should return silently when entry data are null")
+        @MethodSource("nullFieldsProvider")
+        void shouldReturnSilentlyWhenEntryDataAreNull(UUID travelId, UUID studentId) {
+            NotificationStateDTO result = redisNotificationService.readNotificationState(travelId, studentId);
+
+            assertNull(result);
+
+            verifyNoInteractions(hashOperations);
+        }
+
+        public static Stream<Arguments> nullFieldsProvider() {
+            return Stream.of(
+                    Arguments.of(UUID.randomUUID(), null),
+                    Arguments.of(null, UUID.randomUUID())
+            );
+        }
 
     }
 }
