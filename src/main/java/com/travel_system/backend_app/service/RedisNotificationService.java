@@ -38,12 +38,19 @@ public class RedisNotificationService {
 
         String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
 
-        String zone = hashOperations.get(key, "zone");
-        String lastDistanceNotified = hashOperations.get(key, "lastDistanceNotified");
-        String lastNotificationAt = hashOperations.get(key, "lastNotificationAt");
-        String timeStamp = hashOperations.get(key, "timeStamp");
+        Map<String, String> readData = hashOperations.entries(key);
+        readData.get("zone");
+        readData.get("lastDistanceNotified");
+        readData.get("lastNotificationAt");
+        readData.get("timeStamp");
 
-        return new NotificationStateDTO(zone, lastDistanceNotified, lastNotificationAt, timeStamp);
+        // ainda sem dados para ler
+        if (readData.isEmpty()) {
+            log.warn("[readNotificationState] sem dados para leitura para a viagem: {} e o estudante: {}", travelId, studentId);
+            return null;
+        }
+
+        return new NotificationStateDTO(readData.get("zone"), readData.get("lastDistanceNotified"), readData.get("lastNotificationAt"), readData.get("timeStamp"));
     }
 
     // verification
