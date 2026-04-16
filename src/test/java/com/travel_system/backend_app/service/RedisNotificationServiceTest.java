@@ -99,5 +99,21 @@ class RedisNotificationServiceTest {
             );
         }
 
+        @Test
+        @DisplayName("should return silently when data not yet available for reading")
+        void shouldReturnSilentlyWhenDataNotYetAvailableForReading() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            String key = "notification:" + travelId + ":" + studentId;
+
+            when(hashOperations.entries(key)).thenReturn(Map.of());
+
+            NotificationStateDTO result = redisNotificationService.readNotificationState(travelId, studentId);
+
+            assertNull(result);
+
+            verify(hashOperations, times(1)).entries(any());
+        }
+
     }
 }
