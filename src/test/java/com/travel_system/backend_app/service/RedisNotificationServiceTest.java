@@ -11,12 +11,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.CsvSources;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -115,5 +117,193 @@ class RedisNotificationServiceTest {
             verify(hashOperations, times(1)).entries(any());
         }
 
+    }
+
+    @Nested
+    class verifyNotificationState {
+
+        @Test
+        @DisplayName("Should send notification when elapsed time exceeds configured notification threshold")
+        void shouldSendNotificationWhenElapsedTimeExceedsTimeToNotifyWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            Double currentDistance = 1200.0;
+
+            Instant lastNotifyAt = Instant.now().minusSeconds(730000); // mais que 12 min
+
+            NotificationStateDTO notificationStateDTO = new NotificationStateDTO(
+                    "FAR",
+                    String.valueOf(currentDistance),
+                    String.valueOf(lastNotifyAt.toEpochMilli()),
+                    Instant.now().toString());
+
+            Boolean result   = redisNotificationService.verifyNotificationState(travelId, studentId, currentDistance, notificationStateDTO);
+
+            assertTrue(result, "deve notificar respeitando o intervalo de 12 minutos interno");
+        }
+
+        @Test
+        @DisplayName("Should send notification when does not have last notification reliable")
+        void shouldSendNotificationWhenDoesNotHaveLastNotificationReliable() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            Double currentDistance = 1200.0;
+
+            NotificationStateDTO notificationStateDTO = new NotificationStateDTO(
+                    "FAR",
+                    String.valueOf(currentDistance),
+                    null, // sem última notificação confiável
+                    Instant.now().toString());
+
+            Boolean result   = redisNotificationService.verifyNotificationState(travelId, studentId, currentDistance, notificationStateDTO);
+
+            assertTrue(result, "deve notificar pois não ha última notificação confiável");
+        }
+
+        @Test
+        @DisplayName("Should send notification when current zone differs from stored zone")
+        void shouldSendNotificationWhenCurrentZoneDiffersFromStoredZone() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            Double currentDistance = 100.0;
+
+            Instant lastNotifyAt = Instant.now().minusSeconds(730000); // mais que 12 min
+
+            NotificationStateDTO notificationStateDTO = new NotificationStateDTO(
+                    "FAR",
+                    String.valueOf(currentDistance),
+                    String.valueOf(lastNotifyAt.toEpochMilli()),
+                    Instant.now().toString());
+
+            Boolean result = redisNotificationService.verifyNotificationState(travelId, studentId, currentDistance, notificationStateDTO);
+
+            assertTrue(result, "deve notificar pois a zona atual é diferente da zona armazenada");
+        }
+
+        @Test
+        @DisplayName("Should send notification when distance delta is greater than or equal to step")
+        void shouldSendNotificationWhenDistanceDeltaIsGreaterThanOrEqualToStep() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            Double currentDistance = 10.0;
+
+            Instant lastNotifyAt = Instant.now().minusSeconds(730000); // mais que 12 min
+
+            NotificationStateDTO notificationStateDTO = new NotificationStateDTO(
+                    "NEAR",
+                    String.valueOf(currentDistance),
+                    String.valueOf(lastNotifyAt.toEpochMilli()),
+                    Instant.now().toString());
+
+            Boolean result   = redisNotificationService.verifyNotificationState(travelId, studentId, 50.0, notificationStateDTO);
+
+            assertTrue(result, "deve notificar pois a distancia delta é maior que o step atual");
+        }
+
+        @Test
+        @DisplayName("should send notification when stored state is empty")
+        void shouldSendNotificationWhenStoredStateIsEmpty() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            Double currentDistance = 100.0;
+
+            Boolean result   = redisNotificationService.verifyNotificationState(travelId, studentId, currentDistance, null);
+
+            assertTrue(result, "deve notificar pois o dto de entrada ou a propriedade 'zone' é nulo/a");
+        }
+    }
+
+    @Nested
+    class updateNotificationState {
+
+        @Test
+        @DisplayName("should create initial state when current state is empty")
+        void shouldCreateInitialStateWhenCurrentStateIsEmpty() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+            String key = "notification:" + travelId + ":" + studentId;
+
+            Instant lastNotifyAt = Instant.now().minusSeconds(730000); // mais que 12 min
+
+            NotificationStateDTO stateDTO = new NotificationStateDTO(
+                    "NEAR",
+                    String.valueOf(200.0),
+                    String.valueOf(lastNotifyAt.toEpochMilli()),
+                    String.valueOf(Instant.now()));
+
+            when(hashOperations.entries(key)).thenReturn(Map.of());
+
+            redisNotificationService.updateNotificationState(travelId, studentId, stateDTO);
+
+            ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), mapCaptor.capture());
+            Map<String, String> storageValues = mapCaptor.getValue();
+
+            assertEquals(stateDTO.zone(), storageValues.get("zone"));
+            assertEquals(stateDTO.lastDistanceNotified(), storageValues.get("lastDistanceNotified"));
+
+            assertNotNull(storageValues.get("timeStamp"));
+        }
+
+        @Test
+        @DisplayName("should include only the changed field in the update map")
+        void shouldIncludeOnlyChangedField() {
+            Map<String, String> current = new HashMap<>(Map.of(
+                    "zone", "NEAR",
+                    "lastDistanceNotified", "500.0",
+                    "lastNotificationAt", "12345"
+            ));
+            when(hashOperations.entries(anyString())).thenReturn(current);
+
+            NotificationStateDTO newState = new NotificationStateDTO("FAR",
+                    "500.0",
+                    "12345",
+                    null);
+
+            redisNotificationService.updateNotificationState(UUID.randomUUID(), UUID.randomUUID(), newState);
+
+            ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+            verify(hashOperations).putAll(anyString(), captor.capture());
+
+            Map<String, String> sentToRedis = captor.getValue();
+
+            assertTrue(sentToRedis.containsKey("zone"));
+            assertTrue(sentToRedis.containsKey("timeStamp"));
+            assertFalse(sentToRedis.containsKey("lastDistanceNotified"));
+        }
+
+        @Test
+        @DisplayName("Should update state and timestamp when fields to update are not empty")
+        void shouldUpdateStateWhenFieldsToUpdateIsNotEmpty() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+
+            String key = "notification:" + travelId + ":" + studentId;
+
+            NotificationStateDTO newState = new NotificationStateDTO("FAR",
+                    "500.0",
+                    "12345",
+                    null);
+
+            Map<String, String> current = new HashMap<>(Map.of(
+                    "zone", "NEAR",
+                    "lastDistanceNotified", "500.0",
+                    "lastNotificationAt", "12345"
+            ));
+
+            when(hashOperations.entries(key)).thenReturn(current);
+
+            redisNotificationService.updateNotificationState(travelId, studentId, newState);
+
+            ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), mapCaptor.capture());
+            Map<String, String> storageValue = mapCaptor.getValue();
+
+            assertEquals("FAR", storageValue.get("zone"));
+            assertNotNull(storageValue.get("timeStamp"), "O timestamp deve ter sido gerado internamente");
+            assertFalse(storageValue.containsKey("lastDistanceNotified"));
+        }
     }
 }
