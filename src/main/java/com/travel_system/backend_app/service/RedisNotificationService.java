@@ -55,6 +55,11 @@ public class RedisNotificationService {
 
     // verification
     public Boolean verifyNotificationState(UUID travelId, UUID studentId, Double currentDistanceMeters, NotificationStateDTO state) {
+        if (travelId == null || studentId == null) {
+            log.warn("[verifyNotificationState] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return null;
+        }
+
         if (state == null || state.zone() == null || state.zone().isEmpty()) {
             log.info("[verifyNotificationState] notificando, state está null ou vazio");
             return true;
@@ -69,7 +74,7 @@ public class RedisNotificationService {
         String currentZone;
         double step;
 
-        long timeToNotify = 720000L;
+        long timeToNotify = 720000L; // 12 min
         long elapsedTime = Instant.now().toEpochMilli() - Long.parseLong(state.lastNotificationAt());
         if (currentDistanceMeters >= 1000) {
             currentZone = "FAR";
@@ -93,7 +98,7 @@ public class RedisNotificationService {
             return true;
         }
 
-        // evita spam de notificação caso o onibus fique mt tempo parado (12 min)
+        // evita spam de notificação caso o onibus fique mt tempo parado
         return elapsedTime >= timeToNotify;
     }
 
@@ -133,7 +138,7 @@ public class RedisNotificationService {
             fieldsToUpdate.put("lastNotificationAt", newState.lastNotificationAt());
         }
 
-        if (newState.lastDistanceNotified().equals(currentState.get("lastDistanceNotified"))) {
+        if (!newState.lastDistanceNotified().equals(currentState.get("lastDistanceNotified"))) {
             fieldsToUpdate.put("lastDistanceNotified", newState.lastDistanceNotified());
         }
 
