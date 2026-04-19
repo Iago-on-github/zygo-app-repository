@@ -305,5 +305,25 @@ class RedisNotificationServiceTest {
             assertNotNull(storageValue.get("timeStamp"), "O timestamp deve ter sido gerado internamente");
             assertFalse(storageValue.containsKey("lastDistanceNotified"));
         }
+
+        @Test
+        @DisplayName("should not update when state is identical")
+        void shouldNotUpdateWhenStateIsIdentical() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId = UUID.randomUUID();
+
+            NotificationStateDTO state = new NotificationStateDTO("NEAR", "500.0", "12345", null);
+            Map<String, String> current = Map.of(
+                    "zone", "NEAR",
+                    "lastDistanceNotified", "500.0",
+                    "lastNotificationAt", "12345"
+            );
+
+            when(hashOperations.entries(anyString())).thenReturn(current);
+
+            redisNotificationService.updateNotificationState(travelId, studentId, state);
+
+            verify(hashOperations, never()).putAll(anyString(), anyMap());
+        }
     }
 }
