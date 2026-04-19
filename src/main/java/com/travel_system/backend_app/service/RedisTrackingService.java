@@ -47,7 +47,7 @@ public class RedisTrackingService {
 
     // armazena a localização mais recente do motorista em cache com redisTemplate
     public void storeLiveLocation(String travelId, String latitude, String longitude, Double distance, String geometry) {
-        if (travelId == null) throw new TripNotFound("Id da viagem não encontrado " + travelId);
+        if (travelId == null) return;
 
         String key = HASH_KEY_PREFIX + travelId;
 
@@ -128,7 +128,7 @@ public class RedisTrackingService {
     public LiveLocationDTO getLiveLocation(String travelId) {
         String key = HASH_KEY_PREFIX + travelId;
 
-        if (travelId == null) throw new TripNotFound("Id da viagem não encontrado " + travelId);
+        if (travelId == null) return null;
 
         Map<String, String> data = hashOperations.entries(key);
 
@@ -157,6 +157,7 @@ public class RedisTrackingService {
                     lastCalcLat != null ? Double.parseDouble(lastCalcLat) : null,
                     lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null);
         } catch (NumberFormatException e) {
+            logger.warn("erro ao tentar tratar/retornar algum dado requerido da viagem: {}", travelId);
             return null;
         }
     }
@@ -194,9 +195,9 @@ public class RedisTrackingService {
 
     // fornece o último estado do veículo
     public AnalyzeMovementStateDTO getLastMovementState(String travelId) {
-        Travel travel = travelRepository.findById(UUID.fromString(travelId)).orElseThrow(() -> new EntityNotFoundException("Travel não encontrada"));
+        if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travel.getId();
+        String key = HASH_KEY_PREFIX + travelId;
 
         String cacheMovementState = hashOperations.get(key, "movementState");
         String cacheStateStartedAt = hashOperations.get(key, "stateStartedAt");
@@ -205,6 +206,7 @@ public class RedisTrackingService {
 
         // if not exists = first ping
         if (cacheMovementState == null || cacheStateStartedAt == null) {
+            logger.info("[getLastMovementState] - primeiro contato para a viagem: {} ,retornando direto...", travelId);
             return null;
         } else {
             if (StringUtils.isEmpty(cacheMovementState) || StringUtils.isBlank(cacheMovementState)
@@ -222,9 +224,9 @@ public class RedisTrackingService {
 
     // atualiza ETA restante, distância restante e o status atualizado
     public void storeTravelMetadata(String travelId, Double durationRemaining, Double distance, String status) {
-        String key = HASH_KEY_PREFIX + travelId;
+        if (travelId == null) return;
 
-        if (travelId == null) throw new TripNotFound("Id da viagem não encontrado " + travelId);
+        String key = HASH_KEY_PREFIX + travelId;
 
         // HSET: vai atualizar os campos de distance, eta e status sem afetar LAT/LNG
         hashOperations.put(key, "durationRemaining", durationRemaining.toString());
@@ -235,6 +237,8 @@ public class RedisTrackingService {
 
     // mantém memória entre os pings do driver
     public void keepMemoryBetweenDriverPings(UUID travelId, LiveLocationDTO driverPosition) {
+        if (travelId == null) return;
+
         long now = Instant.now().toEpochMilli();
 
         String key = HASH_KEY_PREFIX + travelId;
@@ -253,7 +257,8 @@ public class RedisTrackingService {
     // atualiza o estado de ETA da viagem
     public void updateTripEtaState(UUID travelId, Double distanceRemaining, Double durationRemaining, Instant timestamp) {
         if (travelId == null || distanceRemaining == null || durationRemaining == null || timestamp == null) {
-            throw new EtaDataStatesInvalidException("Dados do estado ETA inválidos ou corrompidos");
+            logger.debug("[updateTripEtaState] - Dados de estado ETA inválidos ou corrompidos: {} {} {} ", distanceRemaining, durationRemaining, timestamp);
+            return;
         }
 
         String distanceRemainingString = String.valueOf(distanceRemaining);
@@ -300,24 +305,24 @@ public class RedisTrackingService {
 
     // marca que uma notificação foi enviada
     public void markNotificationAsSent(String travelId) {
-        Travel travel = travelRepository.findById(UUID.fromString(travelId))
-                .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada"));
+        if (travelId == null) return;
 
-        String key = HASH_KEY_PREFIX + travel.getId();
+        String key = HASH_KEY_PREFIX + travelId;
 
         String lastNotificationSendAt = String.valueOf(Instant.now());
 
         hashOperations.put(key, "lastNotificationSendAt", lastNotificationSendAt);
-
     }
 
     // adiciona ids de viagens ativas no set do redis
     public void addActiveTravel(UUID travelId) {
+        if (travelId == null) return;
         redisTemplate.opsForSet().add(SET_KEY, travelId.toString());
     }
 
     // remove ids de viagens inativas do set do redis
     public void removeUnactiveTravel(UUID travelId) {
+        if (travelId == null) return;
         redisTemplate.opsForSet().remove(SET_KEY, travelId);
     }
 
@@ -328,6 +333,8 @@ public class RedisTrackingService {
 
     // busca o último momento gravado pelo GPS
     public Long getLastPingTimestamp(UUID travelId) {
+        if (travelId == null) return null
+                ;
         String key = HASH_KEY_PREFIX + travelId;
 
         String timestamp = hashOperations.get(key, "timestamp");
@@ -338,6 +345,7 @@ public class RedisTrackingService {
     // limpa os dados de cache do redis da viagem em específico
     public void clearTravelLocationCache(UUID travelId) {
         if (travelId == null) return;
+
         String key = HASH_KEY_PREFIX + travelId;
 
         redisTemplate.delete(key);
@@ -348,6 +356,7 @@ public class RedisTrackingService {
     // armazena o ultimo history ping da viagem
     public void saveHistoryPingLocation(UUID travelId, Instant lastPing) {
         if (travelId == null) return;
+
         String key = HASH_KEY_PREFIX + travelId;
 
         logger.info("[redis] saveHistoryPingLocation called, saving data... {}", travelId);
