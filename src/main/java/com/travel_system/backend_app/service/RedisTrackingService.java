@@ -31,18 +31,16 @@ public class RedisTrackingService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> hashOperations;
-    private final TravelRepository travelRepository;
 
     private final Logger logger = LoggerFactory.getLogger(RedisTrackingService.class);
 
     private final String SET_KEY = "ACTIVE_TRAVELS_KEY";
     private final String HASH_KEY_PREFIX = "travelId:";
 
-    public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate, TravelRepository travelRepository) {
+    public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;
         this.redisTemplate = redisTemplate;
         this.hashOperations = redisTemplate.opsForHash();
-        this.travelRepository = travelRepository;
     }
 
     // armazena a localização mais recente do motorista em cache com redisTemplate
@@ -68,14 +66,14 @@ public class RedisTrackingService {
         List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
         List<String> values = hashOperations.multiGet(key, fields);
 
-        Map<String, String> oldData = IntStream.range(0, fields.size())
-                .filter(i -> values.get(0) != null).boxed()
-                .collect(Collectors.toMap(
-                        fields::get,
-                        values::get
-                ));
-
         try {
+            Map<String, String> oldData = IntStream.range(0, fields.size())
+                    .filter(i -> values.get(i) != null).boxed()
+                    .collect(Collectors.toMap(
+                            fields::get,
+                            values::get
+                    ));
+
             double totalUntilNow = 0;
             if (!oldData.isEmpty()) {
                 double oldLat = Double.parseDouble(oldData.get("last_calc_lat"));
