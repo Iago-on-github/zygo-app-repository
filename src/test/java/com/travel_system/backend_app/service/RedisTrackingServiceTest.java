@@ -119,6 +119,16 @@ class RedisTrackingServiceTest {
             assertEquals("302.12", savedMap.get("accumulatedDistance"));
         }
 
+        @Test
+        @DisplayName("should continue processing when input parameters are null")
+        void shouldContinueProcessingWhenInputParametersAreNull() {
+            UUID travelId = UUID.randomUUID();
+
+            redisTrackingService.storeLiveLocation(travelId.toString(), null, null, null, null);
+
+            verify(hashOperations, never()).putAll(anyString(), anyMap());
+        }
+
 
     }
 }
