@@ -85,5 +85,40 @@ class RedisTrackingServiceTest {
 
             assertEquals("392.12", savedMap.get("accumulatedDistance"));
         }
+
+        @Test
+        @DisplayName("should initialize accumulated distance on first location with success")
+        void shouldInitializeAccumulatedDistanceOnFirstLocationWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String latitude = "-32.932";
+            String longitude = "-12.402";
+            Double distance = 302.12;
+            String geometry = "geometry_teste";
+
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
+            List<String> values = Arrays.asList(null, null, null);
+
+            when(hashOperations.multiGet(eq(key), eq(fields))).thenReturn(values);
+//            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+//                    .thenReturn(392.12);
+
+            redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
+
+            ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(anyString(), captorMap.capture());
+            Map<String, String> savedMap = captorMap.getValue();
+
+            System.out.println("savedMap" + savedMap);
+
+            assertEquals(latitude, savedMap.get("last_calc_lat"));
+            assertEquals(longitude, savedMap.get("last_calc_lng"));
+
+            assertEquals("302.12", savedMap.get("accumulatedDistance"));
+        }
+
+
     }
 }
