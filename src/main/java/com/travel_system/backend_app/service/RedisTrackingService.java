@@ -74,19 +74,19 @@ public class RedisTrackingService {
                             values::get
                     ));
 
-            double totalUntilNow = 0;
+            double totalUntilNow = distance;
             if (!oldData.isEmpty()) {
                 double oldLat = Double.parseDouble(oldData.get("last_calc_lat"));
                 double oldLng = Double.parseDouble(oldData.get("last_calc_lng"));
 
                 Double distIncremental = routeCalculationService.calculateHaversineDistanceInMeters(
-                        Double.parseDouble(longitude), Double.parseDouble(latitude), oldLat, oldLng);
+                        Double.parseDouble(latitude), Double.parseDouble(longitude), oldLat, oldLng);
 
                 double previousAccumulated = Double.parseDouble(oldData.getOrDefault("accumulatedDistance", "0"));
                 totalUntilNow = previousAccumulated + distIncremental;
-
-                data.put("accumulatedDistance", String.valueOf(totalUntilNow));
             }
+
+            data.put("accumulatedDistance", String.valueOf(totalUntilNow));
 
             hashOperations.putAll(key, data);
         } catch (Exception e) {
