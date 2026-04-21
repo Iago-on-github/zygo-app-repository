@@ -45,15 +45,24 @@ public class RedisTrackingService {
 
     // armazena a localização mais recente do motorista em cache com redisTemplate
     public void storeLiveLocation(String travelId, String latitude, String longitude, Double distance, String geometry) {
-        if (travelId == null) return;
+        if (travelId == null || latitude == null || longitude == null) {
+            logger.warn("[storeLiveLocation] dados de localização null ou inválidos");
+            return;
+        }
 
         String key = HASH_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
         // dados cache
-        data.put("distanceRemaining", distance.toString());
-        data.put("geometry", geometry);
+        if (distance == null) {
+            data.put("distanceRemaining", distance.toString());
+            logger.debug("[storeLiveLocation] distanceRemaining ausente para viagem {}, campo omitido no cache", travelId);
+        }
+
+        if (geometry != null && geometry.isBlank()) {
+            data.put("geometry", geometry);
+        }
 
         // ponto de referência de onde a rota foi calculada
         data.put("last_calc_lat", latitude);
@@ -90,7 +99,7 @@ public class RedisTrackingService {
 
             hashOperations.putAll(key, data);
         } catch (Exception e) {
-            logger.warn("Dados de distância da viagem corrompidos ou inválidos: {}", travelId);
+            logger.warn("[storeLiveLocation] Dados de distância da viagem corrompidos ou inválidos: {}", travelId);
         }
     }
 
