@@ -129,6 +129,25 @@ class RedisTrackingServiceTest {
             verify(hashOperations, never()).putAll(anyString(), anyMap());
         }
 
+        @Test
+        @DisplayName("should continue processing when stored coordinates are invalid")
+        void shouldContinueProcessingWhenStoredCoordinatesAreInvalid() {
+            UUID travelId = UUID.randomUUID();
+            String latitude = "-32.932";
+            String longitude = "-12.402";
+            Double distance = 392.12;
+            String geometry = "geometry_teste";
 
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
+            List<String> values = Arrays.asList("abc", "-12.402", null);
+
+            when(hashOperations.multiGet(eq(key), eq(fields))).thenReturn(values);
+
+            redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
+
+            verify(hashOperations, never()).putAll(anyString(), anyMap());
+        }
     }
 }
