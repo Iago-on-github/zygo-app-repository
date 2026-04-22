@@ -456,6 +456,76 @@ class RedisTrackingServiceTest {
             assertEquals(Instant.parse(stateStartedAt), result.stateStartedAt());
             assertEquals(Instant.parse(lastNotification), result.lastNotificationSendAt());
         }
+
+        @Test
+        @DisplayName("should return silently when cache state is null from redis")
+        void shouldReturnSilentlyWhenCacheStateIsNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            String stateStartedAt = "2026-04-21T10:15:30Z";
+            String lastNotification = "2026-04-21T10:20:30Z";
+            String lastEta = "2026-04-21T10:22:30Z";
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList(null, stateStartedAt, lastNotification, lastEta));
+
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("should return silently when cache state is invalid or corrupted")
+        void shouldReturnSilentlyWhenCacheStateIsInvalidOrCorrupted() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            String stateStartedAt = "2026-04-21T10:15:30Z";
+            String lastNotification = "2026-04-21T10:20:30Z";
+            String lastEta = "2026-04-21T10:22:30Z";
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("", stateStartedAt, lastNotification, lastEta));
+
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("should return silently when any field contains invalid data")
+        void shouldReturnSilentlyWhenAnyFieldHasInvalidOrCorruptedData() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            String stateStartedAt = "2026-04-21T10:15:30Z";
+            String lastNotification = "abcd";
+            String lastEta = "2026-04-21T10:22:30Z";
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("STOPPED", stateStartedAt, lastNotification, lastEta));
+
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(null);
+
+            assertNull(result);
+        }
     }
+
+
 
 }
