@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
+import com.travel_system.backend_app.model.enums.MovementState;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -428,5 +430,32 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class getLastMovementState {
+
+        @Test
+        @DisplayName("should return the stored field LastMovementState with success")
+        void shouldReturnLastMovementStateWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            String stateStartedAt = "2026-04-21T10:15:30Z";
+            String lastNotification = "2026-04-21T10:20:30Z";
+            String lastEta = "2026-04-21T10:22:30Z";
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("STOPPED", stateStartedAt, lastNotification, lastEta));
+
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+
+            assertNotNull(result);
+
+            assertEquals(MovementState.STOPPED, result.movementState());
+            assertEquals(Instant.parse(stateStartedAt), result.stateStartedAt());
+            assertEquals(Instant.parse(lastNotification), result.lastNotificationSendAt());
+        }
+    }
 
 }
