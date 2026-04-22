@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
@@ -256,6 +257,94 @@ class RedisTrackingServiceTest {
             PreviousStateDTO result = redisTrackingService.getPreviousEta(null);
 
             verify(hashOperations, never()).multiGet(any(), any());
+
+            assertNull(result);
+        }
+    }
+
+    @Nested
+    class getLiveLocation {
+
+        @Test
+        @DisplayName("should return more recently location and timestamp for front-end")
+        void shouldReturnMoreRecentlyLocationAndTimestamp() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Map<String, String> expectedMap = new HashMap<>();
+            expectedMap.put("lat", "-32.932");
+            expectedMap.put("lng", "-12.402");
+            expectedMap.put("geometry", "geometry_teste");
+            expectedMap.put("distance", "392.12");
+            expectedMap.put("last_calc_lat", "-32.900");
+            expectedMap.put("last_calc_lng", "-12.400");
+
+            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+
+            verify(hashOperations, times(1)).entries(eq(key));
+
+            assertNotNull(result);
+
+            assertEquals(-32.932, result.latitude());
+            assertEquals(-12.402, result.longitude());
+            assertEquals("geometry_teste", result.geometry());
+            assertEquals(392.12, result.distance());
+            assertEquals(-32.900, result.lastCalcLat());
+            assertEquals(-12.400, result.lastCalcLng());
+        }
+
+        @Test
+        @DisplayName("should return default value when field is null")
+        void shouldReturnDefaultValueWhenFieldIsNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Map<String, String> expectedMap = new HashMap<>();
+            expectedMap.put("lat", "-32.932");
+            expectedMap.put("lng", "-12.402");
+            expectedMap.put("geometry", null);
+            expectedMap.put("distance", "392.12");
+            expectedMap.put("last_calc_lat", null);
+            expectedMap.put("last_calc_lng", "-12.400");
+
+            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+
+            verify(hashOperations, times(1)).entries(eq(key));
+
+            assertNotNull(result);
+
+            assertEquals(-32.932, result.latitude());
+            assertEquals(-12.402, result.longitude());
+            assertEquals(392.12, result.distance());
+            assertEquals(-12.400, result.lastCalcLng());
+
+            assertNull(result.geometry());
+            assertNull(result.lastCalcLat());
+        }
+
+        @Test
+        @DisplayName("should return silently when field has a invalid value")
+        void shouldReturnSilentlyWhenFieldHasInvalidValue() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Map<String, String> expectedMap = new HashMap<>();
+            expectedMap.put("lat", "-32.932");
+            expectedMap.put("lng", "abc");
+            expectedMap.put("geometry", null);
+            expectedMap.put("distance", "392.12");
+            expectedMap.put("last_calc_lat", null);
+            expectedMap.put("last_calc_lng", "-12.400");
+
+            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+
+            verify(hashOperations, times(1)).entries(eq(key));
 
             assertNull(result);
         }
