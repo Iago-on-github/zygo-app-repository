@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.time.Instant;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -148,6 +150,114 @@ class RedisTrackingServiceTest {
             redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
 
             verify(hashOperations, never()).putAll(anyString(), anyMap());
+        }
+    }
+
+    @Nested
+    class getAccumulatedDistance {
+
+        @Test
+        @DisplayName("should return accumulated distance stored from redis with success")
+        void shouldReturnAccumulatedDistanceWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            String expectedAccumulatedDist = "50.0";
+
+            when(hashOperations.get(eq(key), eq("accumulatedDistance"))).thenReturn(expectedAccumulatedDist);
+
+            String result = redisTrackingService.getAccumulatedDistance(travelId);
+
+            verify(hashOperations, times(1)).get(any(), any());
+
+            assertEquals("50.0", result);
+        }
+
+        @Test
+        @DisplayName("should return zero when accumulated distance are null from redis")
+        void shouldReturnZeroWhenAccumulatedDistanceAreNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            when(hashOperations.get(eq(key), eq("accumulatedDistance"))).thenReturn(null);
+
+            String result = redisTrackingService.getAccumulatedDistance(travelId);
+
+            verify(hashOperations, times(1)).get(any(), any());
+
+            assertEquals("0.0", result);
+        }
+
+        @Test
+        @DisplayName("should return silently when travel id is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            String result = redisTrackingService.getAccumulatedDistance(null);
+
+            verify(hashOperations, never()).get(any(), any());
+
+            assertNull(result);
+        }
+    }
+
+    @Nested
+    class getPreviousEta {
+
+        @Test
+        @DisplayName("should return stored previous eta and distance with success")
+        void shouldReturnStoredPreviousEtaAndDistanceWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            String expectedDurationRemaining = "20.0";
+            String expectedDistanceRemaining = "500.0";
+            String expectedTimestamp = String.valueOf(Instant.now().toEpochMilli());
+
+            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "timestamp");
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList(expectedDurationRemaining, expectedDistanceRemaining, expectedTimestamp));
+
+            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId.toString());
+
+            assertNotNull(result);
+
+            assertEquals(20.0, result.durationRemaining());
+            assertEquals(500.0, result.distanceRemaining());
+
+            assertNotNull(result.timeStamp());
+        }
+
+        @Test
+        @DisplayName("Should return null fields when redis values are null")
+        void shouldReturnNullWhenAnyFieldIsNullFromRedis() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            String expectedDurationRemaining = "20.0";
+            String expectedTimestamp = String.valueOf(Instant.now().toEpochMilli());
+
+            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "timestamp");
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList(expectedDurationRemaining, null, expectedTimestamp));
+
+            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId.toString());
+
+            assertNotNull(result);
+
+            assertEquals(20.0, result.durationRemaining());
+            assertNull(result.distanceRemaining());
+            assertNotNull(result.timeStamp());
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            PreviousStateDTO result = redisTrackingService.getPreviousEta(null);
+
+            verify(hashOperations, never()).multiGet(any(), any());
+
+            assertNull(result);
         }
     }
 }
