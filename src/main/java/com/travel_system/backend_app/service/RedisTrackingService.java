@@ -119,9 +119,11 @@ public class RedisTrackingService {
         if (travelId == null) return null;
         String key = HASH_KEY_PREFIX + travelId;
 
-        String durationRemaining = hashOperations.get(key, "durationRemaining");
-        String distance = hashOperations.get(key, "distanceRemaining");
-        String timestampLastPing = hashOperations.get(key, "timestamp");
+        List<String> consultData = hashOperations.multiGet(key, Arrays.asList("durationRemaining", "distanceRemaining", "timestamp"));
+
+        String durationRemaining = consultData.get(0);
+        String distance = consultData.get(1);
+        String timestampLastPing = consultData.get(2);
 
         logger.info("[getPreviousETA] - durationRemaining: {} {} {}", durationRemaining + " distance: ", distance + " timestampLastPing: ", timestampLastPing );
 
