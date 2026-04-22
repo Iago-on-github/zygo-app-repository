@@ -210,10 +210,12 @@ public class RedisTrackingService {
 
         String key = HASH_KEY_PREFIX + travelId;
 
-        String cacheMovementState = hashOperations.get(key, "movementState");
-        String cacheStateStartedAt = hashOperations.get(key, "stateStartedAt");
-        String cacheLastNotificationSendAt = hashOperations.get(key, "lastNotificationSendAt");
-        String cacheLastEtaNotificationAt = hashOperations.get(key, "lastEtaNotificationAt");
+        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt"));
+
+        String cacheMovementState = hashFields.get(0);
+        String cacheStateStartedAt = hashFields.get(1);
+        String cacheLastNotificationSendAt = hashFields.get(2);
+        String cacheLastEtaNotificationAt = hashFields.get(3);
 
         // if not exists = first ping
         if (cacheMovementState == null || cacheStateStartedAt == null) {
@@ -222,14 +224,20 @@ public class RedisTrackingService {
         } else {
             if (StringUtils.isEmpty(cacheMovementState) || StringUtils.isBlank(cacheMovementState)
                     || StringUtils.isEmpty(cacheStateStartedAt) || StringUtils.isBlank(cacheStateStartedAt)) {
-                throw new InvalidMovementPropertiesException("movementState ou stateStartedAt invalidos ou corrompidos");
+                logger.warn("[getLastMovementState] dados de cache inválidos ou corrompidos para a viagem: {}", travelId);
+                return null;
             }
 
-            return new AnalyzeMovementStateDTO(
-                    MovementState.valueOf(cacheMovementState),
-                    Instant.parse(cacheStateStartedAt),
-                    cacheLastNotificationSendAt == null ? null : Instant.parse(cacheLastNotificationSendAt),
-                    cacheLastEtaNotificationAt == null ? null : Instant.parse(cacheLastEtaNotificationAt));
+            try {
+                return new AnalyzeMovementStateDTO(
+                        MovementState.valueOf(cacheMovementState),
+                        Instant.parse(cacheStateStartedAt),
+                        cacheLastNotificationSendAt == null ? null : Instant.parse(cacheLastNotificationSendAt),
+                        cacheLastEtaNotificationAt == null ? null : Instant.parse(cacheLastEtaNotificationAt));
+            } catch (NumberFormatException e) {
+                logger.warn("[getLastMovementState] dados inválidos ou mal formados para a viagem: {}", travelId);
+                return null;
+            }
         }
     }
 
