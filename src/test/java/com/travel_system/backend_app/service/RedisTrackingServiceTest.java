@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
+import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -349,4 +350,83 @@ class RedisTrackingServiceTest {
             assertNull(result);
         }
     }
+
+    @Nested
+    class getLastLocation {
+
+        @Test
+        @DisplayName("Should provide last registered location with success")
+        void shouldProvideLastRegisteredLocationWhenSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp");
+            String expectedTs = String.valueOf(Instant.now().toEpochMilli());
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("-19.732", "-12.634", expectedTs));
+
+            LastLocationDTO result = redisTrackingService.getLastLocation(travelId);
+
+            assertNotNull(result);
+
+            assertEquals(-19.732, result.latitude());
+            assertEquals(-12.634, result.longitude());
+
+            assertNotNull(expectedTs);
+        }
+
+        @Test
+        @DisplayName("should return null when first ping on this method")
+        void shouldReturnNullWhenIsFirstPing() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp");
+            String expectedTs = String.valueOf(Instant.now().toEpochMilli());
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("-19.732", null, expectedTs));
+
+            LastLocationDTO result = redisTrackingService.getLastLocation(travelId);
+
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("should return null when any field has a invalid value")
+        void shouldReturnNullWhenAnyFieldHasInvalidValue() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp");
+            String expectedTs = String.valueOf(Instant.now().toEpochMilli());
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("expected_invalid_value", "-12.923", expectedTs));
+
+            LastLocationDTO result = redisTrackingService.getLastLocation(travelId);
+
+            assertNull(result);
+        }
+
+        @Test
+        @DisplayName("should return null when timestamp is null")
+        void shouldReturnNullWhenTimestampIsNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp");
+            String expectedTs = null;
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("expected_invalid_value", "-12.923", expectedTs));
+
+            LastLocationDTO result = redisTrackingService.getLastLocation(travelId);
+
+            assertNull(result);
+        }
+    }
+
+
 }
