@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -234,7 +235,7 @@ public class RedisTrackingService {
                         Instant.parse(cacheStateStartedAt),
                         cacheLastNotificationSendAt == null ? null : Instant.parse(cacheLastNotificationSendAt),
                         cacheLastEtaNotificationAt == null ? null : Instant.parse(cacheLastEtaNotificationAt));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException | DateTimeParseException e) {
                 logger.warn("[getLastMovementState] dados inválidos ou mal formados para a viagem: {}", travelId);
                 return null;
             }
