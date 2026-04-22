@@ -135,15 +135,11 @@ public class RedisTrackingService {
 
     // fornece a loc mais recente e o timestamp para o front-end
     public LiveLocationDTO getLiveLocation(String travelId) {
-        String key = HASH_KEY_PREFIX + travelId;
-
         if (travelId == null) return null;
 
-        Map<String, String> data = hashOperations.entries(key);
+        String key = HASH_KEY_PREFIX + travelId;
 
-        if (data == null || data.isEmpty()) {
-            return null;
-        }
+        Map<String, String> data = hashOperations.entries(key);
 
         // última posição
         String latitude = data.get("lat");
@@ -173,18 +169,23 @@ public class RedisTrackingService {
 
     // fornece a última loc registrada - estado de localização (antes da loc mais recente)
     public LastLocationDTO getLastLocation(UUID travelId) {
+        if (travelId == null) return null;
+
         String key = HASH_KEY_PREFIX + travelId;
 
         // read hash
-        String lastPingLat = hashOperations.get(key, "last_ping_lat");
-        String lastPingLng = hashOperations.get(key, "last_ping_lng");
-        String timestamp = hashOperations.get(key, "timestamp");
+        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp"));
+
+        String lastPingLat = hashFields.get(0);
+        String lastPingLng = hashFields.get(1);
+        String timestamp = hashFields.get(2);
 
         // is first ping return null. Who calling this method decided create an initial state
         if (timestamp == null) return null;
         else {
             if (lastPingLat == null || lastPingLng == null || timestamp.isEmpty()) {
                 // retorna null para tratar como primeiro ping
+                logger.info("[getLastLocation] first ping para a viagem {}. Retornando null...", travelId);
                 return null;
             }
 
@@ -194,6 +195,7 @@ public class RedisTrackingService {
                 long timestampToLong = Long.parseLong(timestamp);
 
                 logger.info("Dados da última loc registrada retornados com sucesso: {}", travelId);
+
                 return new LastLocationDTO(LastPingLatToDouble, LastPingLngToDouble, timestampToLong);
             } catch (NumberFormatException e) {
                 logger.warn("Dados de localização corrompidos no Redis para a viagem: {}", travelId);
