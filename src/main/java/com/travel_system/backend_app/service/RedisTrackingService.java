@@ -249,10 +249,14 @@ public class RedisTrackingService {
         String key = HASH_KEY_PREFIX + travelId;
 
         // HSET: vai atualizar os campos de distance, eta e status sem afetar LAT/LNG
-        hashOperations.put(key, "durationRemaining", durationRemaining.toString());
-        hashOperations.put(key, "timestamp", String.valueOf(Instant.now().toEpochMilli()));
-        hashOperations.put(key, "distanceRemaining", distance.toString());
-        hashOperations.put(key, "status", status);
+        Map<String, String> mapToStoredUpdatedData = new HashMap<>();
+
+        mapToStoredUpdatedData.put("durationRemaining", durationRemaining.toString());
+        mapToStoredUpdatedData.put("timestamp", String.valueOf(Instant.now().toEpochMilli()));
+        mapToStoredUpdatedData.put("distanceRemaining", distance.toString());
+        mapToStoredUpdatedData.put("status", status);
+
+        hashOperations.putAll(key, mapToStoredUpdatedData);
     }
 
     // mantém memória entre os pings do driver
