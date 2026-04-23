@@ -280,8 +280,8 @@ public class RedisTrackingService {
 
     // atualiza o estado de ETA da viagem
     public void updateTripEtaState(UUID travelId, Double distanceRemaining, Double durationRemaining, Instant timestamp) {
-        if (travelId == null || distanceRemaining == null || durationRemaining == null || timestamp == null) {
-            logger.debug("[updateTripEtaState] - Dados de estado ETA inválidos ou corrompidos: {} {} {} ", distanceRemaining, durationRemaining, timestamp);
+        if (travelId == null) {
+            logger.debug("[updateTripEtaState] - viagem não encontrada: {} ", travelId);
             return;
         }
 
