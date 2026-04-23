@@ -312,9 +312,11 @@ public class RedisTrackingService {
 
         Map<String, String> data = new HashMap<>();
 
-        String cacheMovementState = hashOperations.get(key, "movementState");
-        String lastNotificationSendAt = hashOperations.get(key, "lastNotificationSendAt");
-        String lastEtaNotificationAt = hashOperations.get(key, "lastEtaNotificationAt");
+        List<String> fieldsHash = hashOperations.multiGet(key, Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt"));
+
+        String cacheMovementState = fieldsHash.get(0);
+        String lastNotificationSendAt = fieldsHash.get(1);
+        String lastEtaNotificationAt = fieldsHash.get(2);
 
         if (cacheMovementState == null) {
             velocityAnalysisHelper(key, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
