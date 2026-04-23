@@ -614,6 +614,9 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class updateTripEtaState {
 
+    }
 
 }
