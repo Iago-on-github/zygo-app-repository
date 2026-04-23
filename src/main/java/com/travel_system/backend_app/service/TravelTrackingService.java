@@ -125,6 +125,12 @@ public class TravelTrackingService {
                         travel.getFinalLongitude(),
                         travel.getFinalLatitude());
 
+                if (newEtaRecalculateByApi == null
+                        || newEtaRecalculateByApi.duration() == null
+                        || newEtaRecalculateByApi.distance() == null) {
+                    throw new RecalculateEtaException("resposta inválida da API de rotas", null);
+                }
+
                 currentDuration = newEtaRecalculateByApi.duration();
                 currentDistance = newEtaRecalculateByApi.distance();
                 currentPolyline = newEtaRecalculateByApi.geometry();
