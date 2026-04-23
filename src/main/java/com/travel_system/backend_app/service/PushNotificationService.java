@@ -249,6 +249,14 @@ public class PushNotificationService {
     ex.: Ônibus está há 12 minutos parado
     */
     private VelocityAnalysisDTO analyzeVehicleMovement(VehicleLocationRequestDTO vehicleLocationRequest) {
+        if (vehicleLocationRequest == null
+                || vehicleLocationRequest.travelId() == null
+                || vehicleLocationRequest.latitude() == null
+                || vehicleLocationRequest.longitude() == null) {
+            logger.warn("[analyzeVehicleMovement] vehicleLocationRequest null ou com dados inválidos, {}", vehicleLocationRequest);
+            throw new IllegalStateException();
+        }
+
         UUID travelId = vehicleLocationRequest.travelId();
         Double latitude = vehicleLocationRequest.latitude();
         Double longitude = vehicleLocationRequest.longitude();
@@ -262,6 +270,17 @@ public class PushNotificationService {
         // Primeiro ping
         if (lastLocation == null) {
             logger.warn("[analyzeVehicleMovement] lastLocation is null, that's fist ping. Return silently. Travel: {}", travelId);
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
+        }
+
+        if (lastLocation.latitude() == null || lastLocation.longitude() == null || lastLocation.timestamp() == null) {
+            logger.warn("[analyzeVehicleMovement] dados do lastLocation nulos ou inválidos no redis: {}, {}, {} ",
+                    lastLocation.latitude(), lastLocation.longitude(), lastLocation.timestamp());
             return new VelocityAnalysisDTO(
                     null,
                     null,
@@ -288,6 +307,16 @@ public class PushNotificationService {
                         longitude, latitude,
                         lastLocation.longitude(),
                         lastLocation.latitude());
+
+        if (distanceBetweenPings == null) {
+            logger.warn("[analyzeVehicleMovement] cálculo Haversine retornando null para a viagem: {}", travelId);
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
+        }
 
         PreviousStateDTO previousEta =
                 redisTrackingService.getPreviousEta(String.valueOf(travelId));
