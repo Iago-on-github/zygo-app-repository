@@ -267,7 +267,7 @@ public class RedisTrackingService {
 
         String key = HASH_KEY_PREFIX + travelId;
 
-        Map<String, String> data = hashOperations.entries(key);
+        Map<String, String> data = new HashMap<>();
 
         data.put("last_ping_lat", String.valueOf(driverPosition.latitude()));
         data.put("last_ping_lng", String.valueOf(driverPosition.longitude()));
