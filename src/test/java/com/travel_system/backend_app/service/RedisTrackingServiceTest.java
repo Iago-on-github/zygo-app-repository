@@ -565,6 +565,55 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class keepMemoryBetweenDriverPings {
+
+        @Test
+        @DisplayName("should memory between driver pings with success")
+        void shouldMemoryBetweenDriverPingsWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            LiveLocationDTO liveLocationDTO = new LiveLocationDTO(
+                    -23.5505,
+                    -46.6333,
+                    "POINT(-46.6333 -23.5505)",
+                    125.5,
+                    -23.5490,
+                    -46.6345
+            );
+
+            redisTrackingService.keepMemoryBetweenDriverPings(travelId, liveLocationDTO);
+
+            ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), mapCaptor.capture());
+            Map<String, String> mapCaptorValue = mapCaptor.getValue();
+
+            assertEquals("-23.5505", mapCaptorValue.get("last_ping_lat"));
+            assertEquals("-46.6333", mapCaptorValue.get("last_ping_lng"));
+
+            assertNotNull(mapCaptorValue.get("timestamp"));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            LiveLocationDTO liveLocationDTO = new LiveLocationDTO(
+                    -23.5505,
+                    -46.6333,
+                    "POINT(-46.6333 -23.5505)",
+                    125.5,
+                    -23.5490,
+                    -46.6345
+            );
+
+            redisTrackingService.keepMemoryBetweenDriverPings(null, liveLocationDTO);
+
+            verify(hashOperations, never()).putAll(any(), anyMap());
+        }
+    }
+
 
 
 }
