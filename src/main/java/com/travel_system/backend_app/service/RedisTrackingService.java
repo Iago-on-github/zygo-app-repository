@@ -354,7 +354,7 @@ public class RedisTrackingService {
     // remove ids de viagens inativas do set do redis
     public void removeUnactiveTravel(UUID travelId) {
         if (travelId == null) return;
-        redisTemplate.opsForSet().remove(SET_KEY, travelId);
+        redisTemplate.opsForSet().remove(SET_KEY, travelId.toString());
     }
 
     // retorna os ids de viagens ativas
