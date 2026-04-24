@@ -853,4 +853,24 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class getAllActiveTravelsId {
+
+        @Test
+        @DisplayName("should return all active travels ids in redis set")
+        void shouldReturnAllIdsOfActiveTravelsInRedisSet() {
+            String setKey = "ACTIVE_TRAVELS_KEY";
+
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+
+            Set<String> result = redisTrackingService.getAllActiveTravelsId();
+
+            verify(setOperations, times(1)).members(eq(setKey));
+
+            assertNotNull(result);
+        }
+    }
+
+
+
 }
