@@ -644,7 +644,7 @@ class PushNotificationServiceTest {
             LastLocationDTO lastLocationDTO = new LastLocationDTO(
                     -32.932,
                     -73.133,
-                    33
+                    33L
             );
 
             PreviousStateDTO previousState = new PreviousStateDTO(
