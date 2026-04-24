@@ -302,6 +302,8 @@ public class RedisTrackingService {
 
     // armazena apenas o estado de movimento
     public void saveAnalyzedMovementState(UUID travelId, AnalyzeMovementStateDTO analyzeMovementStateDTO) {
+        if (travelId == null) return;
+
         // primeiro ping
         if (analyzeMovementStateDTO == null) return;
 
@@ -319,11 +321,14 @@ public class RedisTrackingService {
         String lastEtaNotificationAt = fieldsHash.get(2);
 
         if (cacheMovementState == null) {
+            logger.info("[saveAnalyzedMovementState] - sem movementState salvo no redis, viagem: {}", travelId);
             velocityAnalysisHelper(key, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
         }
         else if (!movementState.equals(cacheMovementState)) {
+            logger.info("[saveAnalyzedMovementState] - movementState atual é diferente do salvo no redis, viagem: {}", travelId);
             velocityAnalysisHelper(key, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
         } else {
+            logger.info("[saveAnalyzedMovementState] - movementState atual é exatamente o salvo no redis, viagem: {}", travelId);
             data.put("movementState", movementState);
             hashOperations.putAll(key, data);
         }
