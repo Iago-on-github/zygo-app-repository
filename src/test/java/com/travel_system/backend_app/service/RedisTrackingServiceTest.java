@@ -19,6 +19,7 @@ import org.springframework.boot.convert.DataSizeUnit;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.rmi.server.UID;
 import java.time.Instant;
 import java.util.*;
 
@@ -774,6 +775,28 @@ class RedisTrackingServiceTest {
 
     }
 
+    @Nested
+    class markNotificationAsSent {
+        
+        @Test
+        @DisplayName("should mark notification as sent with success")
+        void shouldMarkNotificationAsSentWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
 
+            redisTrackingService.markNotificationAsSent(travelId.toString());
+
+            verify(hashOperations, times(1))
+                    .put(eq(key), eq("lastNotificationSendAt"), anyString());
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            redisTrackingService.markNotificationAsSent(null);
+
+            verify(hashOperations, never()).put(any(), anyString(), anyString());
+        }
+    }
 
 }
