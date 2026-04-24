@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.convert.DataSizeUnit;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SetOperations;
 
 import java.rmi.server.UID;
 import java.time.Instant;
@@ -48,6 +49,9 @@ class RedisTrackingServiceTest {
 
     @Mock
     private RedisTemplate redisTemplate;
+    @Mock
+    private SetOperations<String, String> setOperations;
+
     @Mock
     private HashOperations hashOperations;
 
@@ -796,6 +800,56 @@ class RedisTrackingServiceTest {
             redisTrackingService.markNotificationAsSent(null);
 
             verify(hashOperations, never()).put(any(), anyString(), anyString());
+        }
+    }
+
+    @Nested
+    class addActiveTravel {
+
+        @Test
+        @DisplayName("should add active id travel in redis set with success")
+        void shouldAddActiveIdTravelInRedisSetWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String setKey = "ACTIVE_TRAVELS_KEY";
+
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+
+            redisTrackingService.addActiveTravel(travelId);
+
+            verify(setOperations, times(1)).add(eq(setKey), eq(travelId.toString()));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldRetornSilentlyWhenTravelIdIsNull() {
+            redisTrackingService.addActiveTravel(null);
+
+            verify(setOperations, never()).add(any(), anyString());
+        }
+    }
+
+    @Nested
+    class removeUnactiveTravel {
+
+        @Test
+        @DisplayName("should remove unactive travelId in redis with success")
+        void shouldRemoveUnactiveTravelIdInRedisWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String setKey = "ACTIVE_TRAVELS_KEY";
+
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+
+            redisTrackingService.removeUnactiveTravel(travelId);
+
+            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId.toString()));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldRetornSilentlyWhenTravelIdIsNull() {
+            redisTrackingService.removeUnactiveTravel(null);
+
+            verify(setOperations, never()).remove(any(), anyString());
         }
     }
 
