@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.convert.DataSizeUnit;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -617,6 +618,162 @@ class RedisTrackingServiceTest {
     @Nested
     class updateTripEtaState {
 
+        @Test
+        @DisplayName("should update trip ETA state of the trip with success")
+        void shouldUpdateTripEtaStateWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Double distanceRemaining = 250.1;
+            Double durationRemaining = 7.01;
+            Instant timestamp = Instant.now().minusSeconds(10);
+
+            redisTrackingService.updateTripEtaState(travelId, distanceRemaining, durationRemaining, timestamp);
+
+            ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            Map<String, String> captureMapValue = captorMap.getValue();
+
+            assertEquals("250.1", captureMapValue.get("distanceRemaining"));
+            assertEquals("7.01", captureMapValue.get("durationRemaining"));
+
+            assertNotNull(captureMapValue.get("timestamp"));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            Double distanceRemaining = 250.1;
+            Double durationRemaining = 7.01;
+            Instant timestamp = Instant.now().minusSeconds(10);
+
+            redisTrackingService.updateTripEtaState(null, distanceRemaining, durationRemaining, timestamp);
+
+            verify(hashOperations, never()).putAll(any(), anyMap());
+        }
     }
+
+    @Nested
+    class saveAnalyzedMovementState {
+
+        @Test
+        @DisplayName("should save actually state if stored movement state is null, and should update all fields")
+        void shouldSaveActuallyStateIfStoredMovementStateIsNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
+                    MovementState.STOPPED,
+                    Instant.parse("2026-04-23T18:50:00Z"),
+                    Instant.parse("2026-04-23T18:45:00Z"),
+                    Instant.parse("2026-04-23T21:50:00Z")
+            );
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList(null, String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
+
+            redisTrackingService.saveAnalyzedMovementState(travelId, dto);
+
+            ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            Map<String, String> capturedValues = captorMap.getValue();
+
+            assertEquals("STOPPED", capturedValues.get("movementState"));
+
+            assertEquals("2026-04-23T18:45:00Z", capturedValues.get("lastNotificationSendAt"));
+            assertEquals("2026-04-23T21:50:00Z", capturedValues.get("lastEtaNotificationAt"));
+        }
+
+        @Test
+        @DisplayName("should update redis if movementState are different, and should update all fields")
+        void shouldUpdateRedisIfMovementStateAreDifferent() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
+                    MovementState.STOPPED,
+                    Instant.parse("2026-04-23T18:50:00Z"),
+                    Instant.parse("2026-04-23T18:45:00Z"),
+                    Instant.parse("2026-04-23T21:50:00Z")
+            );
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("NORMAL", String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
+
+            redisTrackingService.saveAnalyzedMovementState(travelId, dto);
+
+            ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            Map<String, String> capturedValues = captorMap.getValue();
+
+            assertEquals("STOPPED", capturedValues.get("movementState"));
+
+            assertEquals("2026-04-23T18:45:00Z", capturedValues.get("lastNotificationSendAt"));
+            assertEquals("2026-04-23T21:50:00Z", capturedValues.get("lastEtaNotificationAt"));
+        }
+
+        @Test
+        @DisplayName("should update only movement state from redis when both movementState are equals")
+        void shouldUpdateOnlyMovementStateFromRedisWhenBothMovementStateAreEquals() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
+
+            AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
+                    MovementState.STOPPED,
+                    Instant.parse("2026-04-23T18:50:00Z"),
+                    Instant.parse("2026-04-23T18:45:00Z"),
+                    Instant.parse("2026-04-23T21:50:00Z")
+            );
+
+            when(hashOperations.multiGet(eq(key), eq(fields)))
+                    .thenReturn(Arrays.asList("STOPPED", String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
+
+            redisTrackingService.saveAnalyzedMovementState(travelId, dto);
+
+            ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            Map<String, String> capturedValues = captorMap.getValue();
+
+            assertEquals("STOPPED", capturedValues.get("movementState"));
+        }
+
+        @Test
+        @DisplayName("should return silently when analyzeMovement is null, because is first ping to the method")
+        void shouldReturnSilentlyWhenAnalyzeMovementIsNull() {
+            UUID travelId = UUID.randomUUID();
+
+            redisTrackingService.saveAnalyzedMovementState(travelId, null);
+
+            verifyNoInteractions(hashOperations);
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
+                    MovementState.STOPPED,
+                    Instant.parse("2026-04-23T18:50:00Z"),
+                    Instant.parse("2026-04-23T18:45:00Z"),
+                    Instant.parse("2026-04-23T21:50:00Z")
+            );
+
+            redisTrackingService.saveAnalyzedMovementState(null, dto);
+
+            verifyNoInteractions(hashOperations);
+        }
+
+    }
+
+
 
 }
