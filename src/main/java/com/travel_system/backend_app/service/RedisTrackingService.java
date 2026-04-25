@@ -364,13 +364,13 @@ public class RedisTrackingService {
 
     // busca o último momento gravado pelo GPS
     public Long getLastPingTimestamp(UUID travelId) {
-        if (travelId == null) return null
-                ;
+        if (travelId == null) return null;
+
         String key = HASH_KEY_PREFIX + travelId;
 
         String timestamp = hashOperations.get(key, "timestamp");
 
-        return timestamp != null? Long.parseLong(timestamp) : null;
+        return timestamp != null ? Long.parseLong(timestamp) : null;
     }
 
     // limpa os dados de cache do redis da viagem em específico
