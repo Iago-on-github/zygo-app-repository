@@ -871,6 +871,167 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class getLastPingTimestamp {
 
+        @Test
+        @DisplayName("should return the last moment recorded by gps with success")
+        void shouldReturnTheLastMomentRecordedByGpsWithSuccess() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            String timestamp = String.valueOf(Instant.parse("2026-04-23T18:50:00Z").toEpochMilli());
+
+            when(hashOperations.get(eq(key), eq("timestamp"))).thenReturn(timestamp);
+
+            Long result = redisTrackingService.getLastPingTimestamp(travelId);
+
+            assertNotNull(result);
+
+            verify(hashOperations, times(1)).get(eq(key), eq("timestamp"));
+        }
+
+        @Test
+        @DisplayName("should return null if the stored value from redis is null")
+        void shouldReturnNullIfTheStoredValueIsNull() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            when(hashOperations.get(eq(key), eq("timestamp"))).thenReturn(null);
+
+            Long result = redisTrackingService.getLastPingTimestamp(travelId);
+
+            assertNull(result);
+
+            verify(hashOperations, times(1)).get(eq(key), eq("timestamp"));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldRetornSilentlyWhenTravelIdIsNull() {
+            redisTrackingService.getLastPingTimestamp(null);
+
+            verify(hashOperations, never()).get(anyDouble(), anyString());
+        }
+    }
+
+    @Nested
+    class clearTravelLocationCache {
+
+        @Test
+        @DisplayName("should clear redis cache data from travel")
+        void shouldClearRedisCacheDataFromTravel() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+            String setKey = "ACTIVE_TRAVELS_KEY";
+
+            when(redisTemplate.delete(eq(key))).thenReturn(true);
+
+            when(redisTemplate.opsForSet()).thenReturn(setOperations);
+
+            redisTrackingService.clearTravelLocationCache(travelId);
+
+            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId.toString()));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldRetornSilentlyWhenTravelIdIsNull() {
+            redisTrackingService.clearTravelLocationCache(null);
+
+            verify(setOperations, never()).remove(anyString(), anyDouble());
+        }
+    }
+
+    @Nested
+    class saveHistoryPingLocation {
+
+        @Test
+        @DisplayName("should save the last history ping from the trip")
+        void shouldSaveTheLastHistoryPingFromTheTrip() {
+            UUID travelId = UUID.randomUUID();
+            Instant lastPing = Instant.now();
+            String key = "travelId:" + travelId;
+
+            redisTrackingService.saveHistoryPingLocation(travelId, lastPing);
+
+            verify(hashOperations, times(1)).put(eq(key), eq("last_ping_history"), eq(lastPing.toString()));
+        }
+
+        @Test
+        @DisplayName("should return silently when travelId is null")
+        void shouldRetornSilentlyWhenTravelIdIsNull() {
+            Instant lastPing = Instant.now();
+
+            redisTrackingService.saveHistoryPingLocation(null, lastPing);
+
+            verify(hashOperations, never()).put(anyDouble(), anyString(), any());
+        }
+
+
+
+    }
+
+    @Nested
+    class isLocationUpdateAllowed {
+
+        @Test
+        @DisplayName("should return true if the last ping is saved less than allowed seconds")
+        void shouldReturnTrueIfTheLastPingIsSavedLessThanAllowedSeconds() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Instant fifteenSecondsAgo = Instant.now().minusSeconds(15);
+            String lastPingString = fifteenSecondsAgo.toString();
+
+            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(lastPingString);
+
+            boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
+
+            assertTrue(result);
+        }
+
+        @Test
+        @DisplayName("should return false if the last ping was less than 10s ago")
+        void shouldReturnFalseIfLastPingIsRecent() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Instant fifteenSecondsAgo = Instant.now().minusSeconds(2);
+            String lastPingString = fifteenSecondsAgo.toString();
+
+            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(lastPingString);
+
+            boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
+
+            assertFalse(result);
+        }
+
+        @Test
+        @DisplayName("should return true if first ping")
+        void shouldReturnTrueIfFirstPing() {
+            UUID travelId = UUID.randomUUID();
+            String key = "travelId:" + travelId;
+
+            Instant fifteenSecondsAgo = Instant.now().minusSeconds(2);
+            String lastPingString = fifteenSecondsAgo.toString();
+
+            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(null);
+
+            boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
+
+            assertTrue(result);
+        }
+
+        @Test
+        @DisplayName("should return false if travelId is null")
+        void shouldReturnFalseIfTravelIdIsNull() {
+            boolean result = redisTrackingService.isLocationUpdateAllowed(null);
+
+            assertFalse(result);
+
+            verify(hashOperations, never()).get(any(), any());
+        }
+    }
 
 }
