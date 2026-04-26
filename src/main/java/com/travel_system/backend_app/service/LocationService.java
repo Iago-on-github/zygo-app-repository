@@ -80,8 +80,8 @@ public class LocationService {
 
     private Boolean isStudentDisplacement(GeoPosition anteriorPosition, LiveCoordinates actuallyPosition) {
         Double calculateHaversineDistance = routeCalculationService.calculateHaversineDistanceInMeters(
-                actuallyPosition.longitude(),
                 actuallyPosition.latitude(),
+                actuallyPosition.longitude(),
                 anteriorPosition.getLatitude(),
                 anteriorPosition.getLongitude());
 
