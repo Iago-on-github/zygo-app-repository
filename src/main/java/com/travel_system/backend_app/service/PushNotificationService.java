@@ -304,7 +304,7 @@ public class PushNotificationService {
 
         Double distanceBetweenPings =
                 routeCalculationService.calculateHaversineDistanceInMeters(
-                        longitude, latitude,
+                        latitude, longitude,
                         lastLocation.longitude(),
                         lastLocation.latitude());
 
