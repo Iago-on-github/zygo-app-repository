@@ -305,8 +305,9 @@ public class PushNotificationService {
         Double distanceBetweenPings =
                 routeCalculationService.calculateHaversineDistanceInMeters(
                         latitude, longitude,
-                        lastLocation.longitude(),
-                        lastLocation.latitude());
+                        lastLocation.latitude(),
+                        lastLocation.longitude()
+                        );
 
         if (distanceBetweenPings == null) {
             logger.warn("[analyzeVehicleMovement] cálculo Haversine retornando null para a viagem: {}", travelId);
