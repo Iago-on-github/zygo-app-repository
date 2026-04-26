@@ -50,12 +50,15 @@ class RouteCalculationServiceTest {
             Point p1 = Point.fromLngLat(-38.5016, -12.9714);
             Point p2 = Point.fromLngLat(-38.5016, -12.9800);
 
-            when(polylineService.formattedPolylineDecoded(POLYLINE_MOCK)).thenReturn(List.of(p1, p2));
+            when(polylineService.formattedPolylineDecoded(POLYLINE_MOCK))
+                    .thenReturn(List.of(p1, p2));
 
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.9750, -38.5016, POLYLINE_MOCK);
+            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(
+                    -12.9750, -38.5016, POLYLINE_MOCK);
+
+            System.out.println("Distância calc debugging: " + result.distanceToRouteMeters());
 
             assertFalse(result.isOffRoute());
-
             assertTrue(result.distanceToRouteMeters() < 50.0);
         }
 
@@ -93,6 +96,69 @@ class RouteCalculationServiceTest {
             RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.97, null, POLYLINE_MOCK);
 
             assertTrue(result.isOffRoute());
+        }
+    }
+
+    @Nested
+    class calculateHaversineDistanceInMeters {
+
+        @Test
+        @DisplayName("should return 0.0 when coordinates are the same")
+        void shouldReturnZeroWhenCoordinatesAreTheSame() {
+            Double result = routeCalculationService.calculateHaversineDistanceInMeters(
+                    -12.9714, -38.5016,
+                    -12.9714, -38.5016);
+
+            assertEquals(0.0, result, 0.001);
+        }
+
+        @Test
+        @DisplayName("should be symmetric - distance A to B equals B to A")
+        void shouldBeSymmetric() {
+            Double ab = routeCalculationService.calculateHaversineDistanceInMeters(
+                    -12.9714, -38.5016,
+                    -12.9800, -38.5100);
+
+            Double ba = routeCalculationService.calculateHaversineDistanceInMeters(
+                    -12.9800, -38.5100,
+                    -12.9714, -38.5016);
+
+            assertEquals(ab, ba, 0.001);
+        }
+
+        @Test
+        @DisplayName("should return approximately 111195m for 1 degree of latitude difference at equator")
+        void shouldReturnApproximatelyOneDegreeLatitudeDistanceAtEquator() {
+            Double result = routeCalculationService.calculateHaversineDistanceInMeters(
+                    0.0, 0.0,
+                    1.0, 0.0);
+
+            // 1 grau de latitude no equador, aprox. 111.195 km
+            assertEquals(111195.0, result, 100.0);
+        }
+
+        @Test
+        @DisplayName("should return approximately 20015km for antipodal points")
+        void shouldReturnApproximatelyHalfEarthCircumferenceForAntipodalPoints() {
+            Double result = routeCalculationService.calculateHaversineDistanceInMeters(
+                    0.0, 0.0,
+                    0.0, 180.0);
+
+            // metade da circunferência da terra, aprox. 20.015 km
+            assertEquals(20015000.0, result, 1000.0);
+        }
+
+        @Test
+        @DisplayName("should return straight-line distance between two known points in Salvador BA")
+        void shouldReturnCorrectDistanceBetweenTwoKnownPointsInSalvador() {
+            // reitoria UFBA → Faculdade de Medicina UFBA
+            // distância em linha reta (Haversine) ≈ 852m
+            // obs: Google Maps vai retornar aprox. 1270m pois segue o traçado das ruas
+            Double result = routeCalculationService.calculateHaversineDistanceInMeters(
+                    -13.0010, -38.5078,
+                    -12.9940, -38.5110);
+
+            assertEquals(852.0, result, 50.0);
         }
     }
 }
