@@ -3,6 +3,8 @@ package com.travel_system.backend_app.service;
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +17,8 @@ public class RouteCalculationService {
     private final double TOLERANCE_DISTANCE = 50.0;
     private final double EARTH_RADIUS_METERS = 6371000;
 
+    private Logger logger = LoggerFactory.getLogger(RouteCalculationService.class);
+
     public RouteCalculationService(PolylineService polylineService) {
         this.polylineService = polylineService;
     }
@@ -23,6 +27,7 @@ public class RouteCalculationService {
     public RouteDeviationDTO isRouteDeviation(Double currentLat, Double currentLong, String polylineRoute) {
 
         if (currentLat == null || currentLong == null || polylineRoute == null) {
+            logger.debug("[isRouteDeviation] dados de lat/lng/polyline null, retornando...");
             return new RouteDeviationDTO(0.0, true, 0.0, 0.0);
         }
 
@@ -34,6 +39,7 @@ public class RouteCalculationService {
         Point driverCurrentLoc = Point.fromLngLat(currentLong, currentLat);
 
         if (decodePolyline.size() < 2) {
+            logger.debug("[isRouteDeviation] decoded polyline tem menos que duas partes, retornando...");
             return new RouteDeviationDTO(0, false, currentLat, currentLong);
         }
 
@@ -77,7 +83,7 @@ public class RouteCalculationService {
         );
     }
 
-    protected Double calculateHaversineDistanceInMeters(double currentLng, double currentLat, double projLng, double projLat) {
+    protected Double calculateHaversineDistanceInMeters(double currentLat, double currentLng, double projLng, double projLat) {
         // convete todas as coord. para radius
         double lat1Rad = Math.toRadians(currentLat);
         double lat2Rad = Math.toRadians(projLat);
