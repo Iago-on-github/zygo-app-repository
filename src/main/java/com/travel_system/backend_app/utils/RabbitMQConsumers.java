@@ -33,6 +33,15 @@ public class RabbitMQConsumers {
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_PROCESSING_COORDINATES)
     public void processingMessagesGpsCoordinates(GpsPayload gpsPayload) {
+        if (gpsPayload == null
+                || gpsPayload.travelId() == null
+                || gpsPayload.cityId() == null
+                || gpsPayload.latitude() == null
+                || gpsPayload.longitude() == null) {
+            logger.warn("gpsPayload inválido: campos obrigatórios ausentes, descartando mensagem. Payload: {}", gpsPayload);
+            return;
+        }
+
         logger.info("Method processingMessagesGpsCoordinates received message: {}", gpsPayload);
 
         Instant now = Instant.now();
