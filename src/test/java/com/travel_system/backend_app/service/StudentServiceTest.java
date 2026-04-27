@@ -469,4 +469,19 @@ class StudentServiceTest {
         }
     }
 
+    @Nested
+    class getLoggedInStudentProfile {
+
+        @Test
+        @DisplayName("should get logged in student profile with success")
+        void shouldGetLoggedInStudentProfileWithSuccess() {
+            when(repository.findByEmail("email@gmail.com")).thenReturn(Optional.of(student));
+
+            StudentResponseDTO result = studentService.getLoggedInStudentProfile("email@gmail.com");
+
+            assertNotNull(result);
+
+            verify(repository, times(1)).findByEmail(any());
+        }
+    }
 }
