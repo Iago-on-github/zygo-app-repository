@@ -483,5 +483,15 @@ class StudentServiceTest {
 
             verify(repository, times(1)).findByEmail(any());
         }
+
+        @Test
+        @DisplayName("throw exception when student not found from database")
+        void throwExceptionWhenStudentNotFound() {
+            when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> studentService.getLoggedInStudentProfile("unexistingEmail@gmail.com"));
+
+            verify(repository, times(1)).findByEmail(any());
+        }
     }
 }
