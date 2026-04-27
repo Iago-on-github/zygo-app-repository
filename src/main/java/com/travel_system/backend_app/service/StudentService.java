@@ -125,7 +125,7 @@ public class StudentService {
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + id));
 
         if (student.getStatus().equals(GeneralStatus.INACTIVE)) {
-            throw new IllegalStateException("Estudante já desativado, " + id);
+            throw new InactiveAccountModificationException("Estudante já desativado, " + id);
         }
 
         student.setStatus(GeneralStatus.INACTIVE);
