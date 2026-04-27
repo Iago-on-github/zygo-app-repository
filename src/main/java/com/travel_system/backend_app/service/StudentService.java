@@ -98,7 +98,9 @@ public class StudentService {
         if (existingUser.isPresent()) throw new DuplicateResourceException("Email ou telefone já em uso por outro usuário.");
 
         existingStudent.setEmail(requestDTO.email());
-        existingStudent.setPassword(requestDTO.password());
+        if (requestDTO.password() != null && !requestDTO.password().isBlank()) {
+            existingStudent.setPassword(passwordEncoder.encode(requestDTO.password()));
+        }
         existingStudent.setName(requestDTO.name());
         existingStudent.setLastName(requestDTO.lastName());
         existingStudent.setTelephone(requestDTO.telephone());
