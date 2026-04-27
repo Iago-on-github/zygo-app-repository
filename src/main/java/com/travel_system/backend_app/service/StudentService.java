@@ -39,8 +39,6 @@ public class StudentService {
     public List<StudentResponseDTO> getAllStudents() {
         List<Student> getAllStudents = repository.findAll();
 
-        if (getAllStudents.isEmpty()) return Collections.emptyList();
-
         return getAllStudents.stream().map(this::studentConverted).toList();
     }
 
@@ -87,7 +85,7 @@ public class StudentService {
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + authenticatedUserEmail));
 
         if (existingStudent.getStatus().equals(GeneralStatus.INACTIVE)) {
-          throw new InactiveAccountModificationException("Não é possível modificar dados de uma conta inativa.");
+          throw new InactiveAccountModificationException("Não é possível modificar dados de uma conta inativa: " + authenticatedUserEmail);
         }
 
         // verifica se email/tel/id ja existe no banco
@@ -140,9 +138,7 @@ public class StudentService {
     private List<StudentResponseDTO> getStudentsByStatus(GeneralStatus status) {
         List<Student> students = repository.findAllByStatus(status);
 
-        if (students.isEmpty()) return Collections.emptyList();
-
-        return students.stream().map(student -> studentConverted((Student) student)).toList();
+        return students.stream().map(this::studentConverted).toList();
     }
 
     private Student studentMapper(StudentRequestDTO requestDTO) {
