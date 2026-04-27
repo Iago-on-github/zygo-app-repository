@@ -494,4 +494,47 @@ class StudentServiceTest {
             verify(repository, times(1)).findByEmail(any());
         }
     }
+
+    @Nested
+    class disableStudent {
+
+        @Test
+        @DisplayName("should disable student with success")
+        void shouldDisableStudentWithSuccess() {
+            when(repository.findById(student.getId())).thenReturn(Optional.of(student));
+            when(repository.save(any(Student.class))).thenReturn(student);
+
+            studentService.disableStudent(student.getId());
+
+            ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
+
+            verify(repository, times(1)).save(studentCaptor.capture());
+            Student storedValue = studentCaptor.getValue();
+
+            assertEquals(GeneralStatus.INACTIVE, storedValue.getStatus());
+        }
+
+        @Test
+        @DisplayName("throw exception when student not found from database")
+        void throwExceptionWhenStudentNotFound(){
+            when(repository.findById(student.getId())).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> studentService.disableStudent(student.getId()));
+
+            verify(repository, times(1)).findById(any());
+            verify(repository, never()).save(any(Student.class));
+        }
+
+        @Test
+        @DisplayName("throw exception when student was inactive from database")
+        void throwExceptionWhenStudentWasInactive() {
+            student.setStatus(GeneralStatus.INACTIVE);
+
+            when(repository.findById(student.getId())).thenReturn(Optional.of(student));
+
+            assertThrows(InactiveAccountModificationException.class, () -> studentService.disableStudent(student.getId()));
+
+            verify(repository, never()).save(any(Student.class));
+        }
+    }
 }
