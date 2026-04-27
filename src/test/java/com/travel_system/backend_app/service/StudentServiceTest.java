@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
+import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.Student;
@@ -12,6 +13,7 @@ import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -236,7 +238,7 @@ class StudentServiceTest {
             Student storedValue = studentCaptor.getValue();
 
             assertEquals(studentRequestDTO.email(), storedValue.getEmail());
-            assertNotEquals("senhaSegura123", storedValue.getPassword());
+            assertTrue(passwordEncoder.matches("Test@1234", storedValue.getPassword()));
             assertEquals(studentRequestDTO.telephone(), storedValue.getTelephone());
             assertNotNull(storedValue.getCreatedAt());
 
@@ -379,4 +381,92 @@ class StudentServiceTest {
             verify(repository, never()).save(any());
         }
     }
+
+    @Nested
+    class updateLoggedStudent {
+
+        @Test
+        @DisplayName("should update logged student with success")
+        void shouldUpdateLoggedStudentWithSuccess() {
+            String authEmail = "authEmail@gmail.com";
+
+            when(repository.findByEmail(authEmail)).thenReturn(Optional.of(student));
+            when(repository.findByEmailOrTelephoneAndIdNot(studentRequestDTO.email(), studentRequestDTO.telephone(), student.getId()))
+                    .thenReturn(Optional.empty());
+            when(repository.save(any(Student.class))).thenReturn(student);
+
+            StudentResponseDTO result = studentService.updateLoggedStudent(authEmail, studentRequestDTO);
+
+            ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
+
+            verify(repository, times(1)).save(studentCaptor.capture());
+            Student storedValue = studentCaptor.getValue();
+
+            assertNotNull(result);
+
+            assertAll(
+                    () -> assertEquals(studentRequestDTO.email(), storedValue.getEmail()),
+                    () -> assertTrue(passwordEncoder.matches("Test@1234", storedValue.getPassword())),
+                    () -> assertEquals(studentRequestDTO.name(), storedValue.getName()),
+                    () -> assertEquals(studentRequestDTO.lastName(), storedValue.getLastName()),
+                    () -> assertEquals(studentRequestDTO.telephone(), storedValue.getTelephone()),
+                    () -> assertEquals(studentRequestDTO.profilePicture(), storedValue.getProfilePicture()),
+                    () -> assertEquals(studentRequestDTO.institutionType(), storedValue.getInstitutionType()),
+                    () -> assertEquals(studentRequestDTO.course(), storedValue.getCourse())
+            );
+
+            verify(repository, times(1)).findByEmail(any());
+            verify(repository, times(1)).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("throw exception when student not found from database")
+        void throwExceptionWhenStudentNotFound() {
+            when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> studentService.updateLoggedStudent("unexistingEmail@gmail.com", studentRequestDTO));
+
+            verify(repository, times(1)).findByEmail(any());
+
+            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(repository, never()).save(any(Student.class));
+
+            verify(passwordEncoder, never()).encode(anyString());
+        }
+
+        @Test
+        @DisplayName("throw exception when student was inactive from database")
+        void throwExceptionWhenStudentWasInactive() {
+            student.setStatus(GeneralStatus.INACTIVE);
+
+            when(repository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+
+            assertThrows(InactiveAccountModificationException.class, () -> studentService.updateLoggedStudent(student.getEmail(), studentRequestDTO));
+
+            verify(repository, times(1)).findByEmail(any());
+
+            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(repository, never()).save(any(Student.class));
+
+            verify(passwordEncoder, never()).encode(anyString());
+        }
+
+        @Test
+        @DisplayName("throw exception if email/telephone/id already exists from database")
+        void throwExceptionIfEmailTelephoneOrIdAlreadyExists() {
+            when(repository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+            when(repository.findByEmailOrTelephoneAndIdNot(studentRequestDTO.email(), studentRequestDTO.telephone(), student.getId()))
+                    .thenReturn(Optional.of(student));
+
+            assertThrows(DuplicateResourceException.class, () -> studentService.updateLoggedStudent(student.getEmail(), studentRequestDTO));
+
+            verify(repository, times(1)).findByEmail(any());
+            verify(repository, times(1)).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+
+            verify(repository, never()).save(any(Student.class));
+
+            verify(passwordEncoder, never()).encode(anyString());
+        }
+    }
+
 }
