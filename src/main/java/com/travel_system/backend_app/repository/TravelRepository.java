@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,4 +20,6 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
     boolean existsByIdAndTravelStatus(UUID travelId, TravelStatus travelStatus);
 
     boolean existsByIdAndDriverId(UUID travelId, UUID driverId);
+
+    boolean existsByDriverIdAndTravelStatusIn(UUID driverId, List<TravelStatus> status);
 }

@@ -57,7 +57,15 @@ public class TravelService {
         Driver driver = driverRepository.findById(travelRequestDTO.driverId())
                 .orElseThrow(EntityNotFoundException::new);
 
-        if (driver.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountModificationException("Motorista inativo. Não é possível prosseguir.");
+        if (driver.getStatus().equals(GeneralStatus.INACTIVE)) {
+            throw new InactiveAccountModificationException("Motorista inativo. Não é possível prosseguir. driverId: " + driver.getId());
+        }
+
+        boolean hasActiveTravel = travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING));
+
+        if (hasActiveTravel) {
+            throw new TravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
+        }
 
         travel.setOriginLongitude(travelRequestDTO.originLongitude());
         travel.setOriginLatitude(travelRequestDTO.originLatitude());
