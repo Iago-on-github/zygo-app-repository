@@ -1,10 +1,14 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
+import com.travel_system.backend_app.exceptions.RecalculateEtaException;
 import com.travel_system.backend_app.exceptions.TravelException;
+import com.travel_system.backend_app.exceptions.TripNotFound;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
+import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.DriverRepository;
@@ -49,6 +53,8 @@ class TravelServiceTest {
     @Mock
     private RedisTrackingService redisTrackingService;
     @Mock
+    private MapboxAPIService mapboxAPIService;
+    @Mock
     private TravelReportsRepository travelReportsRepository;
     @Mock
     private TravelRepository travelRepository;
@@ -62,9 +68,12 @@ class TravelServiceTest {
 
     TravelRequestDTO travelRequestDTO;
     Driver driver;
+    Travel travel;
 
     @BeforeEach
     void setUp() {
+        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "[driver@gmail.com](mailto:driver@gmail.com)", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
+
         travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678);
 
         driver = new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>());
@@ -143,6 +152,102 @@ class TravelServiceTest {
 
             verify(travelRepository, never()).save(any());
         }
+    }
+
+    @Nested
+    class startTravel {
+
+        @Test
+        @DisplayName("should start travel with success")
+        void shouldStartTravelWithSuccess() {
+            RouteDetailsDTO routeDetailsDTO = new RouteDetailsDTO(3600.0, 15.5, "encoded_polyline_example");
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(routeDetailsDTO);
+            when(travelRepository.save(any(Travel.class))).thenReturn(travel);
+
+            travelService.startTravel(travel.getId());
+
+            ArgumentCaptor<Travel> travelCaptor = ArgumentCaptor.forClass(Travel.class);
+
+            verify(travelRepository, times(1)).save(travelCaptor.capture());
+            Travel storedValue = travelCaptor.getValue();
+
+            assertAll(
+                    () -> assertEquals(travel.getDuration(), storedValue.getDuration()),
+                    () -> assertEquals(travel.getDistance(), storedValue.getDistance()),
+                    () -> assertEquals(travel.getPolylineRoute(), storedValue.getPolylineRoute()),
+                    () -> assertNotNull(storedValue.getStartHourTravel()),
+                    () -> assertEquals(TravelStatus.TRAVELLING, storedValue.getTravelStatus())
+            );
+
+            verify(redisTrackingService, times(1)).addActiveTravel(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when travel not found from database")
+        void throwExceptionWhenTravelNotFound() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+            assertThrows(TripNotFound.class, () -> travelService.startTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(travelRepository, never()).save(any());
+            verify(redisTrackingService, never()).addActiveTravel(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when travel status is finished")
+        void throwExceptionWhenTravelStatusIsFinished() {
+            travel.setTravelStatus(TravelStatus.FINISH);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelService.startTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(travelRepository, never()).save(any());
+            verify(redisTrackingService, never()).addActiveTravel(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when travel status is travelling")
+        void throwExceptionWhenTravelStatusIsTravelling() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelService.startTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(travelRepository, never()).save(any());
+            verify(redisTrackingService, never()).addActiveTravel(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when mapbox api returns null from route details")
+        void throwExceptionWhenMapBoxAPIReturnsNullFromRouteDetails() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(null);
+
+            assertThrows(RecalculateEtaException.class, () -> travelService.startTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+            verify(mapboxAPIService, times(1)).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+            verify(travelRepository, never()).save(any());
+            verify(redisTrackingService, never()).addActiveTravel(any());
+        }
+
     }
 
     @Nested
