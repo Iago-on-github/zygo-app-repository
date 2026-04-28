@@ -99,6 +99,10 @@ public class TravelService {
                 actualTrip.getFinalLongitude(),
                 actualTrip.getFinalLatitude());
 
+        if (routeDetailsDTO == null) {
+            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos" + travelId, null);
+        }
+
         // preenche os dados estáticos com o routesDetailsDto
         actualTrip.setDuration(routeDetailsDTO.duration());
         actualTrip.setDistance(routeDetailsDTO.distance());
