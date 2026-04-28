@@ -1,14 +1,18 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.model.Student;
-import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.Travel;
-import com.travel_system.backend_app.model.TravelReports;
+import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
+import com.travel_system.backend_app.exceptions.TravelException;
+import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelReportsRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,9 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -49,11 +52,98 @@ class TravelServiceTest {
     private TravelReportsRepository travelReportsRepository;
     @Mock
     private TravelRepository travelRepository;
+    @Mock
+    private DriverRepository driverRepository;
 
     @InjectMocks
     private TravelService travelService;
 
     private final ArgumentCaptor<TravelReports> travelReportsCaptor = ArgumentCaptor.forClass(TravelReports.class);
+
+    TravelRequestDTO travelRequestDTO;
+    Driver driver;
+
+    @BeforeEach
+    void setUp() {
+        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678);
+
+        driver = new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>());
+    }
+
+    @Nested
+    class createTravel {
+
+        @Test
+        @DisplayName("should create travel with success")
+        void shouldCreateTravelWithSuccess() {
+            when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
+
+            when(travelRepository.save(any(Travel.class))).thenReturn(new Travel());
+
+            TravelResponseDTO result = travelService.createTravel(travelRequestDTO);
+
+            assertNotNull(result);
+
+            ArgumentCaptor<Travel> travelCaptor = ArgumentCaptor.forClass(Travel.class);
+
+            verify(travelRepository, times(1)).save(travelCaptor.capture());
+            Travel storedValue = travelCaptor.getValue();
+
+            assertEquals(travelRequestDTO.originLatitude(), storedValue.getOriginLatitude());
+            assertEquals(travelRequestDTO.originLongitude(), storedValue.getOriginLongitude());
+
+            assertEquals(travelRequestDTO.finalLatitude(), storedValue.getFinalLatitude());
+            assertEquals(travelRequestDTO.finalLongitude(), storedValue.getFinalLongitude());
+
+            assertEquals(TravelStatus.PENDING, storedValue.getTravelStatus());
+
+            assertEquals(driver, storedValue.getDriver());
+
+            assertNotNull(storedValue.getStartHourTravel());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver not found from database")
+        void throwExceptionWhenDriverNotFound() {
+            when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> travelService.createTravel(travelRequestDTO));
+
+            verify(travelRepository, never()).existsByDriverIdAndTravelStatusIn(any(), anyList());
+
+            verify(travelRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver has inactive status")
+        void throwExceptionWhenDriverHasInactiveStatus() {
+            driver.setStatus(GeneralStatus.INACTIVE);
+
+            when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
+
+            assertThrows(InactiveAccountModificationException.class, () -> travelService.createTravel(travelRequestDTO));
+
+            verify(travelRepository, never()).existsByDriverIdAndTravelStatusIn(any(), anyList());
+
+            verify(travelRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when driver has active travel")
+        void ThrowExceptionWhenDriverHasActiveTravel() {
+            when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
+
+            when(travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING)))
+                    .thenReturn(true);
+
+            assertThrows(TravelException.class, () -> travelService.createTravel(travelRequestDTO));
+
+            verify(driverRepository, times(1)).findById(any());
+            verify(travelRepository, times(1)).existsByDriverIdAndTravelStatusIn(any(), anyList());
+
+            verify(travelRepository, never()).save(any());
+        }
+    }
 
     @Nested
     class endTravel {
