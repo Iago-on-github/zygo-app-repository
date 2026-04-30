@@ -195,6 +195,10 @@ public class TravelService {
 
     @Transactional
     public void joinTravel(UUID travelId, UUID studentId) {
+        if (travelId == null || studentId == null) {
+            throwTravelException("[joinTravel] travelId ou studentId vindo nulos");
+        }
+
         // realiza vínculo estudante-viagem (estudante entra na viagem)
         Travel trip = travelRepository.getReferenceById(travelId);
 
