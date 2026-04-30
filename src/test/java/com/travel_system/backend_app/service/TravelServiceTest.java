@@ -1,15 +1,13 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
-import com.travel_system.backend_app.exceptions.RecalculateEtaException;
-import com.travel_system.backend_app.exceptions.TravelException;
-import com.travel_system.backend_app.exceptions.TripNotFound;
+import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,6 +16,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -27,6 +28,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -62,6 +64,8 @@ class TravelServiceTest {
     private DriverRepository driverRepository;
     @Mock
     private TravelLocationHistoryRepository travelLocationHistoryRepository;
+    @Mock
+    private StudentRepository studentRepository;
 
     @InjectMocks
     private TravelService travelService;
@@ -71,14 +75,22 @@ class TravelServiceTest {
     TravelRequestDTO travelRequestDTO;
     Driver driver;
     Travel travel;
+    Student student;
+    StudentTravel studentTravel;
 
     @BeforeEach
     void setUp() {
-        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "[driver@gmail.com](mailto:driver@gmail.com)", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
+        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
 
         travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678);
 
         driver = new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>());
+
+        student = new Student(UUID.randomUUID(), "student@gmail.com", "123456", "Maria", "Oliveira", "75988888888", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), InstitutionType.UNIVERSITY, "Computer Science");
+
+        studentTravel = new StudentTravel(UUID.randomUUID(), new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.TRAVELLING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345),
+                new Student(), true, Instant.now(), null, new GeoPosition(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), null));
+
     }
 
     @Nested
@@ -465,7 +477,92 @@ class TravelServiceTest {
 
             verify(redisTrackingService, times(1)).clearTravelLocationCache(any());
         }
+    }
 
+    @Nested
+    class joinTravel {
 
+        @Test
+        @DisplayName("should student join travel with success")
+        void shouldStudentJoinTravelWithSuccess() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentRepository.getReferenceById(student.getId())).thenReturn(student);
+            when(studentTravelRepository.save(any(StudentTravel.class))).thenReturn(studentTravel);
+
+            travelService.joinTravel(travel.getId(), student.getId());
+
+            ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+            verify(studentTravelRepository, times(1)).save(studentTravelCaptor.capture());
+            StudentTravel storedValue = studentTravelCaptor.getValue();
+
+            assertEquals(travel, storedValue.getTravel());
+            assertEquals(student, storedValue.getStudent());
+            assertTrue(storedValue.isEmbark());
+            assertNotNull(storedValue.getEmbarkHour());
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when require parameters is null")
+        @MethodSource("nullParametersProvider")
+        void throwExceptionWhenRequireParametersIsNull(UUID travelId, UUID studentId) {
+            assertThrows(TravelException.class, () -> travelService.joinTravel(travelId, studentId));
+
+            verify(travelRepository, never()).getReferenceById(any());
+            verify(studentRepository, never()).getReferenceById(any());
+            verify(studentTravelRepository, never()).save(any());
+        }
+
+        public static Stream<Arguments> nullParametersProvider() {
+            return Stream.of(
+                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of(UUID.randomUUID(), null)
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidTravelStatusProvider")
+        void throwExceptionWhenTravelIsNotTravelling(TravelStatus status) {
+            travel.setTravelStatus(status);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+
+            assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getId()));
+        }
+
+        static Stream<Arguments> invalidTravelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.FINISH)
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when student already linked to trip")
+        void throwExceptionWhenStudentAlreadyLinkedToTrip() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            Set<StudentTravel> studentTravels = Set.of(
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+            );
+
+            travel.setStudentTravels(studentTravels);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+
+            assertThrows(StudentAlreadyLinkedToTrip.class, () -> travelService.joinTravel(travel.getId(), student.getId()));
+
+            verifyNoInteractions(
+                    studentTravelRepository,
+                    travelLocationHistoryRepository,
+                    polylineService,
+                    redisTrackingService,
+                    travelReportsRepository
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+        }
     }
 }
