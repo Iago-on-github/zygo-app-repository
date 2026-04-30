@@ -11,10 +11,7 @@ import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
-import com.travel_system.backend_app.repository.DriverRepository;
-import com.travel_system.backend_app.repository.StudentTravelRepository;
-import com.travel_system.backend_app.repository.TravelReportsRepository;
-import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,11 +52,16 @@ class TravelServiceTest {
     @Mock
     private MapboxAPIService mapboxAPIService;
     @Mock
+    private PolylineService polylineService;
+
+    @Mock
     private TravelReportsRepository travelReportsRepository;
     @Mock
     private TravelRepository travelRepository;
     @Mock
     private DriverRepository driverRepository;
+    @Mock
+    private TravelLocationHistoryRepository travelLocationHistoryRepository;
 
     @InjectMocks
     private TravelService travelService;
@@ -257,6 +259,8 @@ class TravelServiceTest {
         void shouldGenerateFullTravelReportWithSuccess() {
             Travel travel = new Travel();
 
+            String polylineRoute = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
+
             travel.setId(UUID.randomUUID());
             travel.setTravelStatus(TravelStatus.TRAVELLING);
             travel.setStartHourTravel(Instant.now().minusSeconds(180));
@@ -267,10 +271,15 @@ class TravelServiceTest {
                     new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null)
             );
 
+            List<TravelLocationHistory> locationHistories = List.of(new TravelLocationHistory());
+
             travel.setStudentTravels(studentTravels);
 
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
             when(redisTrackingService.getAccumulatedDistance(travel.getId())).thenReturn(String.valueOf(1500.0));
+            when(travelLocationHistoryRepository.findAllByTravelIdOrderByTimestampAsc(travel.getId()))
+                    .thenReturn(locationHistories);
+            when(polylineService.formattedPolylineEncoded(anyList())).thenReturn(polylineRoute);
 
             // act
             travelService.endTravel(travel.getId());
@@ -357,5 +366,106 @@ class TravelServiceTest {
             verify(redisTrackingService, never()).clearTravelLocationCache(any());
             verify(travelRepository, never()).save(any());
         }
+
+        @Test
+        @DisplayName("throw exception when travel id not found from database")
+        void throwExceptionWhenTravelIdNotFound() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+            assertThrows(TripNotFound.class, () -> travelService.endTravel(travel.getId()));
+
+            // se a viagem não for encontrada, nada mais deve acontecer no método
+            verifyNoInteractions(
+                    studentTravelRepository,
+                    travelLocationHistoryRepository,
+                    polylineService,
+                    redisTrackingService,
+                    travelReportsRepository
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+        }
+
+        @Test
+        @DisplayName("throw exception when travel status is pending")
+        void throwExceptionWhenTravelStatusIsPending() {
+            travel.setTravelStatus(TravelStatus.PENDING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelService.endTravel(travel.getId()));
+
+            // se a viagem não for encontrada, nada mais deve acontecer no método
+            verifyNoInteractions(
+                    studentTravelRepository,
+                    travelLocationHistoryRepository,
+                    polylineService,
+                    redisTrackingService,
+                    travelReportsRepository
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+
+        }
+
+        @Test
+        @DisplayName("throw exception when travel status is finish")
+        void throwExceptionWhenTravelStatusIsFinish() {
+            travel.setTravelStatus(TravelStatus.FINISH);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelService.endTravel(travel.getId()));
+
+            // se a viagem não for encontrada, nada mais deve acontecer no método
+            verifyNoInteractions(
+                    studentTravelRepository,
+                    travelLocationHistoryRepository,
+                    polylineService,
+                    redisTrackingService,
+                    travelReportsRepository
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+
+        }
+
+        @Test
+        @DisplayName("should set zero if the travel has no student")
+        void shouldSetZeroIfTheTravelHasNoStudent() {
+            travel.setStudentTravels(Set.of());
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+            travel.setStartHourTravel(Instant.now().minusSeconds(180));
+
+            String polylineRoute = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
+            List<TravelLocationHistory> locationHistories = List.of(new TravelLocationHistory());
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            when(redisTrackingService.getAccumulatedDistance(travel.getId())).thenReturn(String.valueOf(1500.0));
+            when(travelLocationHistoryRepository.findAllByTravelIdOrderByTimestampAsc(travel.getId()))
+                    .thenReturn(locationHistories);
+            when(polylineService.formattedPolylineEncoded(anyList())).thenReturn(polylineRoute);
+
+            // act
+            travelService.endTravel(travel.getId());
+
+            // assert
+            assertEquals(TravelStatus.FINISH, travel.getTravelStatus());
+            assertNotNull(travel.getEndHourTravel());
+
+            int remainder = 0; // % de ocupação em 0% pq não ha estudantes
+            verify(travelReportsRepository, times(1)).save(travelReportsCaptor.capture());
+            assertEquals(0, travelReportsCaptor.getValue().getBusExpectedStudents());
+            assertEquals(0, travelReportsCaptor.getValue().getBusActualOccupancy());
+            assertEquals(remainder, travelReportsCaptor.getValue().getOccupancyPercentage());
+
+            assertEquals(1500.0, travelReportsCaptor.getValue().getDistanceTraveled());
+            assertTrue(travelReportsCaptor.getValue().getDurationInMinutes() > 0);
+
+            verify(redisTrackingService, times(1)).clearTravelLocationCache(any());
+        }
+
+
     }
 }
