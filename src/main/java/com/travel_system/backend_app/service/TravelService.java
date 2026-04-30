@@ -153,9 +153,15 @@ public class TravelService {
                 .findAllByTravelIdOrderByTimestampAsc(travelId);
 
         List<Point> pointList = travelRecorded.stream()
+                .filter(t -> t.getLatitude() != null && t.getLongitude() != null)
                 .map(t -> t.getLatitude() + ", " + t.getLongitude()).map(Point::fromJson).toList();
 
         String polylineEncoded = polylineService.formattedPolylineEncoded(pointList);
+
+        // polyline, em cenários sem falha interna, pode retornar null caso a viagem seja encerrada muito cedo
+        if (polylineEncoded == null || polylineEncoded.isBlank()) {
+            log.warn("[endTravel]: polyline retornando null, salvando string vazia. Viagem: {}", travelId );
+        }
 
         // COLETA  DE MÉTRICAS SOBRE A VIAGEM
         Double accumulatedDistance = Double.valueOf(redisTrackingService.getAccumulatedDistance(travelId));
