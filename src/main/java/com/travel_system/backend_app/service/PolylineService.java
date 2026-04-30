@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -17,9 +18,9 @@ public class PolylineService {
     public List<Point> formattedPolylineDecoded(String polylineRoute) {
         int precision = 5;
 
-        if (polylineRoute.isEmpty()) {
+        if (polylineRoute == null || polylineRoute.isEmpty()) {
             logger.debug("[formattedPolylineDecoded] Polyline recebido está vazio: {} ", polylineRoute);
-            return null;
+            return Collections.emptyList();
         }
 
         return PolylineUtils.decode(polylineRoute, precision);
@@ -28,9 +29,9 @@ public class PolylineService {
     public String formattedPolylineEncoded(List<Point> polylineRoute) {
         int precision = 5;
 
-        if (polylineRoute.isEmpty()) {
+        if (polylineRoute == null || polylineRoute.isEmpty()) {
             logger.debug("[formattedPolylineEncoded] Polyline recebido está vazio: {} ", polylineRoute);
-            return null;
+            return "";
         }
 
         return PolylineUtils.encode(polylineRoute, precision);
