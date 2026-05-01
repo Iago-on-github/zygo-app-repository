@@ -218,6 +218,10 @@ public class TravelService {
 
     @Transactional
     public void leaveTravel(UUID travelId, UUID studentId) {
+        if (travelId == null || studentId == null) {
+            throwTravelException("[joinTravel] travelId ou studentId vindo nulos");
+        }
+
         // Remove um estudante de uma viagem, registrando o desembarque.
         Travel trip = travelRepository.getReferenceById(travelId);
 
@@ -226,7 +230,7 @@ public class TravelService {
         }
 
         boolean studentTravel = trip.getStudentTravels().stream()
-                .filter(StudentTravel::isEmbark)
+                .filter(st -> st.isEmbark() && st.getStudent() != null)
                 .anyMatch(student -> student.getStudent().getId().equals(studentId));
 
         if (!studentTravel) throw new TravelStudentAssociationNotFoundException("Estudante não está ATIVO na viagem.");
@@ -247,7 +251,7 @@ public class TravelService {
 
     @Cacheable(value = "studentLogged", key = "#studentId + '-' + #travelId")
     public boolean isStudentLogged(UUID studentId, UUID travelId) {
-        return studentTravelRepository.existsByIdAndTravelId(studentId, travelId);
+            return studentTravelRepository.existsByIdAndTravelId(studentId, travelId);
     }
 
     @Cacheable(value = "driverLogged", key = "#userId + '-' + #travelId")
