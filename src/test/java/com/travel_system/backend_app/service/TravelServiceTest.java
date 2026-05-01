@@ -4,6 +4,7 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -25,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.rmi.server.UID;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -565,4 +567,254 @@ class TravelServiceTest {
             verifyNoMoreInteractions(travelRepository);
         }
     }
+
+    @Nested
+    class leaveTravel {
+
+        @Test
+        @DisplayName("should student leave travel with success")
+        void shouldStudentLeaveTravelWithSuccess() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            Set<StudentTravel> studentTravels = Set.of(
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+            );
+            travel.setStudentTravels(studentTravels);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
+                    .thenReturn(Optional.of(studentTravel));
+
+            travelService.leaveTravel(travel.getId(), student.getId());
+
+            ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+            verify(studentTravelRepository, times(1)).save(studentTravelCaptor.capture());
+            StudentTravel storedValue = studentTravelCaptor.getValue();
+
+            assertFalse(storedValue.isEmbark());
+            assertNotNull(storedValue.getDisembarkHour());
+
+            verify(travelRepository, times(1)).getReferenceById(any());
+            verify(studentTravelRepository, times(1)).findByTravelIdAndStudentId(any(), any());
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when require params are null")
+        @MethodSource("nullFieldsProvier")
+        void throwExceptionWhenRequireParamsAreNull(UUID travelId, UUID studentId) {
+            assertThrows(TravelException.class, () -> travelService.leaveTravel(travelId, studentId));
+
+            verify(travelRepository, never()).getReferenceById(any());
+
+            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
+            verify(studentTravelRepository, never()).save(any());
+        }
+
+        public static Stream<Arguments> nullFieldsProvier() {
+            return Stream.of(
+                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of(UUID.randomUUID(), null),
+                    Arguments.of(null, null)
+            );
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when travel was not travelling")
+        @MethodSource("travelStatusProvider")
+        void throwExceptionWhenTravelWasNotTravelling(TravelStatus travelStatus) {
+            travel.setTravelStatus(travelStatus);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+
+            assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getId()));
+
+            verify(travelRepository, times(1)).getReferenceById(any());
+
+            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
+            verify(studentTravelRepository, never()).save(any());
+        }
+
+        public static Stream<Arguments> travelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.FINISH)
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when has no student travels in this trip")
+        void throwExceptionWhenHasNoStudentTravelsInThisTrip() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getId()));
+
+            verify(travelRepository, times(1)).getReferenceById(any());
+
+            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
+            verify(studentTravelRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when isEmbark returns false")
+        void throwExceptionWhenIsEmbarkReturnsFalse() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+            Set<StudentTravel> studentTravels = Set.of(
+                    new StudentTravel(UUID.randomUUID(), travel, student, false, Instant.now(), null, null)
+            );
+            travel.setStudentTravels(studentTravels);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
+                travelService.leaveTravel(travel.getId(), student.getId());
+            });
+
+            verify(travelRepository, times(1)).getReferenceById(any());
+            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
+
+            verify(studentTravelRepository, never()).save(any());
+
+        }
+
+        @Test
+        @DisplayName("throw exception when studentTravel link not found")
+        void throwExceptionWhenStudentTravelLinkNotFound() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            Set<StudentTravel> studentTravels = Set.of(
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+            );
+            travel.setStudentTravels(studentTravels);
+
+            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
+                    .thenReturn(Optional.empty());
+
+
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
+                travelService.leaveTravel(travel.getId(), student.getId());
+            });
+
+            verify(travelRepository, times(1)).getReferenceById(any());
+            verify(studentTravelRepository, times(1)).findByTravelIdAndStudentId(any(), any());
+
+            verify(studentTravelRepository, never()).save(any());
+
+        }
+    }
+
+    @Nested
+    class linkedStudentTravel {
+
+        @Test
+        @DisplayName("should display linked student travel with success")
+        void shouldDisplayStudentTravelWithSuccess() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            Set<StudentTravel> studentTravels = Set.of(
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+            );
+            travel.setStudentTravels(studentTravels);
+
+            Set<StudentTravelResponseDTO> result = travelService.linkedStudentTravel(travel.getId());
+
+            assertFalse(result.isEmpty());
+
+            verify(travelRepository, times(1)).findById(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when travel not found")
+        void throwExceptionWhenTravelNotFound() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> travelService.linkedStudentTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+        }
+
+        @Test
+        @DisplayName("throw exception when has no student on this trip")
+        void throwExceptionWhenHasNoStudentOnThisTrip() {
+            travel.setStudentTravels(null);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(StudentNotLinkedToTripException.class, () -> travelService.linkedStudentTravel(travel.getId()));
+
+            verify(travelRepository, times(1)).findById(any());
+        }
+    }
+
+    @Nested
+    class isStudentLogged {
+
+        @Test
+        @DisplayName("should return true when is student logged")
+        void shouldReturnTrueWhenIsStudentLogged() {
+            when(studentTravelRepository.existsByIdAndTravelId(student.getId(), travel.getId()))
+                    .thenReturn(true);
+
+            boolean result = travelService.isStudentLogged(student.getId(), travel.getId());
+
+            assertTrue(result);
+
+            verify(studentTravelRepository, times(1)).existsByIdAndTravelId(any(), any());
+        }
+
+        @Test
+        @DisplayName("should return false when student is notlogged")
+        void shouldReturnFalseWhenStudentIsNotLogged() {
+            when(studentTravelRepository.existsByIdAndTravelId(student.getId(), travel.getId()))
+                    .thenReturn(false);
+
+            boolean result = travelService.isStudentLogged(student.getId(), travel.getId());
+
+            assertFalse(result);
+
+            verify(studentTravelRepository, times(1)).existsByIdAndTravelId(any(), any());
+        }
+    }
+
+    @Nested
+    class isDriverLogged {
+
+        @Test
+        @DisplayName("should return true when is driver logged")
+        void shouldReturnTrueWhenIsDriverLogged() {
+            when(travelRepository.existsByIdAndDriverId(travel.getId(), driver.getId()))
+                    .thenReturn(true);
+
+            boolean result = travelService.isDriverLogged(driver.getId().toString(), travel.getId());
+
+            assertTrue(result);
+        }
+
+        @Test
+        @DisplayName("should return false when driver is not logged")
+        void shouldReturnFalseWhenDriverIsNotLogged() {
+            when(travelRepository.existsByIdAndDriverId(travel.getId(), driver.getId()))
+                    .thenReturn(false);
+
+            boolean result = travelService.isDriverLogged(driver.getId().toString(), travel.getId());
+
+            assertFalse(result);
+        }
+
+        @Test
+        @DisplayName("")
+        void shouldReturnFalseSilentlyWhenErrorOccurs() {
+            String invalidUserId = "invalid-uuid";
+
+            boolean result = travelService.isDriverLogged(invalidUserId, travel.getId());
+
+            assertFalse(result);
+
+            verify(travelRepository, never()).existsByIdAndDriverId(any(), any());
+        }
+    }
+
 }
