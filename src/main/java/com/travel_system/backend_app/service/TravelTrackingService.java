@@ -105,15 +105,19 @@ public class TravelTrackingService {
     // Orquestra o sistema de tracking em tempo real, verificando desvios de rota,
     // recalculando o ETA e salvando a localização e os metadados da viagem no Redis
     public void processNewLocation(VehicleLocationRequestDTO vehicleLocationRequest) {
+        if (vehicleLocationRequest == null || vehicleLocationRequest.travelId() == null || vehicleLocationRequest.latitude() == null || vehicleLocationRequest.longitude() == null) {
+            throw new EmptyMandatoryFieldsFound("[processNewLocation] campos de entrada obrigatórios null ou inválidos: " + vehicleLocationRequest);
+        }
+
         UUID travelId = vehicleLocationRequest.travelId();
         Double currentLat = vehicleLocationRequest.latitude();
         Double currentLng = vehicleLocationRequest.longitude();
 
         Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Trip not found"));
+                .orElseThrow(() -> new TripNotFound("[processNewLocation] Trip not found: " + travelId));
 
         if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
-            throw new TravelException("A viagem não está em andamento");
+            throw new TravelException("[processNewLocation] A viagem não está em andamento: " + travelId);
         }
 
         RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(currentLat, currentLng, travel.getPolylineRoute());
@@ -139,7 +143,7 @@ public class TravelTrackingService {
                 if (newEtaRecalculateByApi == null
                         || newEtaRecalculateByApi.duration() == null
                         || newEtaRecalculateByApi.distance() == null) {
-                    throw new RecalculateEtaException("resposta inválida da API de rotas", null);
+                    throw new RecalculateEtaException("[processNewLocation] resposta inválida da API de rotas", null);
                 }
 
                 currentDuration = newEtaRecalculateByApi.duration();
@@ -148,6 +152,10 @@ public class TravelTrackingService {
 
             } else {
                 previousEta = redisTrackingService.getPreviousEta(travel.getId().toString());
+
+                if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
+                    throw new EtaDataStatesInvalidException("[processNewLocation] dados do previousEta inválidos ou null para a viagem: " + previousEta);
+                }
 
                 long currentTimeMillis = clock.millis();
                 long timeElapsedMillis = currentTimeMillis - previousEta.timeStamp();
