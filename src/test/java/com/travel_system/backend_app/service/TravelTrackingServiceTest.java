@@ -95,14 +95,6 @@ class TravelTrackingServiceTest {
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
             when(redisTrackingService.getLiveLocation(travel.getId().toString())).thenReturn(liveLocationDTO);
 
-            doNothing().when(redisTrackingService)
-                    .storeLiveLocation(
-                            eq(travel.getId().toString()),
-                            eq(vehicleLocationRequestDTO.latitude().toString()),
-                            eq(vehicleLocationRequestDTO.longitude().toString()),
-                            eq(liveLocationDTO.distance()),
-                            eq(liveLocationDTO.geometry()));
-
             travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO);
 
             ArgumentCaptor<NewLocationReceivedEvents> captor = ArgumentCaptor.forClass(NewLocationReceivedEvents.class);
@@ -120,7 +112,14 @@ class TravelTrackingServiceTest {
 
             verify(travelRepository, times(1)).findById(any());
             verify(redisTrackingService, times(1)).getLiveLocation(anyString());
-            verify(redisTrackingService, times(1)).storeLiveLocation(anyString(), anyString(), anyString(), anyDouble(), anyString());
+
+            verify(redisTrackingService).storeLiveLocation(
+                    eq(travel.getId().toString()),
+                    eq(vehicleLocationRequestDTO.latitude().toString()),
+                    eq(vehicleLocationRequestDTO.longitude().toString()),
+                    eq(liveLocationDTO.distance()),
+                    eq(liveLocationDTO.geometry())
+            );
 
             verify(gpsDataIngestorService, times(1)).sendVehicleGps(anyString(), anyString(), any());
         }
@@ -212,6 +211,37 @@ class TravelTrackingServiceTest {
                     Arguments.of(TravelStatus.PENDING),
                     Arguments.of(TravelStatus.FINISH)
             );
+        }
+
+        @Test
+        @DisplayName("should pass 'null' from storeLiveLocation when first ping")
+        void shouldStoreNullDistanceAndGeometryOnFirstPing() {
+            UUID cityId = UUID.randomUUID();
+
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(redisTrackingService.getLiveLocation(travel.getId().toString())).thenReturn(null);
+
+            doNothing().when(redisTrackingService)
+                    .storeLiveLocation(
+                            eq(travel.getId().toString()),
+                            eq(vehicleLocationRequestDTO.latitude().toString()),
+                            eq(vehicleLocationRequestDTO.longitude().toString()),
+                            eq(null),
+                            eq(null));
+
+            travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO);
+
+            verify(redisTrackingService, times(1)).getLiveLocation(anyString());
+            verify(redisTrackingService).storeLiveLocation(
+                    eq(travel.getId().toString()),
+                    eq(vehicleLocationRequestDTO.latitude().toString()),
+                    eq(vehicleLocationRequestDTO.longitude().toString()),
+                    eq(null),
+                    eq(null)
+            );
+
         }
     }
 }
