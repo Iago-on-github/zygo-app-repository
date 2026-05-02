@@ -56,13 +56,16 @@ public class RedisTrackingService {
         Map<String, String> data = new HashMap<>();
 
         // dados cache
-        if (distance == null) {
+        if (distance != null) {
             data.put("distanceRemaining", distance.toString());
+        } else {
             logger.debug("[storeLiveLocation] distanceRemaining ausente para viagem {}, campo omitido no cache", travelId);
         }
 
-        if (geometry != null && geometry.isBlank()) {
+        if (geometry != null && !geometry.isBlank()) {
             data.put("geometry", geometry);
+        } else {
+            logger.debug("[storeLiveLocation] geometry ausente para viagem {}, campo omitido no cache", travelId);
         }
 
         // ponto de referência de onde a rota foi calculada
@@ -84,7 +87,7 @@ public class RedisTrackingService {
                             values::get
                     ));
 
-            double totalUntilNow = distance;
+            double totalUntilNow = distance != null ? distance : 0.0; // assume 0.0 como distance quando for o primero ping
             if (!oldData.isEmpty()) {
                 double oldLat = Double.parseDouble(oldData.get("last_calc_lat"));
                 double oldLng = Double.parseDouble(oldData.get("last_calc_lng"));
