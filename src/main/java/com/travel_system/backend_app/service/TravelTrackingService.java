@@ -54,6 +54,15 @@ public class TravelTrackingService {
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
     public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
+        if (cityId == null || travelId == null) {
+            throw new EmptyMandatoryFieldsFound("[markDriverCheckpoint] CityId: " + cityId + " ou TravelId " + travelId + " são obrigatorios.");
+        }
+
+        if (vehicleLocationRequest == null || vehicleLocationRequest.latitude() == null || vehicleLocationRequest.longitude() == null) {
+            throw new NoSuchCoordinates("[markDriverCheckpoint] vehicleLocationRequest null ou dados de lat/lng null para a viagem: "
+                    + travelId + " . DTO: " + vehicleLocationRequest);
+        }
+
         Double latitude = vehicleLocationRequest.latitude();
         Double longitude = vehicleLocationRequest.longitude();
         Double speed = vehicleLocationRequest.speed();
@@ -63,7 +72,7 @@ public class TravelTrackingService {
                 .orElseThrow(() -> new TripNotFound("Trip not found"));
 
         if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
-            throw new TravelException("A viagem não está em andamento");
+            throw new TravelException("A viagem " + travelId + " não está em andamento");
         }
 
         // salva no redis como última posição conhecida matendo a distance e o geometry antigos
@@ -75,6 +84,7 @@ public class TravelTrackingService {
 
         String strLatitude = String.valueOf(latitude);
         String strLongitude = String.valueOf(longitude);
+
         redisTrackingService.storeLiveLocation(String.valueOf(travelId), strLatitude, strLongitude, distance, geometry);
 
         // dispara evento de domínio
@@ -84,7 +94,8 @@ public class TravelTrackingService {
                 longitude,
                 Instant.now(),
                 travel.getTravelStatus(),
-                speed, heading);
+                speed,
+                heading);
 
         eventPublisher.publishEvent(event);
 
