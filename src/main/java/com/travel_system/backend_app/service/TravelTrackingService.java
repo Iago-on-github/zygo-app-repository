@@ -170,8 +170,11 @@ public class TravelTrackingService {
                 currentDistance = travel.getDistance();
                 currentPolyline = travel.getPolylineRoute();
             }
-        } catch (Exception e) {
-            throw new RecalculateEtaException(e.getMessage(), e.getCause());
+        } catch (RecalculateEtaException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new RecalculateEtaException(e.getMessage(), e);
         }
 
         redisTrackingService.storeLiveLocation(
