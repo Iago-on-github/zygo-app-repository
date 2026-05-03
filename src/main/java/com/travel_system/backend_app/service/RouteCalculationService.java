@@ -11,19 +11,6 @@ import java.util.List;
 
 @Service
 public class RouteCalculationService {
-
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT) de forma com que todos os cenários sejam cobertos
-     *
-     */
-
     private PolylineService polylineService;
 
     private final double TOLERANCE_DISTANCE = 50.0;
