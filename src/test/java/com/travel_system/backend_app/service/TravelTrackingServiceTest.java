@@ -9,6 +9,9 @@ import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -28,18 +31,21 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -67,12 +73,18 @@ class TravelTrackingServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
     private Clock clock;
 
     VehicleLocationRequestDTO vehicleLocationRequestDTO;
     Travel travel;
     LiveLocationDTO liveLocationDTO;
     NewLocationReceivedEvents newLocationReceivedEvents;
+    RouteDeviationDTO routeDeviationDTO;
+    RouteDetailsDTO routeDetailsDTO;
+    PreviousStateDTO previousStateDTO;
+
+    private static final long FIXED_TIMESTAMP = 1_700_000_000_000L;
 
     @BeforeEach
     void setUp() {
@@ -80,6 +92,9 @@ class TravelTrackingServiceTest {
         travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
         liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000);
         newLocationReceivedEvents = new NewLocationReceivedEvents(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), TravelStatus.TRAVELLING, 60.0, 180.0);
+        routeDeviationDTO = new RouteDeviationDTO(25.0, true, -12.972000, -38.500000);
+        routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, "encoded_polyline_example");
+        previousStateDTO = new PreviousStateDTO(1200.0, 18.5, System.currentTimeMillis());
     }
 
     @Nested
@@ -244,4 +259,97 @@ class TravelTrackingServiceTest {
 
         }
     }
+
+    @Nested
+    class processNewLocation {
+
+        @Test
+        @DisplayName("should process new location when isRouteOff returns TRUE with success")
+        void shouldProcessNewLocationWhenIsRouteOffReturnsTrueWithSuccess() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+                    .thenReturn(routeDeviationDTO);
+            when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(routeDetailsDTO);
+
+            doNothing().when(redisTrackingService).storeLiveLocation(
+                    eq(travel.getId().toString()),
+                    eq(vehicleLocationRequestDTO.latitude().toString()),
+                    eq(vehicleLocationRequestDTO.longitude().toString()),
+                    eq(routeDetailsDTO.duration()),
+                    eq(routeDetailsDTO.geometry())
+            );
+
+            doNothing().when(redisTrackingService).storeTravelMetadata(
+                    eq(travel.getId().toString()),
+                    eq(routeDetailsDTO.duration()),
+                    eq(routeDetailsDTO.distance()),
+                    eq(travel.getTravelStatus().toString())
+            );
+
+            travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+            verify(travelRepository, times(1)).findById(any());
+            verify(routeCalculationService, times(1)).isRouteDeviation(anyDouble(), anyDouble(), anyString());
+            verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+            verify(redisTrackingService, times(1)).storeLiveLocation(
+                    eq(travel.getId().toString()),
+                    eq(vehicleLocationRequestDTO.latitude().toString()),
+                    eq(vehicleLocationRequestDTO.longitude().toString()),
+                    eq(routeDetailsDTO.duration()),
+                    eq(routeDetailsDTO.geometry())
+            );
+
+            verify(redisTrackingService, times(1)).storeTravelMetadata(
+                    eq(travel.getId().toString()),
+                    eq(routeDetailsDTO.duration()),
+                    eq(routeDetailsDTO.distance()),
+                    eq(travel.getTravelStatus().toString())
+            );
+        }
+
+        @Test
+        @DisplayName("should process new location when isRouteOff returns FALSE with success")
+        void shouldProcessNewLocationWhenIsRouteOffReturnsFalseWithSuccess() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            previousStateDTO = new PreviousStateDTO(10.0, 5000.0, FIXED_TIMESTAMP - 1000L);
+
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+                    .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+            when(redisTrackingService.getPreviousEta(String.valueOf(travel.getId()))).thenReturn(previousStateDTO);
+
+            when(clock.millis()).thenReturn(FIXED_TIMESTAMP);
+
+            travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+            verify(travelRepository, times(1)).findById(any());
+            verify(routeCalculationService, times(1)).isRouteDeviation(anyDouble(), anyDouble(), anyString());
+
+            verifyNoInteractions(mapboxAPIService);
+
+            double expectedEta = 10.0 - 1.0;
+
+            verify(redisTrackingService, times(1)).storeLiveLocation(
+                    eq(travel.getId().toString()),
+                    eq(vehicleLocationRequestDTO.latitude().toString()),
+                    eq(vehicleLocationRequestDTO.longitude().toString()),
+                    eq(expectedEta),
+                    eq(travel.getPolylineRoute())
+            );
+
+            verify(redisTrackingService, times(1)).storeTravelMetadata(
+                    eq(travel.getId().toString()),
+                    eq(expectedEta),
+                    eq(travel.getDistance()),
+                    eq(travel.getTravelStatus().toString())
+            );
+        }
+
+    }
+
 }
