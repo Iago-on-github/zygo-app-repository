@@ -1,10 +1,10 @@
 package com.travel_system.backend_app.model.dtos.mapboxApi;
 
 public record LiveLocationDTO(
-        double latitude,
-        double longitude,
+        Double latitude,
+        Double longitude,
         String geometry,
-        double distance,
+        Double distance,
         Double lastCalcLat,
         Double lastCalcLng) {
 }
