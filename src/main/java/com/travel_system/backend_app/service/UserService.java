@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.EmailNotFoundException;
+import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +21,7 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
         if (username == null || username.isBlank()) {
-            throw new UsernameNotFoundException("Email não informado.");
+            throw new EmptyMandatoryFieldsFound("Email não informado.");
         }
 
         UserModel user = repository.findUserByEmail(username);
