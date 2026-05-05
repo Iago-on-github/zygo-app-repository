@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
@@ -30,12 +31,17 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.test.context.NestedTestConfiguration;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -674,6 +680,39 @@ class TravelTrackingServiceTest {
             );
         }
 
+    }
+
+    @Nested
+    class getTravelHistory {
+
+        @Test
+        @DisplayName("should get travel history with success")
+        void shouldGetTravelHistoryWithSuccess() {
+            LocationPointDTO locationPointDTO = new LocationPointDTO(-12.973456, -38.501234, Instant.now());
+
+            Page<LocationPointDTO> pageLocation = new PageImpl<>(List.of(locationPointDTO));
+
+            when(travelLocationHistoryRepository.findLatLongByTravelIdAsc(eq(travel.getId()), any(Pageable.class)))
+                    .thenReturn(pageLocation);
+
+            Page<LocationPointDTO> result = travelTrackingService.getTravelHistory(travel.getId());
+
+            assertNotNull(result);
+            assertEquals(1, result.getTotalElements());
+            assertEquals(locationPointDTO.latitude(), result.getContent().getFirst().latitude());
+            assertEquals(locationPointDTO.longitude(), result.getContent().getFirst().longitude());
+
+            verify(travelLocationHistoryRepository, times(1))
+                    .findLatLongByTravelIdAsc(eq(travel.getId()), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("throw exception when require parameter data not found")
+        void throwExceptionWhenRequireParameterDataNotFound() {
+            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.getTravelHistory(null));
+
+            verifyNoInteractions(travelLocationHistoryRepository);
+        }
     }
 
 }
