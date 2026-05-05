@@ -13,12 +13,14 @@ import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.hibernate.jdbc.BatchedTooManyRowsAffectedException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.security.InvalidParameterException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -213,7 +215,7 @@ public class TravelTrackingService {
     // endpoint de fastview - provê a loc do driver
     public LiveLocationDTO getDriverPosition(UUID travelId) {
         if (travelId == null) {
-            throw new TripNotFound("[getDriverPosition] dados de parâmetro inválidos ou null: " + travelId);
+            throw new EmptyMandatoryFieldsFound("[getDriverPosition] dados de parâmetro inválidos ou null");
         }
 
         Travel travel = travelRepository.findById(travelId)
@@ -285,6 +287,16 @@ public class TravelTrackingService {
     private LiveLocationDTO extractLiveCoordinates(UUID travelId) {
         LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(String.valueOf(travelId));
 
+        if (currentLocation == null ||
+                currentLocation.geometry() == null ||
+                currentLocation.lastCalcLat() == null ||
+                currentLocation.lastCalcLng() == null ||
+                currentLocation.latitude() == null ||
+                currentLocation.longitude() == null ||
+                currentLocation.distance() == null) {
+            throw new LiveLocationDataNotFoundException("[extractLiveCoordinates] Dados obrigatórios do liveLocation são null ou inválidos. Viagem: " + travelId);
+        }
+
         try {
             double currentLatitude = currentLocation.latitude();
             double currentLongitude = currentLocation.longitude();
@@ -295,9 +307,13 @@ public class TravelTrackingService {
                     currentLocation.geometry(),
                     currentLocation.distance(),
                     currentLocation.lastCalcLat(),
-                    currentLocation.lastCalcLng());
+                    currentLocation.lastCalcLng()
+            );
+
         } catch (Exception e) {
-            throw new LiveLocationDataNotFoundException("[extractLiveCoordinates] Dados de rastreamento corrompidos ou inválidos: " + e.getMessage());
+            throw new LiveLocationDataNotFoundException(
+                    "[extractLiveCoordinates] Dados inválidos: " + e.getMessage()
+            );
         }
     }
 }
