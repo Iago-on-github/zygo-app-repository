@@ -278,6 +278,10 @@ public class TravelTrackingService {
 
     // fornece um histórico de points salvos no banco
     public Page<LocationPointDTO> getTravelHistory(UUID travelId) {
+        if (travelId == null) {
+            throw new EmptyMandatoryFieldsFound("[getTravelHistory] Dados de parâmetros inválidos ou não encontrados");
+        }
+
         Pageable pageable = PageRequest.of(0, 100);
 
         return travelLocationHistoryRepository.findLatLongByTravelIdAsc(travelId, pageable);
