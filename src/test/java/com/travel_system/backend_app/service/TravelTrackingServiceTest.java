@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperties;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -560,6 +561,119 @@ class TravelTrackingServiceTest {
                             eq(routeDetailsDTO.distance()),
                             eq(routeDetailsDTO.geometry()));
         }
+
+        @Test
+        @DisplayName("throw exception when require parameter data is null")
+        void throwExceptionWhenRequireParameterIsNull() {
+            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.getDriverPosition(null));
+
+            verifyNoInteractions(
+                    travelRepository,
+                    routeCalculationService,
+                    redisTrackingService,
+                    mapboxAPIService
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when travel not found from database")
+        void throwExceptionWhenTravelNotFound() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+            assertThrows(TripNotFound.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+
+            verifyNoInteractions(
+                    routeCalculationService,
+                    redisTrackingService,
+                    mapboxAPIService
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when travel is not travelling")
+        @MethodSource("travelStatusProvider")
+        void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
+            travel.setTravelStatus(travelStatus);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+
+            verifyNoInteractions(
+                    routeCalculationService,
+                    redisTrackingService,
+                    mapboxAPIService
+            );
+
+            verifyNoMoreInteractions(travelRepository);
+
+        }
+
+        public static Stream<Arguments> travelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.FINISH)
+            );
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when 'getLiveLocation' parameters returns null")
+        @MethodSource("nullLiveLocationProvider")
+        void throwExceptionWhenGetLiveLocationParametersReturnsNull(LiveLocationDTO liveLocation) {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(redisTrackingService.getLiveLocation(travel.getId().toString())).thenReturn(liveLocation);
+
+            assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+
+            verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            verifyNoMoreInteractions(travelRepository, redisTrackingService);
+        }
+
+        public static Stream<Arguments> nullLiveLocationProvider() {
+            return Stream.of(
+                    Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, null, 12.5, -12.970000, -38.500000)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null)),
+                    Arguments.of((LiveLocationDTO) null)
+            );
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when the mapbox api response is invalid")
+        @MethodSource("nullCalculateRouteProvider")
+        void throwExceptionWhenTheApiResponseIsInvalid(RouteDetailsDTO RouteDetails) {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(redisTrackingService.getLiveLocation(travel.getId().toString())).
+                    thenReturn(liveLocationDTO);
+
+            when(routeCalculationService.isRouteDeviation(eq(liveLocationDTO.lastCalcLat()), eq(liveLocationDTO.lastCalcLng()), eq(liveLocationDTO.geometry())))
+                    .thenReturn(routeDeviationDTO);
+            when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(RouteDetails);
+
+            assertThrows(CalculateEtaException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+
+            verifyNoMoreInteractions(travelRepository, redisTrackingService, routeCalculationService, mapboxAPIService);
+        }
+
+        public static Stream<Arguments> nullCalculateRouteProvider() {
+            return Stream.of(
+                    Arguments.of(new RouteDetailsDTO(null, 25.0, "exemple_polyline_route")),
+                    Arguments.of(new RouteDetailsDTO(5.0, null, "exemple_polyline_route")),
+                    Arguments.of(new RouteDetailsDTO(5.0, 25.0, null)),
+                    Arguments.of((RouteDetailsDTO) null)
+            );
+        }
+
     }
 
 }
