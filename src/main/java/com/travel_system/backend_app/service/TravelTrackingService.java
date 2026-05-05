@@ -170,7 +170,7 @@ public class TravelTrackingService {
                 currentDistance = travel.getDistance();
                 currentPolyline = travel.getPolylineRoute();
             }
-        } catch (RecalculateEtaException e) {
+        } catch (RecalculateEtaException | EtaDataStatesInvalidException e) {
             throw e;
         }
         catch (Exception e) {
@@ -194,12 +194,16 @@ public class TravelTrackingService {
 
     // haverá um popup no front que perguntará se o estudante irá participar da viagem
     public void confirmEmbarkOnTravel(UUID studentId, UUID travelId) {
+        if (studentId == null || travelId == null) {
+            throw new EmptyMandatoryFieldsFound("[confirmEmbarkOnTravel] parâmetros obrigatórios null ou inválidos para a viagem: " + travelId);
+        }
+
         StudentTravel studentTravel = studentTravelRepository
                 .findByStudentIdAndTravelId(studentId, travelId)
-                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("Associação travel e student não encontrada"));
+                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[confirmEmbarkOnTravel] Associação travel e student não encontrada. Viagem: " + travelId));
 
         if (studentTravel.isEmbark()) {
-            throw new BoardingAlreadyConfirmedException("Embarque já confirmado");
+            throw new BoardingAlreadyConfirmedException("[confirmEmbarkOnTravel] Embarque já confirmado. Viagem: " + travelId);
         }
 
         studentTravel.setEmbark(true);
@@ -208,10 +212,15 @@ public class TravelTrackingService {
 
     // endpoint de fastview - provê a loc do driver
     public LiveLocationDTO getDriverPosition(UUID travelId) {
-        Travel travel = travelRepository.findById(travelId).orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada: " + travelId));
+        if (travelId == null) {
+            throw new TripNotFound("[getDriverPosition] dados de parâmetro inválidos ou null: " + travelId);
+        }
+
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new TripNotFound("[getDriverPosition] Viagem não encontrada: " + travelId));
 
         if (!(travel.getTravelStatus() == TravelStatus.TRAVELLING)) {
-            throw new TravelException("Viagem " + travelId + " não está em andamento.");
+            throw new TravelException("[getDriverPosition] Viagem " + travelId + " não está em andamento.");
         }
 
         LiveLocationDTO liveCoordinates = extractLiveCoordinates(travelId);
@@ -234,6 +243,13 @@ public class TravelTrackingService {
                     liveCoordinates.latitude(),
                     travel.getFinalLongitude(),
                     travel.getFinalLatitude());
+
+            if (routeDetailsDTO == null ||
+            routeDetailsDTO.duration() == null ||
+            routeDetailsDTO.distance() == null ||
+            routeDetailsDTO.geometry() == null) {
+                throw new CalculateEtaException("[getDriverPosition] resposta inválida da api de rotas: " + routeDetailsDTO);
+            }
 
             geometry = routeDetailsDTO.geometry();
             distance = routeDetailsDTO.distance();
@@ -281,7 +297,7 @@ public class TravelTrackingService {
                     currentLocation.lastCalcLat(),
                     currentLocation.lastCalcLng());
         } catch (Exception e) {
-            throw new LiveLocationDataNotFoundException("Dados de rastreamento corrompidos ou inválidos: " + e.getMessage());
+            throw new LiveLocationDataNotFoundException("[extractLiveCoordinates] Dados de rastreamento corrompidos ou inválidos: " + e.getMessage());
         }
     }
 }
