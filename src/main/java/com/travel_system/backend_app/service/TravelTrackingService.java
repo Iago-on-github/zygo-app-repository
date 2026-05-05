@@ -297,23 +297,17 @@ public class TravelTrackingService {
             throw new LiveLocationDataNotFoundException("[extractLiveCoordinates] Dados obrigatórios do liveLocation são null ou inválidos. Viagem: " + travelId);
         }
 
-        try {
-            double currentLatitude = currentLocation.latitude();
-            double currentLongitude = currentLocation.longitude();
+        double currentLatitude = currentLocation.latitude();
+        double currentLongitude = currentLocation.longitude();
 
-            return new LiveLocationDTO(
-                    currentLatitude,
-                    currentLongitude,
-                    currentLocation.geometry(),
-                    currentLocation.distance(),
-                    currentLocation.lastCalcLat(),
-                    currentLocation.lastCalcLng()
-            );
+        return new LiveLocationDTO(
+                currentLatitude,
+                currentLongitude,
+                currentLocation.geometry(),
+                currentLocation.distance(),
+                currentLocation.lastCalcLat(),
+                currentLocation.lastCalcLng()
+        );
 
-        } catch (Exception e) {
-            throw new LiveLocationDataNotFoundException(
-                    "[extractLiveCoordinates] Dados inválidos: " + e.getMessage()
-            );
-        }
     }
 }
