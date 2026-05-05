@@ -1,13 +1,8 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
-import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
-import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
-import com.travel_system.backend_app.exceptions.TravelException;
-import com.travel_system.backend_app.exceptions.TripNotFound;
-import com.travel_system.backend_app.model.City;
-import com.travel_system.backend_app.model.Driver;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
@@ -83,6 +78,7 @@ class TravelTrackingServiceTest {
     RouteDeviationDTO routeDeviationDTO;
     RouteDetailsDTO routeDetailsDTO;
     PreviousStateDTO previousStateDTO;
+    StudentTravel studentTravel;
 
     private static final long FIXED_TIMESTAMP = 1_700_000_000_000L;
 
@@ -95,6 +91,7 @@ class TravelTrackingServiceTest {
         routeDeviationDTO = new RouteDeviationDTO(25.0, true, -12.972000, -38.500000);
         routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, "encoded_polyline_example");
         previousStateDTO = new PreviousStateDTO(1200.0, 18.5, System.currentTimeMillis());
+        studentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), false, null, null, new GeoPosition());
     }
 
     @Nested
@@ -350,6 +347,219 @@ class TravelTrackingServiceTest {
             );
         }
 
+        @ParameterizedTest
+        @DisplayName("throw exception when require parameter data is null")
+        @MethodSource("nullParametersProvider")
+        void throwExceptionWhenRequireParameterDataIsNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
+            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+
+            verifyNoInteractions(
+                    travelRepository,
+                    routeCalculationService,
+                    mapboxAPIService,
+                    redisTrackingService);
+        }
+
+        public static Stream<Arguments> nullParametersProvider() {
+            return Stream.of(
+                    Arguments.of(new VehicleLocationRequestDTO(null, -12.973456, -38.501234, 60.0, 180.0)),
+                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
+                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0)),
+                    Arguments.of((VehicleLocationRequestDTO) null)
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when trip not found")
+        void throwExceptionWhenTripNotFound() {
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.empty());
+
+            assertThrows(TripNotFound.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+
+            verifyNoInteractions(
+                    routeCalculationService,
+                    mapboxAPIService,
+                    redisTrackingService);
+
+            verifyNoMoreInteractions(travelRepository);
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when trip is not travelling")
+        @MethodSource("travelStatusProvider")
+        void throwExceptionWhenTripIsNotTravelling(TravelStatus travelStatus) {
+            travel.setTravelStatus(travelStatus);
+
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+
+            assertThrows(TravelException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+
+            verifyNoInteractions(
+                routeCalculationService,
+                mapboxAPIService,
+                redisTrackingService);
+
+            verifyNoMoreInteractions(travelRepository);
+        }
+
+        public static Stream<Arguments> travelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.FINISH)
+            );
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when 'newEtaRecalculateByApi' is null from mapBoxAPI's call")
+        @MethodSource("nullRecalcDistanceProvider")
+        void throwExceptionWhenNewEtaRecalculateByApiIsNull(RouteDetailsDTO routeDetailsDTO) {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+                    .thenReturn(routeDeviationDTO);
+
+            when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(routeDetailsDTO);
+
+            assertThrows(RecalculateEtaException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+
+            verifyNoInteractions(redisTrackingService);
+
+            verifyNoMoreInteractions(travelRepository, routeCalculationService, mapboxAPIService);
+        }
+
+        public static Stream<Arguments> nullRecalcDistanceProvider() {
+            return Stream.of(
+                    Arguments.of(new RouteDetailsDTO(null,35.0, "encoded_polyline_example")),
+                    Arguments.of(new RouteDetailsDTO(2100.0, null, "encoded_polyline_example")),
+                    Arguments.of((RouteDetailsDTO) null)
+            );
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when previous eta is null")
+        @MethodSource("nullPreviousEtaProvider")
+        void throwExceptionWhenPreviousEtaIsNull(PreviousStateDTO previousStateDTO) {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+                    .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+            when(redisTrackingService.getPreviousEta(String.valueOf(travel.getId()))).thenReturn(previousStateDTO);
+
+            assertThrows(EtaDataStatesInvalidException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+
+            verifyNoInteractions(mapboxAPIService);
+
+            verifyNoMoreInteractions(travelRepository, routeCalculationService, redisTrackingService);
+        }
+
+        public static Stream<Arguments> nullPreviousEtaProvider() {
+            return Stream.of(
+                    Arguments.of(new PreviousStateDTO(null, 18.5, System.currentTimeMillis())),
+                    Arguments.of(new PreviousStateDTO(1200.0, 18.5, null)),
+                    Arguments.of((PreviousStateDTO) null)
+            );
+        }
+    }
+
+    @Nested
+    class confirmEmbarkOnTravel {
+
+        @Test
+        @DisplayName("should confirm student embark on travel with success")
+        void shouldConfirmStudentEmbarkOnTravelWithSuccess() {
+            UUID studentId = UUID.randomUUID();
+
+            when(studentTravelRepository.findByStudentIdAndTravelId(studentId, travel.getId()))
+                    .thenReturn(Optional.of(studentTravel));
+
+            travelTrackingService.confirmEmbarkOnTravel(studentId, travel.getId());
+
+            ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+            verify(studentTravelRepository, times(1)).save(studentTravelCaptor.capture());
+            StudentTravel storedValue = studentTravelCaptor.getValue();
+
+            assertTrue(storedValue.isEmbark());
+        }
+
+        @ParameterizedTest
+        @DisplayName("throw exception when require parameters are null")
+        @MethodSource("nullRequireParametersProvider")
+        void throwExceptionWhenRequireParametersAreNull(UUID studentId, UUID travelId) {
+            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.confirmEmbarkOnTravel(studentId, travelId));
+
+            verifyNoInteractions(studentTravelRepository);
+        }
+
+        public static Stream<Arguments> nullRequireParametersProvider() {
+            return Stream.of(
+                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of( UUID.randomUUID(), null),
+                    Arguments.of(null, null)
+            );
+        }
+
+        @Test
+        @DisplayName("throw exception when association travel and student not found from database")
+        void throwExceptionWhenStudentTravelAssociationNotFound() {
+            UUID studentId = UUID.randomUUID();
+            when(studentTravelRepository.findByStudentIdAndTravelId(studentId, travel.getId()))
+                    .thenReturn(Optional.empty());
+
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelTrackingService.confirmEmbarkOnTravel(studentId, travel.getId()));
+
+            verifyNoMoreInteractions(studentTravelRepository);
+        }
+
+        @Test
+        @DisplayName("throw exception when student already embark on this trip")
+        void throwExceptionWhenStudentAlreadyEmbarkOnTrip() {
+            UUID studentId = UUID.randomUUID();
+            StudentTravel mockStudentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), true, null, null, new GeoPosition());
+
+            when(studentTravelRepository.findByStudentIdAndTravelId(studentId, travel.getId()))
+                    .thenReturn(Optional.of(mockStudentTravel));
+
+            assertThrows(BoardingAlreadyConfirmedException.class, () -> travelTrackingService.confirmEmbarkOnTravel(studentId, travel.getId()));
+
+            verifyNoMoreInteractions(studentTravelRepository);
+        }
+    }
+
+    @Nested
+    class getDriverPosition {
+
+        @Test
+        @DisplayName("should get driver position with success")
+        void shouldGetDriverPositionWithSuccess() {
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(redisTrackingService.getLiveLocation(travel.getId().toString())).
+                    thenReturn(liveLocationDTO);
+
+            when(routeCalculationService.isRouteDeviation(eq(liveLocationDTO.lastCalcLat()), eq(liveLocationDTO.lastCalcLng()), eq(liveLocationDTO.geometry())))
+                    .thenReturn(routeDeviationDTO);
+            when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+                    .thenReturn(routeDetailsDTO);
+
+            LiveLocationDTO result = travelTrackingService.getDriverPosition(travel.getId());
+
+            assertEquals(result.latitude(), liveLocationDTO.latitude());
+            assertEquals(result.longitude(), liveLocationDTO.longitude());
+            assertEquals(result.geometry(), routeDetailsDTO.geometry());
+            assertEquals(result.distance(), routeDetailsDTO.distance());
+
+            verify(redisTrackingService, times(1))
+                    .storeLiveLocation(eq(travel.getId().toString()),
+                            eq(String.valueOf(liveLocationDTO.latitude())),
+                            eq(String.valueOf(liveLocationDTO.longitude())),
+                            eq(routeDetailsDTO.distance()),
+                            eq(routeDetailsDTO.geometry()));
+        }
     }
 
 }
