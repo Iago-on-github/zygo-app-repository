@@ -159,10 +159,10 @@ public class RedisTrackingService {
 
         try {
             return new LiveLocationDTO(
-                    latitude != null ? Double.parseDouble(latitude) : 0.0,
-                    longitude != null ? Double.parseDouble(longitude) : 0.0,
+                    latitude != null ? Double.parseDouble(latitude) : null,
+                    longitude != null ? Double.parseDouble(longitude) : null,
                     geometry,
-                    distance != null ? Double.parseDouble(distance) : 0.0,
+                    distance != null ? Double.parseDouble(distance) : null,
                     lastCalcLat != null ? Double.parseDouble(lastCalcLat) : null,
                     lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null);
         } catch (NumberFormatException e) {
