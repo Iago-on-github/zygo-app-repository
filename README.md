@@ -1,10 +1,10 @@
-# 🚀 Zygo | Monitoramento para viagens universiátias
+# Zygo | Monitoramento para viagens Universitárias
 
 Bem-vindo ao repositório de documentação do **Zygo**. Este espaço detalha as decisões de engenharia, padrões de arquitetura e a stack tecnológica utilizada na construção de uma plataforma SaaS voltada para a gestão e rastreio geolocalizado de frotas universitárias.
 
 ---
 
-## 📌 Visão Geral: O Problema
+## Visão Geral: O Problema
 Atualmente, alunos que dependem do transporte universitário vivem "reféns" de si mesmos devido a um fluxo de informações ineficiente e manual:
 
 * **Dependência de Mensagens:** Necessidade de compartilhar localizações manualmente e perguntar constantemente em grupos sobre o paradeiro do transporte.
@@ -13,7 +13,7 @@ Atualmente, alunos que dependem do transporte universitário vivem "reféns" de 
 
 ---
 
-## 💡 A Solução
+##  A Solução
 O **Zygo** vem com a premissa de eliminar a dependência de mensagens manuais e a vigilância constante, centralizando as responsabilidades no sistema com poucos cliques. Algumas das funcionalidades destaque do **Zygo**:
 
 1. **Mapa em Tempo Real:** Visualização instantânea via streaming de dados, permitindo autonomia total ao aluno.
@@ -23,7 +23,7 @@ O **Zygo** vem com a premissa de eliminar a dependência de mensagens manuais e 
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## Arquitetura do Sistema
 O **Zygo** utiliza uma arquitetura baseada no Event-Driven-Design (EDD), utilizando RabbitMQ com o protocolo MQTT para sustentar o fluxo de dados em tempo real, garantindo a entrega estratégica e eficiente da telemetria aos usuários finais. 
 
 ```mermaid
