@@ -23,6 +23,12 @@ public class TravelTrackingController {
         this.travelTrackingService = travelTrackingService;
     }
 
+    @PostMapping("/locationUpdate/{cityId}/{travelId}")
+    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
+        travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/{travelId}/location")
     public ResponseEntity<Void> processNewLocation(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.processNewLocation(vehicleLocationRequest);
@@ -38,12 +44,6 @@ public class TravelTrackingController {
     @GetMapping("/fastview/{travelId}")
     public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
-    }
-
-    @PostMapping("/locationUpdate/{cityId}/{travelId}")
-    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
-        travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
-        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{travelId}/historyPoints")
