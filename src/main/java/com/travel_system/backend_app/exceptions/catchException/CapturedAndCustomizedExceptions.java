@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.exceptions.catchException;
 
-import com.travel_system.backend_app.exceptions.InvalidJwtAuthenticationToken;
+import com.google.api.Http;
+import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,13 +15,39 @@ import java.time.LocalDate;
 public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(InvalidJwtAuthenticationToken.class)
-    public final ResponseEntity<StandardError> invalidJwtAuthenticationException(Exception ex, WebRequest webRequest) {
+    public final ResponseEntity<StandardError> invalidJwtAuthenticationException(InvalidJwtAuthenticationToken ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(EmptyMandatoryFieldsFound.class)
+    public final ResponseEntity<StandardError> emptyMandatoryFieldsException(EmptyMandatoryFieldsFound ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(NoSuchCoordinates.class)
+    public final ResponseEntity<StandardError> noSuchCoordinatesException(NoSuchCoordinates ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(TripNotFound.class)
+    public final ResponseEntity<StandardError> tripNotFoundException(TripNotFound ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(TravelException.class)
+    public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
         StandardError standardError = new StandardError(
                 LocalDate.now(),
-                HttpStatus.FORBIDDEN.value(),
+                httpStatus.value(),
                 ex.getMessage(),
-                webRequest.getDescription(false));
+                webRequest.getDescription(false)
+        );
 
-        return new ResponseEntity<>(standardError, HttpStatus.FORBIDDEN);
+        return ResponseEntity.status(httpStatus).body(standardError);
     }
+
 }
