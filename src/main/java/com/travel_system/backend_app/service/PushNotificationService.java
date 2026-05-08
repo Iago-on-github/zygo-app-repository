@@ -368,9 +368,9 @@ public class PushNotificationService {
 
     private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, LiveLocationDTO lastRecentPosition) {
         String geometry = lastRecentPosition != null ? lastRecentPosition.geometry() : null;
-        double distance = lastRecentPosition != null ? lastRecentPosition.distance() : 0.0;
-        double lastCalcLat = lastRecentPosition != null ? lastRecentPosition.lastCalcLat() : 0.0;
-        double lastCalcLng = lastRecentPosition != null ? lastRecentPosition.lastCalcLng() : 0.0;
+        double distance = (lastRecentPosition != null && lastRecentPosition.distance() != null) ? lastRecentPosition.distance() : 0.0;
+        double lastCalcLat = (lastRecentPosition != null && lastRecentPosition.lastCalcLat() != null) ? lastRecentPosition.lastCalcLat() : 0.0;
+        double lastCalcLng = (lastRecentPosition != null && lastRecentPosition.lastCalcLng() != null) ? lastRecentPosition.lastCalcLng() : 0.0;
 
         return new LiveLocationDTO(
                 latitude,
