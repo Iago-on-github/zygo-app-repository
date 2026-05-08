@@ -16,6 +16,9 @@ public class City {
     private CitySize size;
     private boolean isActive = true;
 
+    public City() {
+    }
+
     public City(UUID id, String name, CitySize size, boolean isActive) {
         this.id = id;
         this.name = name;
