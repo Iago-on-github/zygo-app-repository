@@ -14,6 +14,8 @@ import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.hibernate.jdbc.BatchedTooManyRowsAffectedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,6 +38,8 @@ public class TravelTrackingService {
     private final StudentTravelRepository studentTravelRepository;
     private final GpsDataIngestorService gpsDataIngestorService;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
+
+    private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
 
     private final ApplicationEventPublisher eventPublisher;
 
