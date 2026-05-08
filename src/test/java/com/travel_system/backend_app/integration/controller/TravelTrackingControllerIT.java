@@ -6,16 +6,20 @@ import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.MovementState;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.CityRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.service.GpsDataIngestorService;
+import com.travel_system.backend_app.service.RedisTrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,8 +59,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
     private DriverRepository driverRepository;
     @Autowired
     private PermissionsRepository permissionsRepository;
-    @Autowired
-    private GpsDataIngestorService gpsDataIngestorService;
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
@@ -152,6 +154,9 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("should process full location flow async after first ping (offRoute path)")
             void shouldProcessLocationAfterFirstPingAsync() throws Exception {
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
+
                 // dispara o checkpoint que publica o evento async
                 mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -175,6 +180,76 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 assertEquals("5000.0", savedDistanceRemaining);
                 assertEquals("1200.0", savedDurationRemaining);
                 assertEquals("TRAVELLING", savedStatus);
+            }
+
+            // validar se é possível um teste para quando N É o firstPing
+
+            @Test
+            @DisplayName("should recalculate eta internally when vehicle is not offRoute ")
+            void shouldRecalculateEtaInternallyWhenVehicleIsNotOffRoute() throws Exception {
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
+
+                String key = "travelId:" + travelId;
+
+                redisTemplate.opsForHash().put(key, "timestamp", Instant.now().toString());
+                redisTemplate.opsForHash().put(key, "durationRemaining", "100.0");
+                redisTemplate.opsForHash().put(key, "distanceRemaining", "500.0");
+
+                mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andExpect(status().isOk());
+
+                await().atMost(2, SECONDS).untilAsserted(() -> {
+                    assertNotNull(redisTemplate.opsForHash().get(key, "durationRemaining"));
+                    assertNotNull(redisTemplate.opsForHash().get(key, "distanceRemaining"));
+
+                    verifyNoInteractions(mapboxAPIService);
+                });
+            }
+
+            @Test
+            @DisplayName("should process location after second (or more) ping")
+            void shouldProcessLocationAfterSecondPingOrMore() throws Exception {
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
+
+                String key = "travelId:" + travelId;
+
+                // getLastLocation
+                redisTemplate.opsForHash().put(key, "last_ping_lat", "12.974");
+                redisTemplate.opsForHash().put(key, "last_ping_lng", "-38.501");
+                redisTemplate.opsForHash().put(key, "last_ping_timestamp", String.valueOf(Instant.now()
+                        .minusSeconds(10).toEpochMilli()));
+
+                // getLastMovementState
+                redisTemplate.opsForHash().put(key, "movementState", MovementState.NORMAL.name());
+                redisTemplate.opsForHash().put(key, "stateStartedAt", Instant.now().toString());
+
+                // getPreviousEta
+                redisTemplate.opsForHash().put(key, "etaTimestamp", String.valueOf(Instant.now()
+                        .minusSeconds(35).toEpochMilli()));
+                redisTemplate.opsForHash().put(key, "durationRemaining", "100.0");
+                redisTemplate.opsForHash().put(key, "distanceRemaining", "500.0");
+
+                mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andExpect(status().isOk());
+
+                await().atMost(5, SECONDS).untilAsserted(() -> {
+                    String movementState = (String) redisTemplate.opsForHash().get(key, "movementState");
+                    double updatedDuration = Double.parseDouble((String) Objects.requireNonNull(redisTemplate.opsForHash()
+                            .get(key, "durationRemaining")));
+                    double updateDistance = Double.parseDouble((String) Objects.requireNonNull(redisTemplate.opsForHash()
+                            .get(key, "distanceRemaining")));
+
+                    assertNotNull(movementState);
+
+                    assertTrue(updatedDuration >= 0);
+                    assertTrue(updateDistance >= 0);
+                });
             }
         }
 
@@ -270,8 +345,65 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 assertEquals(String.valueOf(requestDTO.latitude()), redisHash.get(key, "last_calc_lat"));
                 assertEquals(String.valueOf(requestDTO.longitude()), redisHash.get(key, "last_calc_lng"));
             }
-        }
 
+            @ParameterizedTest
+            @DisplayName("throw exception when mapbox returns routeDetails with null or invalid fields ")
+            @MethodSource("nullRouteDetailsProvider")
+            void throwExceptionWhenMapboxReturnsInvalidRouteDetails(RouteDetailsDTO routeDetailsDTO) throws Exception {
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+
+                mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andExpect(status().isOk());
+
+                String key = "travelId:" + travelId;
+
+                // aguarda metodo async rodar e o salvamento incial
+                await().atMost(3, SECONDS).untilAsserted(() -> {
+                    String savedLat =  (String) redisTemplate.opsForHash().get(key, "last_calc_lat");
+                    assertEquals(requestDTO.latitude().toString(), savedLat);
+                });
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // redis metada não deve existir nesse contexto
+                assertNull(hashOps.get(key, "distanceRemaining"));
+                assertNull(hashOps.get(key, "durationRemaining"));
+            }
+
+            public static Stream<Arguments> nullRouteDetailsProvider() {
+                return Stream.of(
+                        Arguments.of(new RouteDetailsDTO(null, 1002.0, "encoded_polyline_route")),
+                        Arguments.of(new RouteDetailsDTO(50.8, null, "encoded_polyline_route")),
+                        Arguments.of((RouteDetailsDTO) null)
+                );
+            }
+
+            @Test
+            @DisplayName("throw exception and not processing when previousETA returns null fields from Redis")
+            void shouldStopProcessingWhenPreviousEtaIsInvalidAndThrowException() throws Exception {
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
+
+                mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andExpect(status().isOk());
+
+                String key = "travelId:" + travelId;
+
+                // aguarda execucao do metodo async e salvamento no banco
+                await().during(2, SECONDS)
+                        .atMost(3, SECONDS).untilAsserted(() -> {
+                            assertNull(redisTemplate.opsForHash().get(key, "distanceRemaining"));
+                            assertNull(redisTemplate.opsForHash().get(key, "durationRemaining"));
+                        });
+
+                verifyNoInteractions(mapboxAPIService);
+            }
+        }
 
     }
 }
