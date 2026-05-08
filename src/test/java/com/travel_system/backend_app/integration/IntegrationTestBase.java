@@ -1,14 +1,18 @@
 package com.travel_system.backend_app.integration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travel_system.backend_app.config.FirebaseConfig;
+import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.service.MapboxAPIService;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
+import com.travel_system.backend_app.utils.FirebaseNotificationSender;
+import okhttp3.Route;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -17,9 +21,13 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 import org.testcontainers.utility.DockerImageName;
 
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
+
+@ActiveProfiles("test")
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
@@ -36,6 +44,12 @@ public abstract class IntegrationTestBase {
 
     @MockitoBean
     protected MapboxAPIService mapboxAPIService; // evita chamada externa da api
+
+    @MockitoBean
+    private FirebaseConfig firebaseConfig; // evita conexão real com o firebase
+
+    @MockitoBean
+    private FirebaseNotificationSender firebaseNotificationSender;
 
     private static final DockerImageName POSTGRES_IMAGE =
             DockerImageName.parse("postgres:15")
