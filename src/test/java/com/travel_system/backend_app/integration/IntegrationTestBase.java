@@ -5,6 +5,8 @@ import com.travel_system.backend_app.config.FirebaseConfig;
 import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.service.MapboxAPIService;
+import com.travel_system.backend_app.service.RedisTrackingService;
+import com.travel_system.backend_app.service.RouteCalculationService;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import okhttp3.Route;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,10 +48,14 @@ public abstract class IntegrationTestBase {
     protected MapboxAPIService mapboxAPIService; // evita chamada externa da api
 
     @MockitoBean
-    private FirebaseConfig firebaseConfig; // evita conexão real com o firebase
+    protected FirebaseConfig firebaseConfig; // evita conexão real com o firebase
 
     @MockitoBean
-    private FirebaseNotificationSender firebaseNotificationSender;
+    protected FirebaseNotificationSender firebaseNotificationSender;
+
+    @MockitoBean
+    protected RouteCalculationService routeCalculationService;
+
 
     private static final DockerImageName POSTGRES_IMAGE =
             DockerImageName.parse("postgres:15")
