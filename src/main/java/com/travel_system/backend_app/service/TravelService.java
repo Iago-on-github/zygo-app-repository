@@ -239,7 +239,7 @@ public class TravelService {
     }
 
     public Set<StudentTravelResponseDTO> linkedStudentTravel(UUID travelId) {
-        Travel travel = travelRepository.findById(travelId)
+        Travel travel = travelRepository.findByIdWithStudents(travelId)
                 .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada: " + travelId));
 
         Set<StudentTravel> linkedStudents = travel.getStudentTravels();
