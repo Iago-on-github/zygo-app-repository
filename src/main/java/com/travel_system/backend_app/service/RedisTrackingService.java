@@ -123,13 +123,13 @@ public class RedisTrackingService {
         if (travelId == null) return null;
         String key = HASH_KEY_PREFIX + travelId;
 
-        List<String> consultData = hashOperations.multiGet(key, Arrays.asList("durationRemaining", "distanceRemaining", "timestamp"));
+        List<String> consultData = hashOperations.multiGet(key, Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp"));
 
         String durationRemaining = consultData.get(0);
         String distance = consultData.get(1);
         String timestampLastPing = consultData.get(2);
 
-        logger.info("[getPreviousETA] - durationRemaining: {} {} {}", durationRemaining + " distance: ", distance + " timestampLastPing: ", timestampLastPing );
+        logger.info("[getPreviousETA] - durationRemaining: {} {} {}", durationRemaining + " distanceRemaining: ", distance + " etaTimestamp: ", timestampLastPing);
 
         return new PreviousStateDTO(
                 durationRemaining != null ? Double.parseDouble(durationRemaining) : null,
@@ -178,7 +178,7 @@ public class RedisTrackingService {
         String key = HASH_KEY_PREFIX + travelId;
 
         // read hash
-        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("last_ping_lat", "last_ping_lng", "timestamp"));
+        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("last_ping_lat", "last_ping_lng", "last_ping_timestamp"));
 
         String lastPingLat = hashFields.get(0);
         String lastPingLng = hashFields.get(1);
@@ -220,6 +220,8 @@ public class RedisTrackingService {
         String cacheStateStartedAt = hashFields.get(1);
         String cacheLastNotificationSendAt = hashFields.get(2);
         String cacheLastEtaNotificationAt = hashFields.get(3);
+
+        logger.error("[getLastMovementState] movementState: {}, stateStartedAt: {} ", cacheMovementState, cacheStateStartedAt);
 
         // if not exists = first ping
         if (cacheMovementState == null || cacheStateStartedAt == null) {
