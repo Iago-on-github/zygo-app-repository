@@ -214,6 +214,8 @@ public class TravelTrackingService {
 
         studentTravel.setEmbark(true);
         studentTravelRepository.save(studentTravel);
+
+        logger.info("[confirmEmbarkOnTravel] embarque do estudante: {} confirmado com sucesso para a viagem: {} ", studentId, travelId);
     }
 
     // endpoint de fastview - provê a loc do driver
