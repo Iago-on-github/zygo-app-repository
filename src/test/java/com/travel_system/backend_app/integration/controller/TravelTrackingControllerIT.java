@@ -1,23 +1,15 @@
 package com.travel_system.backend_app.integration.controller;
 
 import com.travel_system.backend_app.integration.IntegrationTestBase;
-import com.travel_system.backend_app.model.City;
-import com.travel_system.backend_app.model.Driver;
-import com.travel_system.backend_app.model.Permissions;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.model.enums.CitySize;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.MovementState;
-import com.travel_system.backend_app.model.enums.TravelStatus;
-import com.travel_system.backend_app.repository.CityRepository;
-import com.travel_system.backend_app.repository.DriverRepository;
-import com.travel_system.backend_app.repository.PermissionsRepository;
-import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
+import com.travel_system.backend_app.model.enums.*;
+import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.GpsDataIngestorService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +22,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
@@ -46,6 +41,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,6 +57,12 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
     private DriverRepository driverRepository;
     @Autowired
     private PermissionsRepository permissionsRepository;
+    @Autowired
+    private StudentTravelRepository studentTravelRepository;
+    @Autowired
+    private StudentRepository studentRepository;
+    @Autowired
+    private TravelLocationHistoryRepository travelLocationHistoryRepository;
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
@@ -70,8 +72,10 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         doReturn(new RouteDetailsDTO(1200.0, 5000.0, "~shnC~_rcL_@v@m@p@y@r@"))
                 .when(mapboxAPIService).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
 
-        // limpa a cada teste
+        // limpa a cada teste (obs: a ordem É IMPORTANTE)
+        studentTravelRepository.deleteAll();
         travelRepository.deleteAll();
+        studentRepository.deleteAll();
         cityRepository.deleteAll();
         driverRepository.deleteAll();
         permissionsRepository.deleteAll();
@@ -414,6 +418,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         UUID cityId;
         UUID travelId;
         Travel travel;
+        StudentTravel studentTravel;
+        Student student;
 
         @BeforeEach
         void setUp() {
@@ -433,6 +439,22 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             driver.setPermissions(List.of(permission));
             driverRepository.save(driver);
 
+            student = new Student(
+                    null,
+                    "student@gmail.com",
+                    "senhaSegura123",
+                    "Student",
+                    "Teste",
+                    "75999999999",
+                    "teste_img",
+                    GeneralStatus.ACTIVE,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    InstitutionType.UNIVERSITY,
+                    "Ciência da Computação"
+            );
+            studentRepository.save(student);
+
             travel = new Travel(
                     null, city, TravelStatus.TRAVELLING, driver,
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
@@ -440,9 +462,16 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     -12.9714, -38.5016,
                     -12.8000, -38.4000
             );
+
             travelRepository.save(travel);
             travel.setStudentTravels(new HashSet<>());
             travelId = travel.getId();
+
+            studentTravel = new StudentTravel();
+            studentTravel.setStudent(student);
+            studentTravel.setEmbark(false);
+            studentTravel.setTravel(travel);
+            studentTravelRepository.save(studentTravel);
         }
 
         @Nested
@@ -633,5 +662,198 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 );
             }
         }
+    }
+
+    @Nested
+    class confirmEmbarkOnTravel {
+        UUID cityId;
+        UUID travelId;
+        Travel travel;
+        StudentTravel studentTravel;
+        Student student;
+
+        @BeforeEach
+        void setUp() {
+            Permissions permission = new Permissions("ROLE_DRIVER");
+            permissionsRepository.save(permission);
+
+            City city = new City(null, "Salvador", CitySize.TOWN, true);
+            cityRepository.save(city);
+            cityId = city.getId();
+
+            Driver driver = new Driver(
+                    null, "driver@test.com", "encoded_pass",
+                    "João", "Silva", "71999999999",
+                    null, GeneralStatus.ACTIVE,
+                    LocalDateTime.now(), LocalDateTime.now(),
+                    "Salvador", 0, new ArrayList<>());
+            driver.setPermissions(List.of(permission));
+            driverRepository.save(driver);
+
+            student = new Student(
+                    null,
+                    "student@gmail.com",
+                    "senhaSegura123",
+                    "Student",
+                    "Teste",
+                    "75999999999",
+                    "teste_img",
+                    GeneralStatus.ACTIVE,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    InstitutionType.UNIVERSITY,
+                    "Ciência da Computação"
+            );
+            studentRepository.save(student);
+
+            travel = new Travel(
+                    null, city, TravelStatus.TRAVELLING, driver,
+                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
+                    3600.0, 15000.0,
+                    -12.9714, -38.5016,
+                    -12.8000, -38.4000
+            );
+
+            travelRepository.save(travel);
+            travel.setStudentTravels(new HashSet<>());
+            travelId = travel.getId();
+
+            studentTravel = new StudentTravel();
+            studentTravel.setStudent(student);
+            studentTravel.setEmbark(false);
+            studentTravel.setTravel(travel);
+            studentTravelRepository.save(studentTravel);
+        }
+
+        @Test
+        void shouldConfirmStudentEmbarkOnTravelWithSuccess() throws Exception {
+            travel.setStudentTravels(Set.of(studentTravel));
+            travelRepository.save(travel);
+
+            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+
+            StudentTravel update = studentTravelRepository.findByStudentIdAndTravelId(student.getId(), travelId).orElseThrow();
+
+            assertTrue(update.isEmbark());
+        }
+
+        @Test
+        void throwExceptionWhenTravelStudentAssociationNotFound() throws Exception {
+            studentTravel.setTravel(null);
+            studentTravelRepository.save(studentTravel);
+
+            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+
+        }
+
+        @Test
+        @DisplayName("throw exception when student already embark on trip, and student-travel association exists")
+        void throwExceptionWhenStudentAlreadyEmbark() throws Exception {
+            studentTravel.setTravel(travel);
+            studentTravel.setEmbark(true);
+            studentTravelRepository.save(studentTravel);
+
+            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
+
+        }
+    }
+
+    @Nested
+    class getTravelHistory {
+        UUID cityId;
+        UUID travelId;
+        Travel travel;
+        StudentTravel studentTravel;
+        Student student;
+
+        @BeforeEach
+        void setUp() {
+            Permissions permission = new Permissions("ROLE_DRIVER");
+            permissionsRepository.save(permission);
+
+            City city = new City(null, "Salvador", CitySize.TOWN, true);
+            cityRepository.save(city);
+            cityId = city.getId();
+
+            Driver driver = new Driver(
+                    null, "driver@test.com", "encoded_pass",
+                    "João", "Silva", "71999999999",
+                    null, GeneralStatus.ACTIVE,
+                    LocalDateTime.now(), LocalDateTime.now(),
+                    "Salvador", 0, new ArrayList<>());
+            driver.setPermissions(List.of(permission));
+            driverRepository.save(driver);
+
+            student = new Student(
+                    null,
+                    "student@gmail.com",
+                    "senhaSegura123",
+                    "Student",
+                    "Teste",
+                    "75999999999",
+                    "teste_img",
+                    GeneralStatus.ACTIVE,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    InstitutionType.UNIVERSITY,
+                    "Ciência da Computação"
+            );
+            studentRepository.save(student);
+
+            travel = new Travel(
+                    null, city, TravelStatus.TRAVELLING, driver,
+                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
+                    3600.0, 15000.0,
+                    -12.9714, -38.5016,
+                    -12.8000, -38.4000
+            );
+
+            travelRepository.save(travel);
+            travel.setStudentTravels(new HashSet<>());
+            travelId = travel.getId();
+
+            studentTravel = new StudentTravel();
+            studentTravel.setStudent(student);
+            studentTravel.setEmbark(false);
+            studentTravel.setTravel(travel);
+            studentTravelRepository.save(studentTravel);
+        }
+
+        @Test
+        void shouldGetTravelHistoryWithSuccess() throws Exception {
+            TravelLocationHistory history = new TravelLocationHistory(
+                    travelId, cityId,
+                    -12.973456, -38.501234,
+                    Instant.now());
+
+            travelLocationHistoryRepository.save(history);
+
+            mockMvc.perform(get("/travel/tracking/{travelId}/historyPoints", travelId)
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andDo(print())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content[0].latitude").value(-12.973456))
+                    .andExpect(jsonPath("$.content[0].longitude").value(-38.501234))
+                    .andExpect(jsonPath("$.page.totalElements").value(1));
+        }
+
+        @Test
+        void shouldReturnAnEmptyPageWhenHistoricAreNull() throws Exception {
+            mockMvc.perform(get("/travel/tracking/{travelId}/historyPoints", travelId)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content").isEmpty())
+                    .andExpect(jsonPath("$.page.totalElements").value(0))
+                    .andExpect(jsonPath("$.page.totalPages").value(0));
+        }
+
     }
 }
