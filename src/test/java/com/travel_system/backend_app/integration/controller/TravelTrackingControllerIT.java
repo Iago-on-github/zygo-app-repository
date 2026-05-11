@@ -44,7 +44,9 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class TravelTrackingControllerIT extends IntegrationTestBase {
@@ -405,5 +407,197 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             }
         }
 
+    }
+
+    @Nested
+    class getDriverPosition {
+        UUID cityId;
+        UUID travelId;
+        Travel travel;
+
+        @BeforeEach
+        void setUp() {
+            Permissions permission = new Permissions("ROLE_DRIVER");
+            permissionsRepository.save(permission);
+
+            City city = new City(null, "Salvador", CitySize.TOWN, true);
+            cityRepository.save(city);
+            cityId = city.getId();
+
+            Driver driver = new Driver(
+                    null, "driver@test.com", "encoded_pass",
+                    "João", "Silva", "71999999999",
+                    null, GeneralStatus.ACTIVE,
+                    LocalDateTime.now(), LocalDateTime.now(),
+                    "Salvador", 0, new ArrayList<>());
+            driver.setPermissions(List.of(permission));
+            driverRepository.save(driver);
+
+            travel = new Travel(
+                    null, city, TravelStatus.TRAVELLING, driver,
+                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
+                    3600.0, 15000.0,
+                    -12.9714, -38.5016,
+                    -12.8000, -38.4000
+            );
+            travelRepository.save(travel);
+            travel.setStudentTravels(new HashSet<>());
+            travelId = travel.getId();
+        }
+
+        @Nested
+        class successTestScenarios {
+
+            @Test
+            @DisplayName("should return driver position when isRouteOff returns TRUE with success")
+            void shouldReturnDriverPositonWhenIsRouteOffReturnsTrueWithSuccess() throws Exception {
+                String key = "travelId:" + travelId;
+
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
+                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
+
+                // getLiveLocation
+                redisTemplate.opsForHash().put(key, "lat", "-13.432");
+                redisTemplate.opsForHash().put(key, "lng", "-39.843");
+                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
+                redisTemplate.opsForHash().put(key, "distance", "500.0");
+                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
+                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
+
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.latitude").value(-13.432))
+                        .andExpect(jsonPath("$.longitude").value(-39.843))
+                        .andExpect(jsonPath("$.geometry").value("new_encoded_polyline"))
+                        .andExpect(jsonPath("$.distance").value(5000.0));
+
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                assertEquals("new_encoded_polyline", hashOps.get(key, "geometry"));
+                assertEquals("5000.0", hashOps.get(key, "distanceRemaining"));
+                assertEquals("-13.432", hashOps.get(key, "last_calc_lat"));
+                assertEquals("-39.843", hashOps.get(key, "last_calc_lng"));
+            }
+
+            @Test
+            @DisplayName("should return driver position when isRouteOff returns FALSE with success")
+            void shouldReturnDriverPositionWhenIsRouteOffReturnsFalseWithSuccess() throws Exception {
+                String key = "travelId:" + travelId;
+
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
+
+                // getLiveLocation
+                redisTemplate.opsForHash().put(key, "lat", "-13.432");
+                redisTemplate.opsForHash().put(key, "lng", "-39.843");
+                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
+                redisTemplate.opsForHash().put(key, "distance", "500.0");
+                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
+                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
+
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk());
+
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                assertEquals("encoded_polyline_route", hashOps.get(key, "geometry"));
+                assertEquals("500.0", hashOps.get(key, "distance"));
+                assertEquals("12.974", hashOps.get(key, "last_calc_lat"));
+                assertEquals("-38.501", hashOps.get(key, "last_calc_lng"));
+
+                verifyNoMoreInteractions(mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("should recalculate route when Geometry data is null")
+            void shouldRecalculateRouteWhenGeometryDataIsNull() throws Exception {
+                String key = "travelId:" + travelId;
+
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
+                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
+
+                // getLiveLocation
+                redisTemplate.opsForHash().put(key, "lat", "-13.432");
+                redisTemplate.opsForHash().put(key, "lng", "-39.843");
+                // aqui não envia o geometry para o redis tratar como null
+                redisTemplate.opsForHash().put(key, "distance", "500.0");
+                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
+                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
+
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.latitude").value(-13.432))
+                        .andExpect(jsonPath("$.longitude").value(-39.843))
+                        .andExpect(jsonPath("$.distance").value(5000.0));
+
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                assertEquals("new_encoded_polyline", hashOps.get(key, "geometry"));
+                assertEquals("5000.0", hashOps.get(key, "distanceRemaining"));
+                assertEquals("-13.432", hashOps.get(key, "last_calc_lat"));
+                assertEquals("-39.843", hashOps.get(key, "last_calc_lng"));
+            }
+        }
+
+        @Nested
+        class failureTestScenarios {
+
+            @ParameterizedTest
+            @DisplayName("throw exception when require data provides by liveLocation (redis) is null or invalid")
+            @MethodSource("nullCurrentLocationProvider")
+            void throwExceptionWhenRequireDataForLiveLocationIsNullOrInvalid(Map<String, String> redisData) throws Exception {
+                String key = "travelId:" + travelId;
+
+                redisData.forEach((field, value) -> redisTemplate.opsForHash().put(key, field, value));
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId))
+                        .andExpect(status().isNotFound());
+
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            }
+
+            public static Stream<Arguments> nullCurrentLocationProvider() {
+                return Stream.of(
+                        Arguments.of(Map.of("lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
+                        Arguments.of(Map.of("lat", "-12.973456", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
+                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
+                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lng", "-38.5017")),
+                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728")),
+                        Arguments.of(Map.of())
+                );
+            }
+
+            @Test
+            void throwExceptionWhenTravelNotFound() throws Exception {
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", UUID.randomUUID()))
+                        .andExpect(status().isNotFound());
+
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            }
+
+            @Test
+            void throwExceptionWhenTravelIsNotTravelling() throws Exception {
+                travel.setTravelStatus(TravelStatus.FINISH);
+                travelRepository.save(travel);
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId))
+                        .andExpect(status().isConflict());
+
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            }
+        }
     }
 }
