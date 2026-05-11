@@ -257,6 +257,8 @@ public class TravelTrackingService {
                 throw new CalculateEtaException("[getDriverPosition] resposta inválida da api de rotas: " + routeDetailsDTO);
             }
 
+            logger.info("[getDriverPosition] recalculo de ROTA - API respondeu com dados válidos, começando processamento de dados no Redis. Viagem: {} ", travelId);
+
             geometry = routeDetailsDTO.geometry();
             distance = routeDetailsDTO.distance();
 
@@ -270,6 +272,8 @@ public class TravelTrackingService {
                     distance,
                     geometry);
         }
+
+        logger.info("[getDriverPosition] retornando dados processados com o LiveLocationDTO para a viagem: {} ", travelId);
 
         return new LiveLocationDTO(
                 liveCoordinates.latitude(),
@@ -296,7 +300,6 @@ public class TravelTrackingService {
         LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(String.valueOf(travelId));
 
         if (currentLocation == null ||
-                currentLocation.geometry() == null ||
                 currentLocation.lastCalcLat() == null ||
                 currentLocation.lastCalcLng() == null ||
                 currentLocation.latitude() == null ||
