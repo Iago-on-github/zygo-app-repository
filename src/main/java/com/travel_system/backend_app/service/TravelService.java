@@ -58,7 +58,7 @@ public class TravelService {
                 .orElseThrow(EntityNotFoundException::new);
 
         if (driver.getStatus().equals(GeneralStatus.INACTIVE)) {
-            throw new InactiveAccountModificationException("Motorista inativo. Não é possível prosseguir. driverId: " + driver.getId());
+            throw new InactiveDriverException("Motorista inativo, não é possível prosseguir. driverId: " + driver.getId());
         }
 
         boolean hasActiveTravel = travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING));
