@@ -15,9 +15,8 @@ import java.util.UUID;
 @RequestMapping("/travel")
 public class TravelController {
 
-    private TravelService travelService;
+    private final TravelService travelService;
 
-    @Autowired
     public TravelController(TravelService travelService) {
         this.travelService = travelService;
     }
