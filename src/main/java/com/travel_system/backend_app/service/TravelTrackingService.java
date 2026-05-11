@@ -149,7 +149,7 @@ public class TravelTrackingService {
                 if (newEtaRecalculateByApi == null
                         || newEtaRecalculateByApi.duration() == null
                         || newEtaRecalculateByApi.distance() == null) {
-                    throw new RecalculateEtaException("[processNewLocation] resposta inválida da API de rotas", null);
+                    throw new RecalculateEtaException("[processNewLocation] resposta inválida da API de rotas");
                 }
 
                 currentDuration = newEtaRecalculateByApi.duration();
@@ -180,7 +180,7 @@ public class TravelTrackingService {
             throw e;
         }
         catch (Exception e) {
-            throw new RecalculateEtaException(e.getMessage(), e);
+            throw new RecalculateEtaException(e.getMessage());
         }
 
         redisTrackingService.storeLiveLocation(
@@ -254,7 +254,7 @@ public class TravelTrackingService {
             routeDetailsDTO.duration() == null ||
             routeDetailsDTO.distance() == null ||
             routeDetailsDTO.geometry() == null) {
-                throw new CalculateEtaException("[getDriverPosition] resposta inválida da api de rotas: " + routeDetailsDTO);
+                throw new RecalculateEtaException("[getDriverPosition] resposta inválida da api de rotas: " + routeDetailsDTO);
             }
 
             logger.info("[getDriverPosition] recalculo de ROTA - API respondeu com dados válidos, começando processamento de dados no Redis. Viagem: {} ", travelId);

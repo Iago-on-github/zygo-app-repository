@@ -666,7 +666,7 @@ class TravelTrackingServiceTest {
             when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(RouteDetails);
 
-            assertThrows(CalculateEtaException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+            assertThrows(RecalculateEtaException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
 
             verifyNoMoreInteractions(travelRepository, redisTrackingService, routeCalculationService, mapboxAPIService);
         }

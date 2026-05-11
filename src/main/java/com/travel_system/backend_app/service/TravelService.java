@@ -100,7 +100,7 @@ public class TravelService {
                 actualTrip.getFinalLatitude());
 
         if (routeDetailsDTO == null) {
-            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos" + travelId, null);
+            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos" + travelId);
         }
 
         // preenche os dados estáticos com o routesDetailsDto
