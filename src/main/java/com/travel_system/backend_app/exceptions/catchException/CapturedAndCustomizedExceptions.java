@@ -59,6 +59,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InactiveDriverException.class)
+    public final ResponseEntity<StandardError> InactiveDriverException(InactiveDriverException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
 
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
         StandardError standardError = new StandardError(
