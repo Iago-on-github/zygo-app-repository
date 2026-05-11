@@ -84,12 +84,12 @@ public class TravelService {
     @Transactional
     public void startTravel(UUID travelId) {
         Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Trip not found: " + travelId));
+                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
 
         if (actualTrip.getTravelStatus() == TravelStatus.FINISH) {
-            throwTravelException("Não é possível iniciar uma viagem já finalizada.");
+            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já foi finalizada.");
         } if (actualTrip.getTravelStatus() == TravelStatus.TRAVELLING) {
-            throwTravelException("Desculpe, viagem já em andamento.");
+            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já está em andamento.");
         }
 
         // chama o mapboxservice para calcular a rota
@@ -99,8 +99,11 @@ public class TravelService {
                 actualTrip.getFinalLongitude(),
                 actualTrip.getFinalLatitude());
 
-        if (routeDetailsDTO == null) {
-            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos" + travelId);
+        if (routeDetailsDTO == null ||
+                routeDetailsDTO.duration() == null ||
+                routeDetailsDTO.distance() == null ||
+                routeDetailsDTO.geometry() == null) {
+            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos para a viagem: " + travelId);
         }
 
         // preenche os dados estáticos com o routesDetailsDto
@@ -116,7 +119,7 @@ public class TravelService {
         // adiciona viagem ativa ao redis para métricas de self-health do sistema
         redisTrackingService.addActiveTravel(travelId);
 
-        log.info("viagem iniciada com sucesso: {}", travelId);
+        log.info("viagem {} iniciada com sucesso. ", travelId);
     }
 
     @Transactional
