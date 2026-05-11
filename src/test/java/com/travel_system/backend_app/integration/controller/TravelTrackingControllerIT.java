@@ -598,6 +598,40 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
                 verifyNoInteractions(routeCalculationService, mapboxAPIService);
             }
+
+            @ParameterizedTest
+            @DisplayName("throw exception when calculate route (mapbox api) returns null or invalid values")
+            @MethodSource("nullRouteDetailsProvider")
+            void throwExceptionWhenCalculateRouteReturnsNullOrInvalidValues(RouteDetailsDTO routeDetailsDTO) throws Exception {
+                String key = "travelId:" + travelId;
+
+                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                        .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
+
+                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+
+                // getLiveLocation
+                redisTemplate.opsForHash().put(key, "lat", "-13.432");
+                redisTemplate.opsForHash().put(key, "lng", "-39.843");
+                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
+                redisTemplate.opsForHash().put(key, "distance", "500.0");
+                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
+                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
+
+                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isBadGateway());
+            }
+
+            public static Stream<Arguments> nullRouteDetailsProvider() {
+                return Stream.of(
+                        Arguments.of(new RouteDetailsDTO(null, 500.0, "encoded_polyline")),
+                        Arguments.of(new RouteDetailsDTO(15.0, null, "encoded_polyline")),
+                        Arguments.of(new RouteDetailsDTO(15.0, 500.0, null)),
+                        Arguments.of((RouteDetailsDTO) null)
+                );
+            }
         }
     }
 }
