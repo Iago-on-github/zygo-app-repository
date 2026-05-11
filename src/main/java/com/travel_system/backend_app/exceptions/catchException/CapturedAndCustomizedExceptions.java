@@ -49,6 +49,17 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(TravelStudentAssociationNotFoundException.class)
+    public final ResponseEntity<StandardError> TravelStudentAssociationNotFoundException(TravelStudentAssociationNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(BoardingAlreadyConfirmedException.class)
+    public final ResponseEntity<StandardError> BoardingAlreadyConfirmedException(BoardingAlreadyConfirmedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
         StandardError standardError = new StandardError(
                 LocalDate.now(),
