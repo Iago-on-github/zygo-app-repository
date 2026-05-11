@@ -19,7 +19,6 @@ public class DeviceToken {
     private Student student;
     private String token;
     @Enumerated(EnumType.STRING)
-    @Column(columnDefinition = "push_platform")
     private Platform platform;
     private boolean active = true;
     @CreatedDate
