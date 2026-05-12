@@ -25,8 +25,7 @@ public class TravelReports {
     public TravelReports() {
     }
 
-    public TravelReports(UUID id, Travel travel, Double distanceTraveled, Double durationInMinutes, String actualPath, Instant generatedAt, int busExpectedStudents, int busActualOccupancy, int occupancyPercentage) {
-        this.id = id;
+    public TravelReports(Travel travel, Double distanceTraveled, Double durationInMinutes, String actualPath, Instant generatedAt, int busExpectedStudents, int busActualOccupancy, int occupancyPercentage) {
         this.travel = travel;
         this.distanceTraveled = distanceTraveled;
         this.durationInMinutes = durationInMinutes;
