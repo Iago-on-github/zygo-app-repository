@@ -125,10 +125,10 @@ public class TravelService {
     @Transactional
     public void endTravel(UUID travelId) {
         Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Trip not found: " + travelId));
+                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
 
         if (!(actualTrip.getTravelStatus() == TravelStatus.TRAVELLING)) {
-            throwTravelException("A viagem nao esta em andamento: " + travelId);
+            throwTravelException("Não é possível prosseguir, a viagem não está em andamento: " + travelId);
         }
 
         actualTrip.setTravelStatus(TravelStatus.FINISH);
@@ -149,6 +149,7 @@ public class TravelService {
                 studentTravel.setDisembarkHour(Instant.now());
                 studentTravelRepository.save(studentTravel);
             }
+            log.info("[endTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
         });
 
         // obtem os dados de lat/lng para formar a polyline da viagem
@@ -157,7 +158,8 @@ public class TravelService {
 
         List<Point> pointList = travelRecorded.stream()
                 .filter(t -> t.getLatitude() != null && t.getLongitude() != null)
-                .map(t -> t.getLatitude() + ", " + t.getLongitude()).map(Point::fromJson).toList();
+                // atentar-se que, no Point, a LONGITUDE sempre será primeiro
+                .map(t -> Point.fromLngLat(t.getLatitude(), t.getLongitude())).toList();
 
         String polylineEncoded = polylineService.formattedPolylineEncoded(pointList);
 
@@ -172,7 +174,6 @@ public class TravelService {
         double formattedDurationInMinutes = (double) durationInMinutes.toMinutes() / 60.0;
 
         TravelReports travelReports = new TravelReports(
-                actualTrip.getId(),
                 actualTrip,
                 accumulatedDistance,
                 formattedDurationInMinutes,
@@ -180,8 +181,7 @@ public class TravelService {
                 Instant.now(),
                 studentSize,
                 (int) totalOccupancy,
-                (int) percentual
-                );
+                (int) percentual);
 
         travelReportsRepository.save(travelReports);
 
@@ -193,7 +193,7 @@ public class TravelService {
 
         redisTrackingService.clearTravelLocationCache(travelId);
 
-        log.info("Viagem encerrada: {}", travelId);
+        log.info("Viagem: {} encerrada com sucesso", travelId);
     }
 
     @Transactional
