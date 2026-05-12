@@ -7,6 +7,7 @@ import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.MapboxAPIService;
@@ -447,6 +448,122 @@ public class TravelControllerIT extends IntegrationTestBase {
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound());
         }
+    }
+
+    @Nested
+    class joinTravel {
+        Driver driver;
+        TravelRequestDTO travelRequestDTO;
+        Travel travel;
+        StudentTravel studentTravel;
+        Student student;
+
+        @BeforeEach
+        void setUp() {
+            driver = new Driver(
+                    null, "driver@test.com", "encoded_pass",
+                    "João", "Silva", "71999999999",
+                    null, GeneralStatus.ACTIVE,
+                    LocalDateTime.now(), LocalDateTime.now(),
+                    "Salvador", 0, new ArrayList<>());
+            driverRepository.save(driver);
+
+            travel = new Travel(
+                    null, null, TravelStatus.TRAVELLING, driver,
+                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
+                    3600.0, 15000.0,
+                    -12.9714, -38.5016,
+                    -12.8000, -38.4000
+            );
+            travelRepository.save(travel);
+
+            student = new Student(
+                    null,
+                    "student@gmail.com",
+                    "senhaSegura123",
+                    "Student",
+                    "Teste",
+                    "75999999999",
+                    "teste_img",
+                    GeneralStatus.ACTIVE,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    InstitutionType.UNIVERSITY,
+                    "Ciência da Computação"
+            );
+            studentRepository.save(student);
+
+            travelRepository.save(travel);
+
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+        }
+
+        @Test
+        @DisplayName("should save embark=true and embarkHour with success")
+        void shouldLinkStudentOnTravelWithSuccess() throws Exception {
+            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNoContent());
+
+            Optional<StudentTravel> result = studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId());
+
+            assertTrue(result.isPresent());
+            assertTrue(result.get().isEmbark());
+
+            assertNotNull(result.get().getEmbarkHour());
+        }
+
+        @ParameterizedTest
+        @MethodSource("nullParameterProvider")
+        void throwExceptionWhenRequireParametersAreNull(Object travelId, Object studentId) throws Exception {
+            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travelId, studentId)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
+        }
+
+        public static Stream<Arguments> nullParameterProvider() {
+            return Stream.of(
+                    Arguments.of("null", UUID.randomUUID()),
+                    Arguments.of(UUID.randomUUID(), "null"),
+                    Arguments.of("invalid_uuid", "323")
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("travelStatusProvider")
+        void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) throws Exception {
+            travel.setTravelStatus(travelStatus);
+            travelRepository.save(travel);
+
+            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isConflict());
+        }
+
+        public static Stream<Arguments> travelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.FINISH)
+            );
+        }
+
+        @Test
+        void throwExceptionWhenStudentAlreadyLinked() throws Exception {
+            // vincula estudante à viagem
+            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null);
+            studentTravelRepository.save(studentTravel);
+
+            travel.setStudentTravels(Set.of(studentTravel));
+
+            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
+
+            boolean result = travel.getStudentTravels().stream().anyMatch(s -> s.getStudent().getId().equals(student.getId()));
+
+            assertTrue(result);
+        }
+
     }
 
 }
