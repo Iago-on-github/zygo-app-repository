@@ -16,6 +16,8 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.repository.query.ParameterOutOfBoundsException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -199,21 +201,21 @@ public class TravelService {
     @Transactional
     public void joinTravel(UUID travelId, UUID studentId) {
         if (travelId == null || studentId == null) {
-            throwTravelException("[joinTravel] travelId ou studentId vindo nulos");
+            throw new IllegalArgumentException("[joinTravel] travelId " + travelId + " ou studentId " + studentId + " vindo nulos.");
         }
 
         // realiza vínculo estudante-viagem (estudante entra na viagem)
         Travel trip = travelRepository.getReferenceById(travelId);
 
         if (!(trip.getTravelStatus() == TravelStatus.TRAVELLING)) {
-            throwTravelException("Viagem não está em andamento.");
+            throwTravelException("Viagem " + travelId + " não está em andamento.");
         }
 
         boolean studentTravel = trip.getStudentTravels().stream()
                 .anyMatch(student -> student.getStudent().getId().equals(studentId));
 
         if (studentTravel) {
-            throw new StudentAlreadyLinkedToTrip("Estudante já vinculado à viagem:" + studentId);
+            throw new StudentAlreadyLinkedToTrip("Estudante " + studentId + " já vinculado à viagem:" + travelId);
         }
 
         persistStudentLink(trip, studentId);
