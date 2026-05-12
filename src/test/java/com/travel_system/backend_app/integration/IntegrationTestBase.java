@@ -5,6 +5,7 @@ import com.travel_system.backend_app.config.FirebaseConfig;
 import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.service.MapboxAPIService;
+import com.travel_system.backend_app.service.PolylineService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.RouteCalculationService;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
@@ -49,6 +50,9 @@ public abstract class IntegrationTestBase {
 
     @MockitoBean
     protected FirebaseConfig firebaseConfig; // evita conexão real com o firebase
+
+    @MockitoBean
+    protected PolylineService polylineService;
 
     @MockitoBean
     protected FirebaseNotificationSender firebaseNotificationSender;
