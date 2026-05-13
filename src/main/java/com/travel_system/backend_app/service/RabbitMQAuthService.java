@@ -36,14 +36,14 @@ public class RabbitMQAuthService {
     public boolean authenticateMessaging(String username, String password) {
         // verifica se é o próprio sistema tentando autenticar
         if (username.equals(rabbitmq_user) && password.equals(rabbitmq_password)) {
-            log.info("[authenticateMessaging] Backend do sistema autorizado com sucesso: {}", username);
+            log.info("[authenticateMessaging] Backend do sistema autorizado com sucesso.");
             return true;
         }
 
         // validação de users (student/driver)
         try {
             if (!tokenConfig.validateToken(password)) {
-                log.warn("[authenticateMessaging] Token inválido para o usuário: {}", username);
+                log.warn("[authenticateMessaging] Token inválido para o usuário.");
                 return false;
             }
 
@@ -53,11 +53,11 @@ public class RabbitMQAuthService {
             boolean validateUser = userRepository.existsByEmailAndIdAndStatus(subjectFromToken, id, GeneralStatus.ACTIVE);
 
             if (!validateUser) {
-                log.warn("[authenticateMessaging] ID divergente do Token ou usuário inativo! User: {}", username);
+                log.warn("[authenticateMessaging] ID divergente do Token ou usuário inativo.");
                 return false;
             }
 
-            log.info("[authenticateMessaging] Login de usuário autorizado: {}", username);
+            log.info("[authenticateMessaging] Login de usuário autorizado.");
             return true;
 
         } catch (Exception e) {
