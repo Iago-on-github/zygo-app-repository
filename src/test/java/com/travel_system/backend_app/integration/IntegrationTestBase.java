@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.config.FirebaseConfig;
 import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
-import com.travel_system.backend_app.service.MapboxAPIService;
-import com.travel_system.backend_app.service.PolylineService;
-import com.travel_system.backend_app.service.RedisTrackingService;
-import com.travel_system.backend_app.service.RouteCalculationService;
+import com.travel_system.backend_app.service.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import okhttp3.Route;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -59,6 +57,12 @@ public abstract class IntegrationTestBase {
 
     @MockitoBean
     protected RouteCalculationService routeCalculationService;
+
+    @MockitoSpyBean
+    protected TravelService travelService;
+
+    @MockitoSpyBean
+    protected PushNotificationService pushNotificationService;
 
 
     private static final DockerImageName POSTGRES_IMAGE =
