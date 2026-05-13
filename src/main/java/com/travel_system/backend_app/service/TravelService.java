@@ -224,21 +224,21 @@ public class TravelService {
     @Transactional
     public void leaveTravel(UUID travelId, UUID studentId) {
         if (travelId == null || studentId == null) {
-            throwTravelException("[joinTravel] travelId ou studentId vindo nulos");
+            throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentId "+ studentId + " vindo nulos");
         }
 
         // Remove um estudante de uma viagem, registrando o desembarque.
         Travel trip = travelRepository.getReferenceById(travelId);
 
         if (!(trip.getTravelStatus() == TravelStatus.TRAVELLING)) {
-            throw new TravelException("Viagem não está em andamento.");
+            throw new TravelException("Viagem " + travelId + " não está em andamento.");
         }
 
         boolean studentTravel = trip.getStudentTravels().stream()
                 .filter(st -> st.isEmbark() && st.getStudent() != null)
                 .anyMatch(student -> student.getStudent().getId().equals(studentId));
 
-        if (!studentTravel) throw new TravelStudentAssociationNotFoundException("Estudante não está ATIVO na viagem.");
+        if (!studentTravel) throw new TravelStudentAssociationNotFoundException("Estudante " + studentId + " não está ATIVO na viagem.");
 
         deactivateStudentLink(trip, studentId);
     }
@@ -300,7 +300,7 @@ public class TravelService {
 
     private void deactivateStudentLink(Travel actualTrip, UUID studentId) {
         StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), studentId)
-                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("Vínculo aluno-viagem não encontrado."));
+                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[leaveTravel] Vínculo aluno-viagem não encontrado."));
 
         studentTravel.setEmbark(false);
         studentTravel.setDisembarkHour(Instant.now());
