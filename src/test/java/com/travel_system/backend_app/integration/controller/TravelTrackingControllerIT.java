@@ -12,6 +12,7 @@ import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.GpsDataIngestorService;
 import com.travel_system.backend_app.service.RedisTrackingService;
+import com.travel_system.backend_app.service.RouteCalculationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -63,6 +65,9 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
     private StudentRepository studentRepository;
     @Autowired
     private TravelLocationHistoryRepository travelLocationHistoryRepository;
+
+    @MockitoBean
+    private RouteCalculationService routeCalculationService;
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
