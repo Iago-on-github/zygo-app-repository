@@ -100,16 +100,16 @@ public class RabbitMQAuthService {
             UUID studentId = UUID.fromString(username);
 
             if (permission.equals("publish")) {
-                log.info("[authenticateTopic] Motorista autenticado: {}, viagem: {} ", username, travelId);
+                log.info("[authenticateTopic] Motorista autenticado. Viagem: {} ", travelId);
                 return travelService.isDriverLogged(username, travelId);
             }
 
             if (permission.equals("subscribe")) {
-                log.info("[authenticateTopic] Estudante autenticado: {}, viagem: {} ", studentId, travelId);
+                log.info("[authenticateTopic] Estudante autenticado. Viagem: {} ", travelId);
                 return travelService.isStudentLogged(studentId, travelId);
             }
         } catch (Exception e) {
-            log.error("[authenticateTopic] Erro na autorização de tópico para o usuário {}: {}", username, e.getMessage());
+            log.error("[authenticateTopic] Erro na autorização de tópico. {}", e.getMessage());
             return false;
         }
 
