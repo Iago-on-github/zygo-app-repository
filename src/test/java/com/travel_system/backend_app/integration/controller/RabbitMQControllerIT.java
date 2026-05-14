@@ -131,4 +131,35 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
                     .andExpect(content().string("deny"));
         }
     }
+
+    @Nested
+    class authenticateVHost {
+
+        @Test
+        void shouldAuthenticateVHostWithSuccess() throws Exception {
+            String validVHost = "/";
+
+            mockMvc.perform(post("/api/messaging/auth/vhost")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                    .param("user", rabbitmq_user)
+                    .param("vhost", validVHost)
+                    .param("ip", "1232"))
+                    .andExpect(content().string("allow"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        void shouldNeverAuthenticateVHostWhenIsInvalidVHost() throws Exception {
+            String validVHost = "invalid_vhost";
+
+            mockMvc.perform(post("/api/messaging/auth/vhost")
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                            .param("user", rabbitmq_user)
+                            .param("vhost", validVHost)
+                            .param("ip", "1232"))
+                    .andExpect(content().string("deny"))
+                    .andExpect(status().isOk());
+        }
+    }
+
 }
