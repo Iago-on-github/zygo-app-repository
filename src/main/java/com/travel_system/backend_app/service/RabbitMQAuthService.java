@@ -68,18 +68,18 @@ public class RabbitMQAuthService {
 
     public boolean authenticateVHost(String usernameId, String vhost, String ip) {
         if (vhost.equals("/")) {
-            log.info("acesso ao vHost permitido ao user {}, e ip: {}", usernameId, ip);
+            log.info("acesso ao vHost permitido ao ip: {}", ip);
             return true;
         }
 
-        log.warn("vHost negado. user={} vhost={} ip={}", usernameId, vhost, ip);
+        log.warn("vHost negado. vhost={} ip={}", vhost, ip);
         return false;
     }
 
     public boolean authenticateResource(String username, String vhost, String resource, String name, String permission) {
         // nunca permite criar ou deletar estruturas no servidor
         if (permission.equals("configure")) {
-            log.warn("tentativa de configuração negada ao usuário: {}", username);
+            log.warn("tentativa de configuração do servidor negada.");
             return false;
         }
 
