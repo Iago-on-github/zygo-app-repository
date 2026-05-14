@@ -68,6 +68,8 @@ public class RedisTrackingService {
             logger.debug("[storeLiveLocation] geometry ausente para viagem {}, campo omitido no cache", travelId);
         }
 
+        logger.info("[storeLiveLocation] começando tratamento de dados para a viagem: {} ", travelId);
+
         // ponto de referência de onde a rota foi calculada
         data.put("last_calc_lat", latitude);
         data.put("last_calc_lng", longitude);
