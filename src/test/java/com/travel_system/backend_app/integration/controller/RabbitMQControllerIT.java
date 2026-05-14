@@ -11,6 +11,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -19,6 +22,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -157,6 +161,63 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
                             .param("user", rabbitmq_user)
                             .param("vhost", validVHost)
                             .param("ip", "1232"))
+                    .andExpect(content().string("deny"))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    class authenticateResource {
+
+        @ParameterizedTest
+        @MethodSource("permissionProvider")
+        void shouldAllowReadOrWriteActionsInPublicExchangesWithSuccess(String permission) throws Exception {
+            mockMvc.perform(post("/api/messaging/auth/resource")
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                            .param("user", rabbitmq_user)
+                            .param("vhost", "/")
+                            .param("resource", "topic")
+                            .param("name", "mocked_name")
+                            .param("permission", permission))
+                    .andExpect(content().string("allow"))
+                    .andExpect(status().isOk());
+        }
+
+        public static Stream<Arguments> permissionProvider() {
+            return Stream.of(
+                    Arguments.of("read"),
+                    Arguments.of("write")
+            );
+        }
+
+        @Test
+        @DisplayName("when permission equals 'configure', should ever return false")
+        void shouldNeverAllowCreateOrDeleteServerStructures() throws Exception {
+            String permission = "configure";
+
+            mockMvc.perform(post("/api/messaging/auth/resource")
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                            .param("user", rabbitmq_user)
+                            .param("vhost", "/")
+                            .param("resource", "topic")
+                            .param("name", "mocked_name")
+                            .param("permission", permission))
+                    .andExpect(content().string("deny"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("when 'permission' is diverge 'configure', 'read' or 'write', should not process anything")
+        void shouldNeverAllowWhenPermissionIsDivergeToDefaultConfigurations() throws Exception {
+            String permission = "diverge_permission";
+
+            mockMvc.perform(post("/api/messaging/auth/resource")
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                            .param("user", rabbitmq_user)
+                            .param("vhost", "/")
+                            .param("resource", "topic")
+                            .param("name", "mocked_name")
+                            .param("permission", permission))
                     .andExpect(content().string("deny"))
                     .andExpect(status().isOk());
         }
