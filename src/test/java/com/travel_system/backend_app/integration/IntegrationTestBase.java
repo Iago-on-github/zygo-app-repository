@@ -55,9 +55,6 @@ public abstract class IntegrationTestBase {
     @MockitoBean
     protected FirebaseNotificationSender firebaseNotificationSender;
 
-    @MockitoBean
-    protected RouteCalculationService routeCalculationService;
-
     @MockitoSpyBean
     protected TravelService travelService;
 
