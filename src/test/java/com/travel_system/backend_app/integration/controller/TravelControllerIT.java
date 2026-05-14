@@ -1,10 +1,14 @@
 package com.travel_system.backend_app.integration.controller;
 
+import com.travel_system.backend_app.events.NewLocationReceivedEvents;
+import com.travel_system.backend_app.exceptions.StudentNotLinkedToTripException;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
@@ -13,6 +17,8 @@ import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.MapboxAPIService;
 import com.travel_system.backend_app.service.PolylineService;
 import com.travel_system.backend_app.service.RedisTrackingService;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +31,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.http.MediaType;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -32,10 +39,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,6 +64,8 @@ public class TravelControllerIT extends IntegrationTestBase {
     private TravelReportsRepository travelReportsRepository;
     @Autowired
     private TravelLocationHistoryRepository travelLocationHistoryRepository;
+    @Autowired
+    private GeoPositionRepository geoPositionRepository;
 
     @Autowired
     private MapboxAPIService mapboxAPIService;
@@ -66,6 +77,17 @@ public class TravelControllerIT extends IntegrationTestBase {
 
     @BeforeEach
     void setUp() {
+        // limpa as chaves de notificação do redis a cada teste
+        Set<String> notificationKeys = redisTemplate.keys("notification:*");
+        if (notificationKeys != null && !notificationKeys.isEmpty()) {
+            redisTemplate.delete(notificationKeys);
+        }
+
+        Set<String> travelKeys = redisTemplate.keys("travelId:*");
+        if (travelKeys != null && !travelKeys.isEmpty()) {
+            redisTemplate.delete(travelKeys);
+        }
+
         // limpa a cada teste (obs: a ordem É IMPORTANTE)
         studentTravelRepository.deleteAll();
         travelReportsRepository.deleteAll();
@@ -688,5 +710,169 @@ public class TravelControllerIT extends IntegrationTestBase {
                     .andExpect(status().isNotFound());
         }
     }
+
+    @Nested
+    class LinkedStudentTravel {
+        Driver driver;
+        TravelRequestDTO travelRequestDTO;
+        Travel travel;
+        StudentTravel studentTravel;
+        Student student;
+
+        @BeforeEach
+        void setUp() {
+
+            driver = new Driver(
+                    null, "driver@test.com", "encoded_pass",
+                    "João", "Silva", "71999999999",
+                    null, GeneralStatus.ACTIVE,
+                    LocalDateTime.now(), LocalDateTime.now(),
+                    "Salvador", 0, new ArrayList<>());
+            driverRepository.save(driver);
+
+            travel = new Travel(
+                    null, null, TravelStatus.TRAVELLING, driver,
+                    Instant.now(), null, "fndnA~y~iFvt@?",
+                    3600.0, 15000.0,
+                    -12.9714, -38.5016,
+                    -12.8000, -38.4000
+            );
+            travelRepository.save(travel);
+
+            GeoPosition geoPosition = new GeoPosition(null, -12.332, -11.434, Instant.now(), null);
+            geoPositionRepository.save(geoPosition);
+
+            student = new Student(
+                    null,
+                    "student@gmail.com",
+                    "senhaSegura123",
+                    "Student",
+                    "Teste",
+                    "75999999999",
+                    "teste_img",
+                    GeneralStatus.ACTIVE,
+                    LocalDateTime.now(),
+                    LocalDateTime.now(),
+                    InstitutionType.UNIVERSITY,
+                    "Ciência da Computação"
+            );
+
+            studentRepository.save(student);
+
+            travelRepository.save(travel);
+
+            // vincula estudante à viagem
+//            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, geoPosition);
+//            studentTravelRepository.save(studentTravel);
+
+//            travel.setStudentTravels(Set.of(studentTravel));
+
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+        }
+
+        @Test
+        @DisplayName("should return linked students with correct DTO mapping when travel has students")
+        void shouldReturnLinkedStudentTravel() {
+            Set<StudentTravelResponseDTO> result = travelService.linkedStudentTravel(travel.getId());
+
+            assertNotNull(result, "Resultado não deve ser nulo");
+            assertEquals(1, result.size(), "Deve retornar exatamente 1 estudante vinculado");
+
+            // extrai o DTO para validações detalhadas
+            StudentTravelResponseDTO dto = result.iterator().next();
+
+            assertEquals(studentTravel.getId(), dto.id(), "ID do StudentTravel deve ser mapeado");
+            assertEquals(travel.getId(), dto.travelId(), "ID da viagem deve ser mapeado");
+            assertEquals(student.getId(), dto.studentId(), "ID do estudante deve ser mapeado");
+
+            assertNotNull(dto.embarkHour(), "Hora de embarque deve ser mapeada");
+            assertEquals(studentTravel.getDisembarkHour(), dto.disembarkHour(), "Hora de desembarque (null) deve ser mapeada");
+
+            assertNotNull(dto.position(), "GeoPosition não deve ser nula quando existe no banco");
+            assertEquals(-12.332, dto.position().getLatitude(), "Latitude deve ser mapeada corretamente");
+            assertEquals(-11.434, dto.position().getLongitude(), "Longitude deve ser mapeada corretamente");
+        }
+
+        @Test
+        @DisplayName("should process linkedStudentTravel and update notification state in Redis via async flow")
+        void shouldProcessLinkedStudentTravelAndUpdateNotificationStateAsync() throws Exception {
+            UUID cityId = UUID.randomUUID();
+
+            VehicleLocationRequestDTO requestDTO = new VehicleLocationRequestDTO(
+                    travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
+
+            doReturn(new RouteDetailsDTO(1200.0, 5000.0, "~shnC~_rcL_@v@m@p@y@r@"))
+                    .when(mapboxAPIService).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+
+            String etaKey = "travelId:" + travel.getId();
+
+            // previousEta
+            redisTemplate.opsForHash().put(etaKey, "durationRemaining", "1200.0");
+            redisTemplate.opsForHash().put(etaKey, "distanceRemaining", "5000.0");
+            redisTemplate.opsForHash().put(etaKey, "etaTimestamp", String.valueOf(Instant.now().toEpochMilli()));
+
+            mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travel.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(requestDTO)))
+                    .andExpect(status().isOk());
+
+            String notificationKey = "notification:" + travel.getId() + ":" + student.getId();
+
+            // aguarda método async
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                String zone = (String) redisTemplate.opsForHash().get(notificationKey, "zone");
+                assertNotNull(zone);
+            });
+
+            HashOperations<String, String, String> hashOperations = redisTemplate.opsForHash();
+
+            String zone = hashOperations.get(notificationKey, "zone");
+            String lastDistanceNotified = hashOperations.get(notificationKey, "lastDistanceNotified");
+            String lastNotificationAt = hashOperations.get(notificationKey, "lastNotificationAt");
+
+            assertNotNull(zone);
+            assertNotNull(lastDistanceNotified);
+            assertNotNull(lastNotificationAt);
+
+            assertTrue(zone.equals("FAR") || zone.equals("NEAR"));
+        }
+
+        @Test
+        @DisplayName("should not update notification state when no students are linked to travel")
+        void shouldNotUpdateNotificationStateWhenNoStudentLinked() throws Exception {
+            UUID cityId = UUID.randomUUID();
+
+            String etaKey = "travelId:" + travel.getId();
+
+            // getPreviousEta
+            redisTemplate.opsForHash().put(etaKey, "durationRemaining", "1200.0");
+            redisTemplate.opsForHash().put(etaKey, "distanceRemaining", "5000.0");
+            redisTemplate.opsForHash().put(etaKey, "etaTimestamp", String.valueOf(Instant.now().toEpochMilli()));
+
+            VehicleLocationRequestDTO requestDTO = new VehicleLocationRequestDTO(
+                    travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
+
+            mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travel.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDTO)))
+                    .andExpect(status().isOk());
+
+            // aguarda o processNewLocation completar via sinal do storeLiveLocation no Redis
+            await().atMost(5, SECONDS).untilAsserted(() -> {
+                String savedLat = (String) redisTemplate.opsForHash().get(etaKey, "last_calc_lat");
+                assertNotNull(savedLat);
+            });
+
+            // verifica que nenhum estado de notificação foi criado
+            String notificationKeyPattern = "notification:" + travel.getId() + ":*";
+            Set<String> notificationKeys = redisTemplate.keys(notificationKeyPattern);
+
+            assertTrue(notificationKeys == null || notificationKeys.isEmpty());
+        }
+
+    }
+
+
 
 }
