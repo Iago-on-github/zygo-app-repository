@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
@@ -66,6 +67,12 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public final ResponseEntity<StandardError> MethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
