@@ -17,7 +17,7 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
     @Query("SELECT t FROM Travel t LEFT JOIN FETCH t.studentTravels WHERE t.id = :id")
     Optional<Travel> findByIdWithStudents(@Param("id") UUID id);
 
-    boolean existsByIdAndTravelStatus(UUID travelId, TravelStatus travelStatus);
+    boolean existsByIdAndTravelStatus(String travelId, TravelStatus travelStatus);
 
     boolean existsByIdAndDriverId(UUID travelId, UUID driverId);
 
