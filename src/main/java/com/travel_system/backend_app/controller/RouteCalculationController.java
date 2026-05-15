@@ -20,17 +20,8 @@ public class RouteCalculationController {
     }
 
     @GetMapping("/deviation")
-    public ResponseEntity<RouteDeviationDTO> isRouteDeviation(@RequestParam Map<String, String> params) {
-        Double currentLat = getDoubleParams(params, "currentLat");
-        Double currentLong = getDoubleParams(params, "currentLong");
-        String polylineRoute = params.get("polylineRoute");
-
+    public ResponseEntity<RouteDeviationDTO> isRouteDeviation(@RequestParam Double currentLat, @RequestParam Double currentLong, @RequestParam String polylineRoute) {
         RouteDeviationDTO deviationDTO = routeCalculationService.isRouteDeviation(currentLat, currentLong, polylineRoute);
         return ResponseEntity.ok().body(deviationDTO);
-    }
-
-    private Double getDoubleParams(Map<String, String> params, String key) {
-        String value = params.get(key);
-        return value != null ? Double.valueOf(value) : null;
     }
 }
