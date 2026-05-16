@@ -97,7 +97,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
         void shouldReturnAcceptedWhenTravelExistsAndStatusIsTravellingAndSendDataToRabbitMQ() throws Exception {
             String driverRole = driver.getRoles().getFirst();
 
-            when(travelRepository.existsByIdAndTravelStatus(travel.getId().toString(), TravelStatus.TRAVELLING))
+            when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(true);
 
             mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
@@ -119,7 +119,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
 
         @Test
         void shouldReturnForbiddenWhenHasNoAuthentication() throws Exception {
-            when(travelRepository.existsByIdAndTravelStatus(travel.getId().toString(), TravelStatus.TRAVELLING))
+            when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(true);
 
             // envia sem nenhuma role de auth
@@ -137,7 +137,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
         void shouldReturnForbiddenWhenRequisitionHasDifferentRole() throws Exception {
             String differentRole = "ROLE_STUDENT";
 
-            when(travelRepository.existsByIdAndTravelStatus(travel.getId().toString(), TravelStatus.TRAVELLING))
+            when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(true);
 
             mockMvc.perform(post("/api/v1/gps/updateGpsData")
@@ -154,7 +154,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
         void shouldReturnNotFoundWhenTripNotFound() throws Exception {
             String driverRole = driver.getRoles().getFirst();
 
-            when(travelRepository.existsByIdAndTravelStatus(travel.getId().toString(), TravelStatus.TRAVELLING))
+            when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(false);
 
             mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
@@ -171,7 +171,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
         void shouldReturnNotFoundWhenTripIsNotTravelling(TravelStatus travelStatus) throws Exception {
             String driverRole = driver.getRoles().getFirst();
 
-            when(travelRepository.existsByIdAndTravelStatus(travel.getId().toString(), travelStatus))
+            when(travelRepository.existsByIdAndTravelStatus(travel.getId(), travelStatus))
                     .thenReturn(false);
 
             mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
