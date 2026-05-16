@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/gps")
 public class GpsController {
@@ -26,7 +28,9 @@ public class GpsController {
     @PostMapping("/updateGpsData")
     @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<Void> vehicleGps(@RequestParam("city") String city, @RequestParam("travelId") String travelId, @RequestBody VehicleLocationRequestDTO vehicleLocation) {
-        boolean existsTravel = travelRepository.existsByIdAndTravelStatus(travelId, TravelStatus.TRAVELLING);
+        UUID travelConvertedId = UUID.fromString(travelId);
+
+        boolean existsTravel = travelRepository.existsByIdAndTravelStatus(travelConvertedId, TravelStatus.TRAVELLING);
 
         if (!existsTravel) {
             log.warn("Viagem não encontrada ou não está em andamento. Não envia nada ao rabbitmq: {} ", travelId);
