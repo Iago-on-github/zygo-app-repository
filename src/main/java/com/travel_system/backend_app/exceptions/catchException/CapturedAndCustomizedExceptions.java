@@ -3,6 +3,7 @@ package com.travel_system.backend_app.exceptions.catchException;
 import com.google.api.Http;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
@@ -74,6 +75,11 @@ public class CapturedAndCustomizedExceptions {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public final ResponseEntity<StandardError> MethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public final ResponseEntity<StandardError> EntityNotFoundException (EntityNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
