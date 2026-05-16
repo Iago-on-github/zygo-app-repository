@@ -2,12 +2,9 @@ package com.travel_system.backend_app.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.config.FirebaseConfig;
-import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+
 import com.travel_system.backend_app.service.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
-import okhttp3.Route;
-import org.junit.jupiter.api.BeforeEach;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,10 +20,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.when;
 
 @ActiveProfiles("test")
 @SpringBootTest
