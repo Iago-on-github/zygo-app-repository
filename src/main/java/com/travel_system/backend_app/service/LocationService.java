@@ -1,6 +1,5 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
@@ -40,7 +39,7 @@ public class LocationService {
         applyStudentPositionUpdate(studentTravelId, coordinates);
     }
 
-    private Boolean applyStudentPositionUpdate(UUID studentTravelId, LiveCoordinates actually) {
+    private void applyStudentPositionUpdate(UUID studentTravelId, LiveCoordinates actually) {
         StudentTravel studentTravel = studentTravelRepository.findById(studentTravelId)
                 .orElseThrow(() -> new EntityNotFoundException("Entidade StudentTravel não encontrada: " + studentTravelId));
 
@@ -59,7 +58,7 @@ public class LocationService {
 
             geoPositionRepository.save(newPosition);
 
-            return false;
+            return;
         }
 
         // retorna se há deslocamento
@@ -72,10 +71,8 @@ public class LocationService {
 
             studentTravel.setPosition(anterior);
 
-            return true;
         }
 
-        return false;
     }
 
     private Boolean isStudentDisplacement(GeoPosition anteriorPosition, LiveCoordinates actuallyPosition) {
