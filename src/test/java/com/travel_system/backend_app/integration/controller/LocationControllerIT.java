@@ -1,19 +1,25 @@
 package com.travel_system.backend_app.integration.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
+import com.travel_system.backend_app.service.RouteCalculationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -21,11 +27,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -91,5 +98,94 @@ public class LocationControllerIT extends IntegrationTestBase {
 
             assertNotNull(savedGeoPosition.getTimeStamp());
         }
+
+        @Test
+        @DisplayName("when student has displacement, should update ")
+        void shouldUpdatePositionWhenStudentHasDisplacement() throws Exception {
+            // posição anterior
+            GeoPosition previousPosition = new GeoPosition();
+            previousPosition.setLatitude(-12.97000);
+            previousPosition.setLongitude(-38.50000);
+            previousPosition.setTimeStamp(Instant.now());
+            previousPosition.setStudentTravel(studentTravel);
+            geoPositionRepository.save(previousPosition);
+
+            studentTravel.setPosition(previousPosition);
+            studentTravelRepository.save(studentTravel);
+
+            LiveCoordinates displacementPos = new LiveCoordinates(-12.99001, -38.70001);
+
+            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(displacementPos)))
+                    .andDo(print())
+                    .andExpect(status().isNoContent());
+
+            // position deve ter sido atualizada
+            GeoPosition result = geoPositionRepository.findById(previousPosition.getId()).orElseThrow();
+            assertEquals(-12.99001, result.getLatitude());
+            assertEquals(-38.70001, result.getLongitude());
+
+            assertNotNull(result.getTimeStamp());
+
+            // verifica se o studentTravel que foi salvo é o mesmo
+            StudentTravel studentTravelResult = studentTravelRepository.findById(studentTravel.getId()).orElseThrow();
+            assertEquals(result.getStudentTravel().getId(), studentTravelResult.getId());
+        }
+
+        @Test
+        @DisplayName("when student has no displacement, should do nothing and returns")
+        void shouldNotUpdatePositionWhenStudentHasNoDisplacement() throws Exception {
+            // posição anterior
+            GeoPosition previousPosition = new GeoPosition();
+            previousPosition.setLatitude(-12.97000);
+            previousPosition.setLongitude(-38.50000);
+            previousPosition.setTimeStamp(Instant.now());
+            previousPosition.setStudentTravel(studentTravel);
+            geoPositionRepository.save(previousPosition);
+
+            studentTravel.setPosition(previousPosition);
+            studentTravelRepository.save(studentTravel);
+
+            LiveCoordinates samePosition = new LiveCoordinates(-12.97001, -38.50001);
+
+            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(samePosition)))
+                    .andDo(print())
+                    .andExpect(status().isNoContent());
+
+            // position deve ter sido atualizada
+            GeoPosition result = geoPositionRepository.findById(previousPosition.getId()).orElseThrow();
+            assertEquals(-12.97000, result.getLatitude());
+            assertEquals(-38.50000, result.getLongitude());
+        }
+
+        @ParameterizedTest
+        @MethodSource("nullRequireCoordsProvider")
+        void shouldReturnNullSilentlyWhenRequireCoordsDataAreNull(LiveCoordinates coordinates) throws Exception {
+            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(coordinates)))
+                    .andDo(print())
+                    .andExpect(status().isNoContent());
+        }
+
+        public static Stream<Arguments> nullRequireCoordsProvider() {
+            return Stream.of(
+                    Arguments.of(new LiveCoordinates(null, -38.50000)),
+                    Arguments.of(new LiveCoordinates(-12.97000, null))
+            );
+        }
+
+        @Test
+        void throwExceptionWhenStudentTravelEntityNotFound() throws Exception {
+            mockMvc.perform(post("/location/{studentTravelId}", UUID.randomUUID())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(liveCoordinates)))
+                    .andDo(print())
+                    .andExpect(status().isNotFound());
+        }
+
     }
 }
