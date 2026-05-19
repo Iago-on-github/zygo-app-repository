@@ -17,13 +17,13 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.convert.DataSizeUnit;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -110,96 +110,38 @@ class AdministratorServiceTest {
     }
 
     @Nested
-    class getAllActiveAdministrators {
+    class getAllAdministratorsByStatus {
 
-        @Test
-        @DisplayName("Should return all active administrators from database with success")
-        void shouldReturnAllActiveAdministratorsWithSuccess() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-            adm.setStatus(GeneralStatus.ACTIVE);
-            adm.setEmail("admEmailTeste2@zygo.com");
+        @ParameterizedTest
+        @MethodSource("statusProvider")
+        void shouldReturnAllAdministratorsByStatusWithSuccess(GeneralStatus inputStatus, GeneralStatus expectedStatus) {
+            List<Administrator> admList = List.of(new Administrator(UUID.randomUUID(), "email@gmail.com", "123", "teste", "testeSobrenome", "7373723442", null, LocalDateTime.now(), null, null, null));
 
-            List<Administrator> mockList = List.of(adm);
+            when(administratorRepository.findByStatus(expectedStatus)).thenReturn(admList);
 
-            when(administratorRepository.findByStatus(GeneralStatus.ACTIVE)).thenReturn(mockList);
+            List<AdministratorResponseDTO> result = administratorService.getAllAdministratorsByStatus(inputStatus);
 
-            // act
-            List<AdministratorResponseDTO> result = administratorService.getAllActiveAdministrators();
+            assertEquals(1, result.size());
 
-            // assert
-            assertNotNull(result, "must never be null");
-
-            assertEquals(adm.getStatus(), result.getFirst().status());
-            assertEquals(GeneralStatus.ACTIVE, result.getFirst().status(), "both status must be active");
-            assertEquals(adm.getEmail(), result.getFirst().email());
+            verify(administratorRepository)
+                    .findByStatus(expectedStatus);
         }
 
-        @Test
-        @DisplayName("Should return an empty list when active administrator do not exists from the database")
-        void shouldReturnAnEmptyListWhenActiveAdministratorsDoNotExists() {
-            // arrange
-            List<Administrator> adm = new ArrayList<>();
-
-            when(administratorRepository.findByStatus(GeneralStatus.ACTIVE)).thenReturn(adm);
-
-            // act
-            List<AdministratorResponseDTO> result = administratorService.getAllActiveAdministrators();
-
-            assertTrue(result.isEmpty(), "must be always null");
-            assertEquals(0, adm.size());
+        public static Stream<Arguments> statusProvider() {
+            return Stream.of(
+                    Arguments.of(GeneralStatus.ACTIVE, GeneralStatus.ACTIVE),
+                    Arguments.of(GeneralStatus.INACTIVE, GeneralStatus.INACTIVE),
+                    Arguments.of(null, GeneralStatus.ACTIVE)
+            );
         }
     }
 
     @Nested
-    class getAllInactiveAdministrators {
-
-        @Test
-        @DisplayName("Should return all inactive administrator from database with success")
-        void shouldReturnAllInactiveAdministratorsWithSuccess() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setStatus(GeneralStatus.INACTIVE);
-            adm.setEmail("zygoEmail@gmail.com");
-
-            List<Administrator> mockList = List.of(adm);
-
-            when(administratorRepository.findByStatus(GeneralStatus.INACTIVE)).thenReturn(mockList);
-
-            // act
-            List<AdministratorResponseDTO> result = administratorService.getAllInactiveAdministrators();
-
-            // assert
-            assertNotNull(result, "must never be null");
-
-            assertEquals(result.getFirst().email(), mockList.getFirst().getEmail());
-            assertEquals(result.getFirst().status(), mockList.getFirst().getStatus());
-            assertEquals(GeneralStatus.INACTIVE, result.getFirst().status(), "the result list must've status inactive");
-        }
-
-        @Test
-        @DisplayName("Should return an empty list when inactive administrators do not exists from the database")
-        void shouldReturnAnEmptyListWhenInactiveAdministratorsDoNotExists() {
-            // arrange
-            List<Administrator> mockList = new ArrayList<>();
-
-            when(administratorRepository.findByStatus(GeneralStatus.INACTIVE)).thenReturn(mockList);
-
-            // act
-            List<AdministratorResponseDTO> result = administratorService.getAllInactiveAdministrators();
-
-            // assert
-            assertTrue(result.isEmpty(), "must be always null");
-        }
-    }
-
-    @Nested
-    class getLoggedAdministratorInProfile {
+    class getCurrentAdministrator {
 
         @Test
         @DisplayName("Should get logged administrator in profile")
-        void shouldGetLoggedAdministratorInProfileWithSuccess() {
+        void shouldgetCurrentAdministratorWithSuccess() {
             // arrange
             Administrator adm = new Administrator();
             adm.setEmail("zygo@gmail.com");
@@ -207,7 +149,7 @@ class AdministratorServiceTest {
             when(administratorRepository.findByEmail(adm.getEmail())).thenReturn(Optional.of(adm));
 
             // act
-            AdministratorResponseDTO result = administratorService.getLoggedAdministratorInProfile(adm.getEmail());
+            AdministratorResponseDTO result = administratorService.getCurrentAdministrator(adm.getEmail());
 
             // assert
             assertNotNull(result, "must never be null");
@@ -222,7 +164,7 @@ class AdministratorServiceTest {
             when(administratorRepository.findByEmail(any())).thenReturn(Optional.empty());
 
             // act & assert
-            assertThrows(EntityNotFoundException.class, () -> administratorService.getLoggedAdministratorInProfile(any()));
+            assertThrows(EntityNotFoundException.class, () -> administratorService.getCurrentAdministrator(any()));
         }
     }
 
@@ -342,11 +284,11 @@ class AdministratorServiceTest {
     }
 
     @Nested
-    class updateLoggedAdministrator {
+    class updateCurrentAdministrator {
 
         @Test
         @DisplayName("should update logged administrator with success")
-        void shouldUpdateLoggedAdministratorWithSuccess() {
+        void shouldupdateCurrentAdministratorWithSuccess() {
             // arrange
             String passEncoded = passwordEncoder.encode("123");
             AdministratorUpdateDTO admDto = new AdministratorUpdateDTO("adm@email.com", passEncoded, "adm", "teste", "75981736299", null);
@@ -363,7 +305,7 @@ class AdministratorServiceTest {
             doNothing().when(administratorMapper).administratorUpdateFromDTO(admDto, admToReturn);
 
             // act
-            AdministratorResponseDTO result = administratorService.updateLoggedAdministrator(admDto.email(), admDto);
+            AdministratorResponseDTO result = administratorService.updateCurrentAdministrator(admDto.email(), admDto);
 
             // assert
             assertNotNull(result, "result must never be null");
@@ -394,7 +336,7 @@ class AdministratorServiceTest {
             when(administratorRepository.save(adm)).thenReturn(adm);
 
             // act
-            AdministratorResponseDTO result = administratorService.updateLoggedAdministrator(admDto.email(), admDto);
+            AdministratorResponseDTO result = administratorService.updateCurrentAdministrator(admDto.email(), admDto);
 
             // assert
             assertNotNull(result, "result must never be null");
@@ -420,7 +362,7 @@ class AdministratorServiceTest {
             when(administratorRepository.save(adm)).thenReturn(adm);
 
             // act
-            AdministratorResponseDTO result = administratorService.updateLoggedAdministrator(admDto.email(), admDto);
+            AdministratorResponseDTO result = administratorService.updateCurrentAdministrator(admDto.email(), admDto);
 
             // assert
             assertNotNull(result, "result must never be null");
@@ -438,7 +380,7 @@ class AdministratorServiceTest {
             when(administratorRepository.findByEmail(unauthenticatedEmail)).thenReturn(Optional.empty());
 
             // act & assert
-            assertThrows(EntityNotFoundException.class, () -> administratorService.updateLoggedAdministrator(admDto.email(), admDto));
+            assertThrows(EntityNotFoundException.class, () -> administratorService.updateCurrentAdministrator(admDto.email(), admDto));
 
             verify(administratorRepository, never()).save(any());
         }
@@ -454,7 +396,7 @@ class AdministratorServiceTest {
             when(administratorRepository.findByEmail(admDto.email())).thenReturn(Optional.of(adm));
 
             // act & assert
-            assertThrows(InactiveAccountModificationException.class, () -> administratorService.updateLoggedAdministrator(admDto.email(), admDto));
+            assertThrows(InactiveAccountModificationException.class, () -> administratorService.updateCurrentAdministrator(admDto.email(), admDto));
 
             verify(administratorRepository, never()).save(any());
         }
@@ -473,123 +415,17 @@ class AdministratorServiceTest {
             when(administratorRepository.findByEmailOrTelephoneAndIdNot(admDto.email(), admDto.telephone(), adm.getId())).thenReturn(Optional.of(adm));
 
             // act & assert
-            assertThrows(DuplicateResourceException.class, () -> administratorService.updateLoggedAdministrator(admDto.email(), admDto));
+            assertThrows(DuplicateResourceException.class, () -> administratorService.updateCurrentAdministrator(admDto.email(), admDto));
 
             verify(administratorRepository, never()).save(any());
         }
-
 
     }
 
     @Nested
-    class disableAdministrator {
 
-        @Test
-        @DisplayName("should disable administrator with success")
-        void shouldDisableAdministratorWithSuccess() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
 
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.of(adm));
-            when(administratorRepository.save(adm)).thenReturn(adm);
+    class updateAdministrator {
 
-            // act
-            administratorService.disableAdministrator(adm.getId());
-
-            // assert
-            verify(administratorRepository, times(1)).save(admCaptor.capture());
-            Administrator savedAdm = admCaptor.getValue();
-
-            assertEquals(GeneralStatus.INACTIVE, savedAdm.getStatus());
-        }
-
-        @Test
-        @DisplayName("throw exception when administrator not found from database")
-        void throwExceptionWhenAdministratorNotFound() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.empty());
-
-            // act & assert
-
-            assertThrows(EntityNotFoundException.class, () -> administratorService.disableAdministrator(adm.getId()));
-
-            verify(administratorRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("throw exception when adm already inactive")
-        void throwExceptionWhenAdministratorHasInactiveStatus() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-            adm.setStatus(GeneralStatus.INACTIVE);
-
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.of(adm));
-
-            // act & assert
-            assertThrows(InactiveAccountModificationException.class, () -> administratorService.disableAdministrator(adm.getId()));
-
-            verify(administratorRepository, never()).save(any());
-        }
-    }
-
-    @Nested
-    class enableAdministrator {
-
-        @Test
-        @DisplayName("should enable administrator with success")
-        void shouldEnableAdministratorWithSuccess() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-            adm.setStatus(GeneralStatus.INACTIVE);
-
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.of(adm));
-            when(administratorRepository.save(adm)).thenReturn(adm);
-
-            // act
-            administratorService.enableAdministrator(adm.getId());
-
-            // assert
-            verify(administratorRepository, times(1)).save(admCaptor.capture());
-            Administrator savedAdm = admCaptor.getValue();
-
-            assertEquals(GeneralStatus.ACTIVE, savedAdm.getStatus());
-        }
-
-        @Test
-        @DisplayName("should exception when adm not found from database")
-        void throwExceptionWhenAdministratorNotFound() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.empty());
-
-            // act & assert
-            assertThrows(EntityNotFoundException.class, () -> administratorService.enableAdministrator(adm.getId()));
-
-            verify(administratorRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("throw exception when administrator already active")
-        void throwExceptionWhenAdministratorHasActive() {
-            // arrange
-            Administrator adm = new Administrator();
-            adm.setId(UUID.randomUUID());
-            adm.setStatus(GeneralStatus.ACTIVE);
-
-            when(administratorRepository.findById(adm.getId())).thenReturn(Optional.of(adm));
-
-            // act & assert
-            assertThrows(DuplicateResourceException.class, () -> administratorService.enableAdministrator(adm.getId()));
-
-            verify(administratorRepository, never()).save(any());
-        }
     }
 }
