@@ -288,7 +288,7 @@ class AdministratorServiceTest {
 
         @Test
         @DisplayName("should update logged administrator with success")
-        void shouldupdateCurrentAdministratorWithSuccess() {
+        void shouldUpdateCurrentAdministratorWithSuccess() {
             // arrange
             String passEncoded = passwordEncoder.encode("123");
             AdministratorUpdateDTO admDto = new AdministratorUpdateDTO("adm@email.com", passEncoded, "adm", "teste", "75981736299", null);
@@ -423,9 +423,46 @@ class AdministratorServiceTest {
     }
 
     @Nested
-
-
     class updateAdministrator {
+        Administrator admToReturn;
+
+        @BeforeEach
+        void setUp() {
+            admToReturn = new Administrator(UUID.randomUUID(), "email@gmail.com", "123", null, null, "9473045234", null, null, null, "08149190473", "03.11.1992");
+
+        }
+
+        @Test
+        void shouldUpdateAdministratorWithSuccess() {
+            when(administratorRepository.findById(admToReturn.getId())).thenReturn(Optional.of(admToReturn));
+
+            administratorService.updateAdministrator(admToReturn.getId(), GeneralStatus.INACTIVE);
+
+            verify(administratorRepository, times(1)).save(admCaptor.capture());
+            Administrator savedAdm = admCaptor.getValue();
+
+            assertEquals(GeneralStatus.INACTIVE, savedAdm.getStatus());
+        }
+
+        @Test
+        void throwExceptionWhenAdministratorNotFound() {
+            when(administratorRepository.findById(admToReturn.getId())).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> administratorService.updateAdministrator(admToReturn.getId(), GeneralStatus.INACTIVE));
+
+            verifyNoMoreInteractions(administratorRepository);
+        }
+
+        @Test
+        void throwExceptionWhenAdministratorAlreadyHasStatus() {
+            admToReturn.setStatus(GeneralStatus.INACTIVE);
+
+            when(administratorRepository.findById(admToReturn.getId())).thenReturn(Optional.of(admToReturn));
+
+            assertThrows(DuplicateResourceException.class, () -> administratorService.updateAdministrator(admToReturn.getId(), GeneralStatus.INACTIVE));
+
+            verifyNoMoreInteractions(administratorRepository);
+        }
 
     }
 }
