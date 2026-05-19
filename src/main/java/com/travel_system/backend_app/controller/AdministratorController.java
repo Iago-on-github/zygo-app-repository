@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -46,7 +47,7 @@ public class AdministratorController {
     }
 
     @PostMapping
-    public ResponseEntity<AdministratorResponseDTO> createAdministrator(@RequestBody AdministratorRequestDTO admRequestDTO, UriComponentsBuilder componentsBuilder) {
+    public ResponseEntity<AdministratorResponseDTO> createAdministrator(@Valid @RequestBody AdministratorRequestDTO admRequestDTO, UriComponentsBuilder componentsBuilder) {
         AdministratorResponseDTO newAdm = administratorService.createAdministrator(admRequestDTO);
 
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(newAdm.id()).toUri();
@@ -55,14 +56,14 @@ public class AdministratorController {
     }
 
     @PatchMapping("/me")
-    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
+    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
         String authEmail = auth.getName();
 
         return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(authEmail, administratorUpdateDto));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @RequestBody UpdateAdministratorStatusDTO administratorStatusDTO) {
+    public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @Valid @RequestBody UpdateAdministratorStatusDTO administratorStatusDTO) {
         administratorService.updateAdministrator(id, administratorStatusDTO.status());
         return ResponseEntity.noContent().build();
     }
