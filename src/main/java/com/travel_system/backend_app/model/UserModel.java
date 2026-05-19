@@ -13,7 +13,7 @@ import java.util.*;
 @Entity
 @Table(name = "USER_TABLE")
 @Inheritance(strategy = InheritanceType.JOINED)
-public class UserModel implements UserDetails {
+public class UserModel {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -58,36 +58,6 @@ public class UserModel implements UserDetails {
             roles.add(permission.getDescription());
         }
         return roles;
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return this.permissions;
-    }
-
-    @Override
-    public String getUsername() {
-        return this.email;
-    }
-
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
     }
 
     public UUID getId() {
