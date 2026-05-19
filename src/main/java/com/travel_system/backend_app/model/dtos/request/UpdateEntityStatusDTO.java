@@ -4,5 +4,5 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 
 import javax.validation.constraints.NotBlank;
 
-public record UpdateAdministratorStatusDTO(@NotBlank GeneralStatus status) {
+public record UpdateEntityStatusDTO(@NotBlank GeneralStatus status) {
 }
