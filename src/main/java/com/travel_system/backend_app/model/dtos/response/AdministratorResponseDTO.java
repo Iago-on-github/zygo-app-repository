@@ -10,6 +10,7 @@ public record AdministratorResponseDTO(
         String email,
         String name,
         String lastName,
+        String birthDate,
         String telephone,
         String profilePicture,
         GeneralStatus status,
