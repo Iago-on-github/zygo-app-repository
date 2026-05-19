@@ -7,6 +7,8 @@ import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.DriverRepository;
@@ -42,12 +44,12 @@ public class DriverService {
         return allDrivers.stream().map(this::driverConverted).toList();
     }
 
-    public List<DriverResponseDTO> getAllActiveDrivers() {
-        return getDriversByStatus(GeneralStatus.ACTIVE);
-    }
+    public List<DriverResponseDTO> getDriversByStatus(GeneralStatus newDriverStatus) {
+        if (newDriverStatus == null) newDriverStatus = GeneralStatus.ACTIVE;
 
-    public List<DriverResponseDTO> getAllInactiveDrivers() {
-        return getDriversByStatus(GeneralStatus.INACTIVE);
+        List<Driver> driverByStatus = repository.findAllByStatus(newDriverStatus);
+
+        return driverByStatus.stream().map(this::driverConverted).toList();
     }
 
     @Transactional
@@ -61,9 +63,6 @@ public class DriverService {
 
         if (email.isPresent()) throw new DuplicateResourceException("Email já existe");
         if (telephone.isPresent()) throw new DuplicateResourceException("Telefone já existe");
-
-        String rawPassword = newDriver.getPassword();
-        newDriver.setPassword(passwordEncoder.encode(rawPassword));
 
         newDriver.setCreatedAt(LocalDateTime.now());
         newDriver.setStatus(GeneralStatus.ACTIVE);
@@ -79,64 +78,59 @@ public class DriverService {
     }
 
     @Transactional
-    public DriverResponseDTO updateLoggedDriver(String authenticatedEmail, DriverRequestDTO driverRequestDTO) {
+    public DriverResponseDTO updateCurrentDriver(String authenticatedEmail, DriverUpdateDTO driverUpdateDTO) {
         Driver driverLogged = repository.findByEmail(authenticatedEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado, " + authenticatedEmail));
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado: " + authenticatedEmail));
 
         if (driverLogged.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new InactiveAccountModificationException("Não é possível modificar dados de uma conta inativa");
         }
 
-        Optional<Driver> existingUser = repository.findByEmailOrTelephoneAndIdNot(
-                driverRequestDTO.email(),
-                driverRequestDTO.telephone(),
-                driverLogged.getId()
-        );
+        // verifica email duplicado
+        if (driverUpdateDTO.email() != null && !driverUpdateDTO.email().equals(driverLogged.getEmail())) {
+            boolean emailAlreadyExists = repository.findByEmail(driverUpdateDTO.email()).isPresent();
 
-        if (existingUser.isPresent()) throw new DuplicateResourceException("Email ou telefone já em uso por outro usuário.");
+            if (emailAlreadyExists) {
+                throw new DuplicateResourceException("Email já em uso por outro usuário.");
+            }
 
-        driverLogged.setEmail(driverRequestDTO.email());
-        driverLogged.setPassword(driverRequestDTO.password());
-        driverLogged.setName(driverRequestDTO.name());
-        driverLogged.setLastName(driverRequestDTO.lastName());
-        driverLogged.setTelephone(driverRequestDTO.telephone());
-        driverLogged.setProfilePicture(driverRequestDTO.profilePicture());
-        driverLogged.setAreaOfActivity(driverRequestDTO.areaOfActivity());
+            driverLogged.setEmail(driverUpdateDTO.email());
+        }
+
+        // verifica telefone duplicado
+        if (driverUpdateDTO.telephone() != null && !driverUpdateDTO.telephone().equals(driverLogged.getTelephone())) {
+            boolean telephoneAlreadyExists = repository.findByTelephone(driverUpdateDTO.telephone()).isPresent();
+
+            if (telephoneAlreadyExists) {
+                throw new DuplicateResourceException("Telefone já em uso por outro usuário.");
+            }
+
+            driverLogged.setTelephone(driverUpdateDTO.telephone());
+        }
+
+        // faz upgrade gradual dos campos
+        updateDriverFields(driverLogged, driverUpdateDTO);
 
         Driver savedDriver = repository.save(driverLogged);
+
         return driverConverted(savedDriver);
     }
 
-    public DriverResponseDTO getLoggedInDriverProfile(String email) {
+    public DriverResponseDTO getCurrentDriver(String email) {
         Driver getDriverLoggedProfile = repository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado. Email: " + email));
         return driverConverted(getDriverLoggedProfile) ;
     }
 
     @Transactional
-    public void disableDriver(UUID id) {
+    public void updateDriver(UUID id, UpdateEntityStatusDTO driverStatus) {
         Driver driver = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado, " + id));
 
-        if (driver.getStatus().equals(GeneralStatus.INACTIVE)) {
-            throw new InactiveAccountModificationException("Driver já desativado, " + id);
+        if (driver.getStatus().equals(driverStatus.status())) {
+            throw new DuplicateResourceException("Motorista " + id + " já com o status " + driverStatus);
         }
-
-        driver.setStatus(GeneralStatus.INACTIVE);
-
-        repository.save(driver);
-    }
-
-    @Transactional
-    public void enableDriver(UUID id) {
-        Driver driver = repository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado: " + id));
-
-        if (driver.getStatus().equals(GeneralStatus.ACTIVE)) {
-            throw new IllegalStateException("Driver já ativo: " + id);
-        }
-
-        driver.setStatus(GeneralStatus.ACTIVE);
+        driver.setStatus(driverStatus.status());
 
         repository.save(driver);
     }
@@ -144,18 +138,12 @@ public class DriverService {
     // METODOS AUXILIARES
     // METODOS AUXILIARES
     // METODOS AUXILIARES
-
-    private List<DriverResponseDTO> getDriversByStatus(GeneralStatus status) {
-        List<Driver> drivers = repository.findAllByStatus(status);
-
-        return drivers.stream().map(this::driverConverted).toList();
-    }
 
     private Driver driverMapper(DriverRequestDTO requestDTO) {
         Driver newDriver = new Driver();
 
         newDriver.setEmail(requestDTO.email());
-        newDriver.setPassword(requestDTO.password());
+        newDriver.setPassword(passwordEncoder.encode(requestDTO.password()));
         newDriver.setName(requestDTO.name());
         newDriver.setLastName(requestDTO.lastName());
         newDriver.setTelephone(requestDTO.telephone());
@@ -179,10 +167,35 @@ public class DriverService {
                 driver.getLastName(),
                 driver.getEmail(),
                 driver.getTelephone(),
+                driver.getProfilePicture(),
                 driver.getCreatedAt(),
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips()
         );
+    }
+
+    private void updateDriverFields(Driver driverLogged, DriverUpdateDTO driverUpdateDTO) {
+        // atualiza senha
+        if (driverUpdateDTO.password() != null && !driverUpdateDTO.password().isBlank()) {
+            driverLogged.setPassword(passwordEncoder.encode(driverUpdateDTO.password()));
+        }
+
+        // atualizações parciais das props
+        if (driverUpdateDTO.name() != null) {
+            driverLogged.setName(driverUpdateDTO.name());
+        }
+
+        if (driverUpdateDTO.lastName() != null) {
+            driverLogged.setLastName(driverUpdateDTO.lastName());
+        }
+
+        if (driverUpdateDTO.profilePicture() != null) {
+            driverLogged.setProfilePicture(driverUpdateDTO.profilePicture());
+        }
+
+        if (driverUpdateDTO.areaOfActivity() != null) {
+            driverLogged.setAreaOfActivity(driverUpdateDTO.areaOfActivity());
+        }
     }
 }
