@@ -178,7 +178,7 @@ class AdministratorServiceTest {
             String ROLE_ADMIN = "ROLE_ADMIN";
             String passEncoded = passwordEncoder.encode("123");
 
-            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", passEncoded, "adm", "teste", "75981736299", null);
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", passEncoded, "adm", "teste", "75981736299", null, "758932643", null);
 
             Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
             Permissions perms = new Permissions(ROLE_ADMIN);
@@ -225,10 +225,11 @@ class AdministratorServiceTest {
 
         private static Stream<AdministratorRequestDTO> nullFieldsProvider() {
             return Stream.of(
-                    new AdministratorRequestDTO(null, "fsdf", "adm", "teste", "75981736299", null),
-                    new AdministratorRequestDTO("adm@email.com", null, "adm", "teste", "75981736299", null),
-                    new AdministratorRequestDTO("adm@email.com", "fsdf", null, "teste", "75981736299", null),
-                    new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", null, null)
+                    new AdministratorRequestDTO(null, "fsdf", "adm", "teste", "75981736299", null, "758932643", null),
+                    new AdministratorRequestDTO("adm@email.com", null, "adm", "teste", "75981736299", null, "758932643", null),
+                    new AdministratorRequestDTO("adm@email.com", "fsdf", null, "teste", "75981736299", null, "758932643", null),
+                    new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", null, null, "758932643", null),
+                    new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null, null,null)
             );
         }
 
@@ -236,7 +237,7 @@ class AdministratorServiceTest {
         @DisplayName("throw exception when administrator already registered with this email")
         void throwExceptionWhenAdministratorAlreadyRegisteredWithEmail() {
             // arrange
-            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null);
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null, "758932643", null);
             Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
 
             when(administratorRepository.findByEmail(admDto.email())).thenReturn(Optional.of(admToReturn));
@@ -253,7 +254,7 @@ class AdministratorServiceTest {
         @DisplayName("throw exception when administrator already registered with this telephone")
         void throwExceptionWhenAdministratorAlreadyRegisteredWithTelephone() {
             // arrange
-            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null);
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm@email.com", "fsdf", "adm", "teste", "75981736299", null, "758932643", null);
             Administrator admToReturn = new Administrator(UUID.randomUUID(), admDto.email(), admDto.password(), null, null, admDto.telephone(), null, null, null, "08149190473", "03.11.1992");
 
             when(administratorRepository.findByTelephone(admDto.telephone())).thenReturn(Optional.of(admToReturn));
@@ -272,7 +273,7 @@ class AdministratorServiceTest {
             // arrange
             String ROLE_ADMIN = "ROLE_ADMIN";
 
-            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm23@email.com", "fsdf", "adm", "teste", "75981736299", null);
+            AdministratorRequestDTO admDto = new AdministratorRequestDTO("adm23@email.com", "fsdf", "adm", "teste", "75981736299", null, "758932643", null);
 
             when(permissionsRepository.findByDescription(ROLE_ADMIN)).thenReturn(Optional.empty());
 
