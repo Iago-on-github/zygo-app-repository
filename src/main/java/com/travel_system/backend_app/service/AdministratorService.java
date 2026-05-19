@@ -73,9 +73,6 @@ public class AdministratorService {
         if (existingAdministratorEmail.isPresent()) throw new DuplicateResourceException("Email já registrado");
         if (existingAdministratorTelephone.isPresent()) throw new DuplicateResourceException("Telefone já registrado");
 
-        String rawPassword = adm.getPassword();
-        adm.setPassword(passwordEncoder.encode(rawPassword));
-
         final String ROLE_ADMIN = "ROLE_ADMIN";
         Permissions admPerm = permissionsRepository.findByDescription(ROLE_ADMIN)
                 .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_ADMIN + " não encontrada."));
@@ -133,7 +130,7 @@ public class AdministratorService {
 
     private void checkFieldsIsNull(AdministratorRequestDTO admRequestDTO) {
        if (admRequestDTO.email() == null || admRequestDTO.password() == null ||
-               admRequestDTO.name() == null || admRequestDTO.telephone() == null)  {
+               admRequestDTO.name() == null || admRequestDTO.cpf() == null || admRequestDTO.telephone() == null)  {
            throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos.");
        }
     }
