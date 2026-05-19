@@ -2,14 +2,11 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateAdministratorStatusDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -63,7 +60,7 @@ public class AdministratorController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @Valid @RequestBody UpdateAdministratorStatusDTO administratorStatusDTO) {
+    public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO administratorStatusDTO) {
         administratorService.updateAdministrator(id, administratorStatusDTO.status());
         return ResponseEntity.noContent().build();
     }
