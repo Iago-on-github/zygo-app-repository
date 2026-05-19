@@ -1,10 +1,7 @@
 package com.travel_system.backend_app.model.dtos.request;
 
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import javax.validation.constraints.*;
 
 public record AdministratorRequestDTO(
         @Email(message = "Verifique a inserção do email")
@@ -20,6 +17,11 @@ public record AdministratorRequestDTO(
         @NotBlank(message = "Campo 'Nome' é obrigatório")
         String name,
         String lastName,
+        @NotNull
+        @NotBlank
+        @Min(11)
+        String cpf,
+        String birthDate,
         @NotNull
         @Min(8)
         @NotBlank(message = "Campo 'Telefone' é obrigatório")
