@@ -8,6 +8,8 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,7 +28,7 @@ public class AdministratorController {
         this.administratorService = administratorService;
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<AdministratorResponseDTO>> getAllAdmins() {
         return ResponseEntity.ok().body(administratorService.getAllAdministrators());
     }
@@ -39,6 +41,7 @@ public class AdministratorController {
     @GetMapping("/me")
     public ResponseEntity<AdministratorResponseDTO> getCurrentAdministrator(Authentication auth) {
         String authEmail = auth.getName();
+
         return ResponseEntity.ok().body(administratorService.getCurrentAdministrator(authEmail));
     }
 
@@ -54,6 +57,7 @@ public class AdministratorController {
     @PatchMapping("/me")
     public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
         String authEmail = auth.getName();
+
         return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(authEmail, administratorUpdateDto));
     }
 
@@ -62,7 +66,4 @@ public class AdministratorController {
         administratorService.updateAdministrator(id, administratorStatusDTO.status());
         return ResponseEntity.noContent().build();
     }
-
-//    REALIZAR O TRATAMENTO DE EXCEÇÕES - QUANDO NÃO ESTÁ LOGANDO ELE RETORNA 403
-//    TOKEN EXPIRANDO MT RAPIDO
 }
