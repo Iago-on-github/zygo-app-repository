@@ -35,12 +35,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/api/auth/signing").permitAll()
-                                .requestMatchers("/auth/refresh").permitAll()
+                        auth.requestMatchers("/v1/auth/**").permitAll()
                                 // permite para o servidor externo do rabbitmq
                                 .requestMatchers("/api/messaging/auth/**").permitAll()
-                                .requestMatchers("/v1/admins/**").hasAuthority("ADMIN")
-                                .requestMatchers("/api/v1/gps/**").hasAuthority("DRIVER")
+                                .requestMatchers("/v1/admins/**").hasRole("ADMIN")
+                                .requestMatchers("/api/v1/gps/**").hasRole("DRIVER")
                                 // temporário para desenvolvimento
                                 .anyRequest().permitAll()
                 )
