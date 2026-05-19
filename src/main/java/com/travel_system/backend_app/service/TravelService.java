@@ -331,6 +331,7 @@ public class TravelService {
                 driver.getLastName(),
                 driver.getEmail(),
                 driver.getTelephone(),
+                driver.getProfilePicture(),
                 driver.getCreatedAt(),
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
