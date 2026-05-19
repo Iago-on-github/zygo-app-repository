@@ -1,8 +1,12 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.DriverService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/drivers/api")
+@RequestMapping("/v1/drivers")
 public class DriverController {
     private final DriverService driverService;
 
@@ -22,51 +26,45 @@ public class DriverController {
         this.driverService = driverService;
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
         return ResponseEntity.ok().body(driverService.getAllDrivers());
     }
 
-    @GetMapping("/active")
-    public ResponseEntity<List<DriverResponseDTO>> getAllActiveDrivers() {
-        return ResponseEntity.ok().body(driverService.getAllActiveDrivers());
+    @GetMapping()
+    public ResponseEntity<List<DriverResponseDTO>> getDriversByStatus(@RequestParam(required = false) GeneralStatus status) {
+        return ResponseEntity.ok().body(driverService.getDriversByStatus(status));
     }
 
-    @GetMapping("/inactive")
-    public ResponseEntity<List<DriverResponseDTO>> getAllInactiveDrivers() {
-        return ResponseEntity.ok().body(driverService.getAllInactiveDrivers());
-    }
-
-    @GetMapping("/logged")
-    public ResponseEntity<DriverResponseDTO> getLoggedInDriverProfile(Authentication auth) {
+    @GetMapping("/me")
+    public ResponseEntity<DriverResponseDTO> getCurrentDriver(Authentication auth) {
         String email = auth.getName();
-        DriverResponseDTO loggedDriver = driverService.getLoggedInDriverProfile(email);
+
+        DriverResponseDTO loggedDriver = driverService.getCurrentDriver(email);
+
         return ResponseEntity.ok().body(loggedDriver);
     }
 
     @PostMapping
-    public ResponseEntity<DriverResponseDTO> createDriver(@RequestBody DriverRequestDTO driverRequestDTO, UriComponentsBuilder componentsBuilder) {
+    public ResponseEntity<DriverResponseDTO> createDriver(@Valid @RequestBody DriverRequestDTO driverRequestDTO, UriComponentsBuilder componentsBuilder) {
         DriverResponseDTO newDriver = driverService.createDriver(driverRequestDTO);
+        
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(newDriver.id()).toUri();
+        
         return ResponseEntity.created(uri).body(newDriver);
     }
 
-    @PutMapping("/logged")
-    public ResponseEntity<DriverResponseDTO> updateLoggedDriver(Authentication auth, @RequestBody DriverRequestDTO driverRequestDTO) {
+    @PatchMapping("/me")
+    public ResponseEntity<DriverResponseDTO> updateCurrentDriver(Authentication auth, @Valid @RequestBody DriverUpdateDTO driverUpdateDTO) {
+        System.out.println("AUTH.GETNAME(): " + auth.getName());
         String email = auth.getName();
-        DriverResponseDTO loggedDriver = driverService.updateLoggedDriver(email, driverRequestDTO);
+        DriverResponseDTO loggedDriver = driverService.updateCurrentDriver(email, driverUpdateDTO);
         return ResponseEntity.ok().body(loggedDriver);
     }
 
-    @PutMapping("/disable/{id}")
-    public ResponseEntity<Void> disableDriver(@PathVariable UUID id) {
-        driverService.disableDriver(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/enable/{id}")
-    public ResponseEntity<Void> enableUser(@PathVariable UUID id) {
-        driverService.enableDriver(id);
+    @PatchMapping("/{id}")
+    public ResponseEntity<Void> updateDriver(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO entityStatusDTO) {
+        driverService.updateDriver(id, entityStatusDTO);
         return ResponseEntity.noContent().build();
     }
 }
