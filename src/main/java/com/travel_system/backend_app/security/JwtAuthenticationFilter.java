@@ -36,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception exception) {
+            System.out.println(exception.getMessage());
             // Do not throw exception, just do not authenticate
         }
 
