@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.config;
 
 import com.travel_system.backend_app.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,18 +39,25 @@ public class SecurityConfig {
                                 .requestMatchers("/auth/refresh").permitAll()
                                 // permite para o servidor externo do rabbitmq
                                 .requestMatchers("/api/messaging/auth/**").permitAll()
-                                .requestMatchers("/admins/**").hasAuthority("ROLE_ADMIN")
-                                .requestMatchers("/api/v1/gps/**").hasAuthority("ROLE_DRIVER")
+                                .requestMatchers("/v1/admins/**").hasAuthority("ADMIN")
+                                .requestMatchers("/api/v1/gps/**").hasAuthority("DRIVER")
                                 // temporário para desenvolvimento
                                 .anyRequest().permitAll()
                 )
+                // tratamento de exceptions do spring security
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(
+                                (request,
+                                 response,
+                                 authException) ->
+                                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage())))
+
                 .cors(cors ->
                         cors.configurationSource(corsSourceConfig.corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 
