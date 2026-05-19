@@ -145,6 +145,8 @@ public class AdministratorService {
         adm.setPassword(passwordEncoder.encode(admRequestDto.password()));
         adm.setName(admRequestDto.name());
         adm.setLastName(admRequestDto.lastName());
+        adm.setCpf(admRequestDto.cpf());
+        adm.setBirthDate(admRequestDto.birthDate());
         adm.setTelephone(admRequestDto.telephone());
         adm.setStatus(GeneralStatus.ACTIVE);
         adm.setCreatedAt(LocalDateTime.now());
@@ -159,6 +161,7 @@ public class AdministratorService {
                 adm.getEmail(),
                 adm.getName(),
                 adm.getLastName(),
+                adm.getBirthDate(),
                 adm.getTelephone(),
                 adm.getProfilePicture(),
                 adm.getStatus(),
