@@ -7,6 +7,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.travel_system.backend_app.exceptions.InvalidJwtAuthenticationToken;
 import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.response.LoginResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,7 +81,7 @@ public class TokenConfig {
                 .strip();
     }
 
-    public LoginResponseDTO refreshToken(String refreshToken) {
+    public RefreshTokenResponseDTO refreshToken(String refreshToken) {
         if (refreshToken.contains("Bearer ")) refreshToken = refreshToken.substring("Bearer ".length());
 
         JWTVerifier jwtVerifier = JWT.require(algorithm).build();
@@ -89,7 +90,10 @@ public class TokenConfig {
         String email = decodedJWT.getSubject();
         List<String> roles = decodedJWT.getClaim("roles").asList(String.class);
 
-        return createAccessToken(email, roles);
+        // chama o metodo e retorna somente os campos necessários
+        LoginResponseDTO token = createAccessToken(email, roles);
+
+        return new RefreshTokenResponseDTO(token.accessToken(), token.refreshToken(), token.expiration());
     }
 
 
