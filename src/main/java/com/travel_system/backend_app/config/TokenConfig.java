@@ -106,8 +106,7 @@ public class TokenConfig {
 
     // valida e decodifica o token jwt
     private DecodedJWT decodedToken(String token) {
-        Algorithm alg = Algorithm.HMAC256(secret.getBytes());
-        JWTVerifier verifier = JWT.require(alg).build();
+        JWTVerifier verifier = JWT.require(algorithm).build();
         return verifier.verify(token);
     }
 
@@ -120,16 +119,11 @@ public class TokenConfig {
     }
 
     public String getSubjectFromToken(String token) {
-        Algorithm algorithm = Algorithm.HMAC256(secret);
-
         DecodedJWT decodedJWT = JWT.require(algorithm).build().verify(token); // se inválido, lança exceção
 
         return decodedJWT.getSubject();
     }
 
-    // verifica se o token é valido ou não é expirado
-    // cache por alguns (2) minutos
-    @Cacheable(value = "validateToken", key = "#token")
     public Boolean validateToken(String token) {
         DecodedJWT decodedJWT = decodedToken(token);
         try {
