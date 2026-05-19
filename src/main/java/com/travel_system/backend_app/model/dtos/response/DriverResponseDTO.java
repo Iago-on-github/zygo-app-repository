@@ -11,6 +11,7 @@ public record DriverResponseDTO(
         String lastName,
         String email,
         String telephone,
+        String profilePicture,
         LocalDateTime createdAt,
         GeneralStatus status,
         String areaOfActivity,
