@@ -46,15 +46,15 @@ public class AdministratorService {
         return allAdmins.stream().map(this::admConverted).toList();
     }
 
-    public List<AdministratorResponseDTO> getAllActiveAdministrators() {
-        return findAdmsByStatus(GeneralStatus.ACTIVE);
+    public List<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status) {
+        if (status == null) status = GeneralStatus.ACTIVE;
+
+        List<Administrator> administrators = administratorRepository.findByStatus(status);
+
+        return administrators.stream().map(this::admConverted).toList();
     }
 
-    public List<AdministratorResponseDTO> getAllInactiveAdministrators() {
-        return findAdmsByStatus(GeneralStatus.INACTIVE);
-    }
-
-    public AdministratorResponseDTO getLoggedAdministratorInProfile(String authenticatedAdmEmail) {
+    public AdministratorResponseDTO getCurrentAdministrator(String authenticatedAdmEmail) {
         Administrator expectedLoggedAdmin = administratorRepository.findByEmail(authenticatedAdmEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado"));
 
@@ -87,7 +87,7 @@ public class AdministratorService {
     }
 
     @Transactional
-    public AdministratorResponseDTO updateLoggedAdministrator(String authenticatedEmail, AdministratorUpdateDTO admRequestDTO) {
+    public AdministratorResponseDTO updateCurrentAdministrator(String authenticatedEmail, AdministratorUpdateDTO admRequestDTO) {
         Administrator loggedAdm = administratorRepository.findByEmail(authenticatedEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado, " + authenticatedEmail));
 
@@ -116,25 +116,13 @@ public class AdministratorService {
     }
 
     @Transactional
-    public void disableAdministrator(UUID id) {
-        Administrator expectedAdm = administratorRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado, " + id));
-
-        if (expectedAdm.getStatus() == GeneralStatus.INACTIVE) throw new InactiveAccountModificationException("Desculpe, administrador já desativado");
-
-        expectedAdm.setStatus(GeneralStatus.INACTIVE);
-
-        administratorRepository.save(expectedAdm);
-    }
-
-    @Transactional
-    public void enableAdministrator(UUID id) {
+    public void updateAdministrator(UUID id, GeneralStatus newStatus) {
         Administrator expectedAdministrator = administratorRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado: " + id));
 
-        if (expectedAdministrator.getStatus() == GeneralStatus.ACTIVE) throw new DuplicateResourceException("Administrador já ativo, " + id);
+        if (expectedAdministrator.getStatus() == newStatus) throw new DuplicateResourceException("Administrador já está com status, " + newStatus);
 
-        expectedAdministrator.setStatus(GeneralStatus.ACTIVE);
+        expectedAdministrator.setStatus(newStatus);
 
         administratorRepository.save(expectedAdministrator);
     }
@@ -148,12 +136,6 @@ public class AdministratorService {
                admRequestDTO.name() == null || admRequestDTO.telephone() == null)  {
            throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos.");
        }
-    }
-
-    private List<AdministratorResponseDTO> findAdmsByStatus(GeneralStatus status) {
-        List<Administrator> activeAdms = administratorRepository.findByStatus(status);
-
-        return activeAdms.stream().map(this::admConverted).toList();
     }
 
     private Administrator admMapper(AdministratorRequestDTO admRequestDto) {
