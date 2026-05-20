@@ -12,6 +12,8 @@ public record StudentResponseDTO(
         String lastName,
         String email,
         String telephone,
+        GeneralStatus status,
+        String profilePicture,
         LocalDateTime createdAt,
         InstitutionType institutionType,
         String course
