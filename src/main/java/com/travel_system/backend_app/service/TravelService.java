@@ -267,6 +267,7 @@ public class TravelService {
 
             return travelRepository.existsByIdAndDriverId(travelId, driverId);
         } catch (IllegalArgumentException e) {
+            log.debug("[isDriverLogged] bateu na exception e retornou false");
             return false;
         }
     }
