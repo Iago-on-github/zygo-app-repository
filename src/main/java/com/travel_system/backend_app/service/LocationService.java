@@ -47,6 +47,8 @@ public class LocationService {
 
         // primeiro ping, não há deslocamento
         if (anterior == null) {
+            logger.info("[LocationService] - Primeiro ping do estudante {}, salvando position.", studentTravelId);
+
             GeoPosition newPosition = new GeoPosition();
 
             newPosition.setLatitude(actually.latitude());
@@ -65,6 +67,8 @@ public class LocationService {
         Boolean displacementDetected = isStudentDisplacement(anterior, actually);
 
         if (displacementDetected) {
+            logger.info("[LocationService] - Houve deslocamento para o estudante {}, salvando position.", studentTravelId);
+
             anterior.setLatitude(actually.latitude());
             anterior.setLongitude(actually.longitude());
             anterior.setTimeStamp(Instant.now());
