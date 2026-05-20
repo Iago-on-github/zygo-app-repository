@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/gps")
+@RequestMapping("/v1/gps")
 public class GpsController {
     private final GpsDataIngestorService gpsDataIngestorService;
     private final TravelRepository travelRepository;
