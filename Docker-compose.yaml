@@ -10,8 +10,8 @@ services:
       - "1883:1883"   # MQTT (Testes/IoT)
       - "15675:15675" # Web-MQTT (App Mobile via WebSocket)
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
