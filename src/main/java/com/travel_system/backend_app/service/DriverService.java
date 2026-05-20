@@ -4,6 +4,7 @@ import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
+import com.travel_system.backend_app.interfaces.mappers.DriverMapper;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
@@ -31,11 +32,13 @@ public class DriverService {
     private final DriverRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionsRepository permissionsRepository;
+    private final DriverMapper driverMapper;
 
-    public DriverService(DriverRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository) {
+    public DriverService(DriverRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, DriverMapper driverMapper) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
+        this.driverMapper = driverMapper;
     }
 
     public List<DriverResponseDTO> getAllDrivers() {
@@ -108,8 +111,12 @@ public class DriverService {
             driverLogged.setTelephone(driverUpdateDTO.telephone());
         }
 
-        // faz upgrade gradual dos campos
-        updateDriverFields(driverLogged, driverUpdateDTO);
+        // mapStructure para atualização parcial
+        driverMapper.driverUpdateFromDTO(driverUpdateDTO, driverLogged);
+
+        if (driverUpdateDTO.password() != null && !driverUpdateDTO.password().isBlank()) {
+            driverLogged.setPassword(passwordEncoder.encode(driverUpdateDTO.password()));
+        }
 
         Driver savedDriver = repository.save(driverLogged);
 
@@ -130,7 +137,9 @@ public class DriverService {
         if (driver.getStatus().equals(driverStatus.status())) {
             throw new DuplicateResourceException("Motorista " + id + " já com o status " + driverStatus);
         }
+
         driver.setStatus(driverStatus.status());
+        driver.setUpdatedAt(LocalDateTime.now());
 
         repository.save(driver);
     }
@@ -173,29 +182,5 @@ public class DriverService {
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips()
         );
-    }
-
-    private void updateDriverFields(Driver driverLogged, DriverUpdateDTO driverUpdateDTO) {
-        // atualiza senha
-        if (driverUpdateDTO.password() != null && !driverUpdateDTO.password().isBlank()) {
-            driverLogged.setPassword(passwordEncoder.encode(driverUpdateDTO.password()));
-        }
-
-        // atualizações parciais das props
-        if (driverUpdateDTO.name() != null) {
-            driverLogged.setName(driverUpdateDTO.name());
-        }
-
-        if (driverUpdateDTO.lastName() != null) {
-            driverLogged.setLastName(driverUpdateDTO.lastName());
-        }
-
-        if (driverUpdateDTO.profilePicture() != null) {
-            driverLogged.setProfilePicture(driverUpdateDTO.profilePicture());
-        }
-
-        if (driverUpdateDTO.areaOfActivity() != null) {
-            driverLogged.setAreaOfActivity(driverUpdateDTO.areaOfActivity());
-        }
     }
 }
