@@ -4,7 +4,7 @@ import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
-import com.travel_system.backend_app.interfaces.AdministratorMapper;
+import com.travel_system.backend_app.interfaces.mappers.AdministratorMapper;
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
