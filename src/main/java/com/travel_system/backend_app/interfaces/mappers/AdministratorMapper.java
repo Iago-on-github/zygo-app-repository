@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.interfaces;
+package com.travel_system.backend_app.interfaces.mappers;
 
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
