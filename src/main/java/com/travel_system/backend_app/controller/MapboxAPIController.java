@@ -8,16 +8,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/mapbox")
+@RequestMapping("/v1/api/mapbox")
 public class MapboxAPIController {
-    private MapboxAPIService mapboxAPIService;
+    private final MapboxAPIService mapboxAPIService;
 
-    @Autowired
     public MapboxAPIController(MapboxAPIService mapboxAPIService) {
         this.mapboxAPIService = mapboxAPIService;
     }
 
-    @GetMapping("/route")
+    @GetMapping("/calculate")
     public ResponseEntity<RouteDetailsDTO> calculateRoute(
             @RequestParam double originLong,
             @RequestParam double originLat,
