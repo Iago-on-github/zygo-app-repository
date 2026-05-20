@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/travel/notifications")
+@RequestMapping("/v1/travel/notifications")
 public class PushNotificationController {
 
     private final PushNotificationService pushNotificationService;
