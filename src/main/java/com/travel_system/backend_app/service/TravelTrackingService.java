@@ -6,6 +6,7 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
@@ -126,7 +127,7 @@ public class TravelTrackingService {
             throw new TravelException("[processNewLocation] A viagem não está em andamento: " + travelId);
         }
 
-        RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(currentLat, currentLng, travel.getPolylineRoute());
+        RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, currentLat, currentLng));
 
         RouteDetailsDTO newEtaRecalculateByApi;
         PreviousStateDTO previousEta;
@@ -238,10 +239,8 @@ public class TravelTrackingService {
         Double lastCalcLatitude = liveCoordinates.lastCalcLat();
         Double lastCalcLongitude = liveCoordinates.lastCalcLng();
 
-        RouteDeviationDTO isDeviation = routeCalculationService.isRouteDeviation(
-                liveCoordinates.lastCalcLat(),
-                liveCoordinates.lastCalcLng(),
-                geometry);
+        RouteDeviationDTO isDeviation = routeCalculationService
+                .isRouteDeviation(new RouteDeviationRequestDTO(travelId, liveCoordinates.lastCalcLat(), liveCoordinates.lastCalcLng()));
 
         RouteDetailsDTO routeDetailsDTO;
 
