@@ -56,7 +56,6 @@ public class DriverController {
 
     @PatchMapping("/me")
     public ResponseEntity<DriverResponseDTO> updateCurrentDriver(Authentication auth, @Valid @RequestBody DriverUpdateDTO driverUpdateDTO) {
-        System.out.println("AUTH.GETNAME(): " + auth.getName());
         String email = auth.getName();
         DriverResponseDTO loggedDriver = driverService.updateCurrentDriver(email, driverUpdateDTO);
         return ResponseEntity.ok().body(loggedDriver);
