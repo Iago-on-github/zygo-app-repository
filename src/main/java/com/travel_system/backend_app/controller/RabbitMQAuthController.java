@@ -1,12 +1,6 @@
 package com.travel_system.backend_app.controller;
 
-import com.travel_system.backend_app.config.TokenConfig;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.repository.UserRepository;
 import com.travel_system.backend_app.service.RabbitMQAuthService;
-import com.travel_system.backend_app.service.TravelService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/messaging/auth")
+@RequestMapping("/v1/messaging/auth")
 public class RabbitMQAuthController {
     private final RabbitMQAuthService rabbitMQAuthService;
 
@@ -46,8 +40,8 @@ public class RabbitMQAuthController {
     }
 
     @PostMapping(value = "/topic", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateTopic(@RequestParam("user") String username, @RequestParam("routing_key") String routingKey, @RequestParam("permission") String permission) {
-        boolean isTopicAuth = rabbitMQAuthService.authenticateTopic(username, routingKey, permission);
+    public ResponseEntity<String> authenticateTopic(@RequestParam("authenticatedUserId") String usernameId, @RequestParam("routing_key") String routingKey, @RequestParam("permission") String permission) {
+        boolean isTopicAuth = rabbitMQAuthService.authenticateTopic(usernameId, routingKey, permission);
 
         return isTopicAuth ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
     }
