@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/location")
+@RequestMapping("/v1/location")
 public class LocationController {
 
     private final LocationService locationService;
