@@ -85,23 +85,24 @@ public class RabbitMQAuthService {
 
         // permite leitura de exchanges públicas
         if (permission.equals("read") || permission.equals("write")) {
+            log.info("resource={}, permission={}, name={}", resource, permission, name);
             return resource.equals("topic");
         }
 
         return false;
     }
 
-    public boolean authenticateTopic(String username, String routingKey, String permission) {
+    public boolean authenticateTopic(String usernameId, String routingKey, String permission) {
         String[] routingKeyParts = routingKey.split("[/.]");
         String travelIdStr = routingKeyParts[routingKeyParts.length - 1];
 
         try {
             UUID travelId = UUID.fromString(travelIdStr);
-            UUID studentId = UUID.fromString(username);
+            UUID studentId = UUID.fromString(usernameId);
 
             if (permission.equals("publish")) {
                 log.info("[authenticateTopic] Motorista autenticado. Viagem: {} ", travelId);
-                return travelService.isDriverLogged(username, travelId);
+                return travelService.isDriverLogged(usernameId, travelId);
             }
 
             if (permission.equals("subscribe")) {
