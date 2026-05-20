@@ -2,32 +2,52 @@ package com.travel_system.backend_app.service;
 
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
+import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
+import com.travel_system.backend_app.repository.TravelRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class RouteCalculationService {
-    private PolylineService polylineService;
+    private final PolylineService polylineService;
+    private final TravelRepository travelRepository;
 
     private final double TOLERANCE_DISTANCE = 50.0;
     private final double EARTH_RADIUS_METERS = 6371000;
 
     private Logger logger = LoggerFactory.getLogger(RouteCalculationService.class);
 
-    public RouteCalculationService(PolylineService polylineService) {
+    public RouteCalculationService(PolylineService polylineService, TravelRepository travelRepository) {
         this.polylineService = polylineService;
+        this.travelRepository = travelRepository;
     }
 
     // verifica se a rota foi desviada da rota padrão - tolerância de 50 metros
-    public RouteDeviationDTO isRouteDeviation(Double currentLat, Double currentLong, String polylineRoute) {
+    public RouteDeviationDTO isRouteDeviation(RouteDeviationRequestDTO routeDeviationRequestDTO) {
+        UUID travelId = routeDeviationRequestDTO.travelId();
+        Double currentLat = routeDeviationRequestDTO.currentLat();
+        Double currentLong = routeDeviationRequestDTO.currentLong();
 
-        if (currentLat == null || currentLong == null || polylineRoute == null) {
-            logger.debug("[isRouteDeviation] dados de lat/lng/polyline null, retornando...");
-            return new RouteDeviationDTO(0.0, true, 0.0, 0.0);
+        if (travelId == null || currentLat == null || currentLong == null) {
+            logger.debug("[isRouteDeviation] travelId/currentLat/currentLong null");
+            return new RouteDeviationDTO(0.0, false, 0.0, 0.0);
+        }
+
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada"));
+
+        String polylineRoute = travel.getPolylineRoute();
+
+        if (polylineRoute == null) {
+            logger.debug("[isRouteDeviation] polyline null, retornando...");
+            return new RouteDeviationDTO(0.0, false, 0.0, 0.0);
         }
 
         double minDistance = Double.MAX_VALUE;
