@@ -57,9 +57,9 @@ public class DriverService {
 
     @Transactional
     public DriverResponseDTO createDriver(DriverRequestDTO driverRequestDTO) {
-        Driver newDriver = driverMapper(driverRequestDTO);
-
         verifyFieldsIsNull(driverRequestDTO);
+
+        Driver newDriver = driverMapper(driverRequestDTO);
 
         Optional<Driver> email = repository.findByEmail(newDriver.getEmail());
         Optional<Driver> telephone = repository.findByTelephone(newDriver.getTelephone());
