@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.service;
 
+import com.google.api.client.util.Value;
 import com.travel_system.backend_app.config.RabbitMQConfig;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
+import jakarta.annotation.PostConstruct;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
