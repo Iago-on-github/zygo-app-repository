@@ -146,7 +146,7 @@ class TravelServiceTest {
 
             when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
 
-            assertThrows(InactiveAccountModificationException.class, () -> travelService.createTravel(travelRequestDTO));
+            assertThrows(InactiveDriverException.class, () -> travelService.createTravel(travelRequestDTO));
 
             verify(travelRepository, never()).existsByDriverIdAndTravelStatusIn(any(), anyList());
 
@@ -490,10 +490,10 @@ class TravelServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.getReferenceById(student.getId())).thenReturn(student);
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
             when(studentTravelRepository.save(any(StudentTravel.class))).thenReturn(studentTravel);
 
-            travelService.joinTravel(travel.getId(), student.getId());
+            travelService.joinTravel(travel.getId(), student.getEmail());
 
             ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
 
@@ -509,8 +509,8 @@ class TravelServiceTest {
         @ParameterizedTest
         @DisplayName("throw exception when require parameters is null")
         @MethodSource("nullParametersProvider")
-        void throwExceptionWhenRequireParametersIsNull(UUID travelId, UUID studentId) {
-            assertThrows(TravelException.class, () -> travelService.joinTravel(travelId, studentId));
+        void throwExceptionWhenRequireParametersIsNull(UUID travelId, String studentEmail) {
+            assertThrows(IllegalArgumentException.class, () -> travelService.joinTravel(travelId, studentEmail));
 
             verify(travelRepository, never()).getReferenceById(any());
             verify(studentRepository, never()).getReferenceById(any());
@@ -519,7 +519,7 @@ class TravelServiceTest {
 
         public static Stream<Arguments> nullParametersProvider() {
             return Stream.of(
-                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of(null, "student@gmail.com"),
                     Arguments.of(UUID.randomUUID(), null)
             );
         }
@@ -531,7 +531,7 @@ class TravelServiceTest {
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
 
-            assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getId()));
+            assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getEmail()));
         }
 
         static Stream<Arguments> invalidTravelStatusProvider() {
@@ -553,8 +553,9 @@ class TravelServiceTest {
             travel.setStudentTravels(studentTravels);
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
-            assertThrows(StudentAlreadyLinkedToTrip.class, () -> travelService.joinTravel(travel.getId(), student.getId()));
+            assertThrows(StudentAlreadyLinkedToTrip.class, () -> travelService.joinTravel(travel.getId(), student.getEmail()));
 
             verifyNoInteractions(
                     studentTravelRepository,
@@ -576,34 +577,44 @@ class TravelServiceTest {
         void shouldStudentLeaveTravelWithSuccess() {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+            StudentTravel studentTravel = new StudentTravel(
+                    UUID.randomUUID(),
+                    travel,
+                    student,
+                    true,
+                    Instant.now(),
+                    null,
+                    null
             );
-            travel.setStudentTravels(studentTravels);
+
+            travel.setStudentTravels(Set.of(studentTravel));
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
             when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
                     .thenReturn(Optional.of(studentTravel));
 
-            travelService.leaveTravel(travel.getId(), student.getId());
+            travelService.leaveTravel(travel.getId(), student.getEmail());
 
             ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
 
-            verify(studentTravelRepository, times(1)).save(studentTravelCaptor.capture());
-            StudentTravel storedValue = studentTravelCaptor.getValue();
+            verify(studentTravelRepository).save(studentTravelCaptor.capture());
 
-            assertFalse(storedValue.isEmbark());
-            assertNotNull(storedValue.getDisembarkHour());
+            StudentTravel savedStudentTravel = studentTravelCaptor.getValue();
 
-            verify(travelRepository, times(1)).getReferenceById(any());
-            verify(studentTravelRepository, times(1)).findByTravelIdAndStudentId(any(), any());
+            assertFalse(savedStudentTravel.isEmbark());
+            assertNotNull(savedStudentTravel.getDisembarkHour());
+
+            verify(travelRepository).getReferenceById(travel.getId());
+            verify(studentRepository).findByEmail(student.getEmail());
+            verify(studentTravelRepository).findByTravelIdAndStudentId(travel.getId(), student.getId());
         }
 
         @ParameterizedTest
         @DisplayName("throw exception when require params are null")
-        @MethodSource("nullFieldsProvier")
-        void throwExceptionWhenRequireParamsAreNull(UUID travelId, UUID studentId) {
-            assertThrows(TravelException.class, () -> travelService.leaveTravel(travelId, studentId));
+        @MethodSource("nullFieldsProvider")
+        void throwExceptionWhenRequireParamsAreNull(UUID travelId, String studentEmail) {
+            assertThrows(IllegalArgumentException.class, () -> travelService.leaveTravel(travelId, studentEmail));
 
             verify(travelRepository, never()).getReferenceById(any());
 
@@ -611,9 +622,9 @@ class TravelServiceTest {
             verify(studentTravelRepository, never()).save(any());
         }
 
-        public static Stream<Arguments> nullFieldsProvier() {
+        public static Stream<Arguments> nullFieldsProvider() {
             return Stream.of(
-                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of(null, "student@gmail.com"),
                     Arguments.of(UUID.randomUUID(), null),
                     Arguments.of(null, null)
             );
@@ -627,7 +638,7 @@ class TravelServiceTest {
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
 
-            assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getId()));
+            assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail()));
 
             verify(travelRepository, times(1)).getReferenceById(any());
 
@@ -648,8 +659,9 @@ class TravelServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
-            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getId()));
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail()));
 
             verify(travelRepository, times(1)).getReferenceById(any());
 
@@ -667,9 +679,10 @@ class TravelServiceTest {
             travel.setStudentTravels(studentTravels);
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
             assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getId());
+                travelService.leaveTravel(travel.getId(), student.getEmail());
             });
 
             verify(travelRepository, times(1)).getReferenceById(any());
@@ -690,12 +703,10 @@ class TravelServiceTest {
             travel.setStudentTravels(studentTravels);
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
-                    .thenReturn(Optional.empty());
-
+            when(studentRepository.findByEmail(any())).thenReturn(Optional.of(student));
 
             assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getId());
+                travelService.leaveTravel(travel.getId(), student.getEmail());
             });
 
             verify(travelRepository, times(1)).getReferenceById(any());
@@ -712,7 +723,9 @@ class TravelServiceTest {
         @Test
         @DisplayName("should display linked student travel with success")
         void shouldDisplayStudentTravelWithSuccess() {
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            travel.setStudentTravels(Set.of(studentTravel));
+
+            when(travelRepository.findByIdWithStudents(eq(travel.getId()))).thenReturn(Optional.of(travel));
 
             Set<StudentTravel> studentTravels = Set.of(
                     new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
@@ -723,17 +736,17 @@ class TravelServiceTest {
 
             assertFalse(result.isEmpty());
 
-            verify(travelRepository, times(1)).findById(any());
+            verify(travelRepository, times(1)).findByIdWithStudents(any());
         }
 
         @Test
         @DisplayName("throw exception when travel not found")
         void throwExceptionWhenTravelNotFound() {
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+            when(travelRepository.findByIdWithStudents(travel.getId())).thenReturn(Optional.empty());
 
             assertThrows(EntityNotFoundException.class, () -> travelService.linkedStudentTravel(travel.getId()));
 
-            verify(travelRepository, times(1)).findById(any());
+            verify(travelRepository, times(1)).findByIdWithStudents(any());
         }
 
         @Test
@@ -741,11 +754,11 @@ class TravelServiceTest {
         void throwExceptionWhenHasNoStudentOnThisTrip() {
             travel.setStudentTravels(null);
 
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(travelRepository.findByIdWithStudents(travel.getId())).thenReturn(Optional.of(travel));
 
             assertThrows(StudentNotLinkedToTripException.class, () -> travelService.linkedStudentTravel(travel.getId()));
 
-            verify(travelRepository, times(1)).findById(any());
+            verify(travelRepository, times(1)).findByIdWithStudents(any());
         }
     }
 
