@@ -18,7 +18,7 @@ public class TravelLocationHistory {
     private UUID cityId;
     private Double latitude;
     private Double longitude;
-    @Column(name = "recordedAt")
+    @Column(name = "recorded_at")
     private Instant timestamp;
 
     public TravelLocationHistory() {
