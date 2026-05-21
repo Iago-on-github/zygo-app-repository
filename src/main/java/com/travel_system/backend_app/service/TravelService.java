@@ -199,9 +199,9 @@ public class TravelService {
     }
 
     @Transactional
-    public void joinTravel(UUID travelId, UUID studentId) {
-        if (travelId == null || studentId == null) {
-            throw new IllegalArgumentException("[joinTravel] travelId " + travelId + " ou studentId " + studentId + " vindo nulos.");
+    public void joinTravel(UUID travelId, String studentEmail) {
+        if (travelId == null || studentEmail == null) {
+            throw new IllegalArgumentException("[joinTravel] travelId " + travelId + " ou studentEmail " + studentEmail + " vindo nulos.");
         }
 
         // realiza vínculo estudante-viagem (estudante entra na viagem)
@@ -211,20 +211,23 @@ public class TravelService {
             throwTravelException("Viagem " + travelId + " não está em andamento.");
         }
 
-        boolean studentTravel = trip.getStudentTravels().stream()
-                .anyMatch(student -> student.getStudent().getId().equals(studentId));
+        Student student = studentRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante com o email " + studentEmail + " não encontrado"));
 
-        if (studentTravel) {
-            throw new StudentAlreadyLinkedToTrip("Estudante " + studentId + " já vinculado à viagem:" + travelId);
+        boolean isStudentAlreadyLinked = trip.getStudentTravels().stream()
+                .anyMatch(st -> st.getStudent().getId().equals(student.getId()));
+
+        if (isStudentAlreadyLinked) {
+            throw new StudentAlreadyLinkedToTrip("Estudante " + studentEmail + " já vinculado à viagem:" + travelId);
         }
 
-        persistStudentLink(trip, studentId);
+        persistStudentLink(trip, student);
     }
 
     @Transactional
-    public void leaveTravel(UUID travelId, UUID studentId) {
-        if (travelId == null || studentId == null) {
-            throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentId "+ studentId + " vindo nulos");
+    public void leaveTravel(UUID travelId, String studentEmail) {
+        if (travelId == null || studentEmail == null) {
+            throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
         }
 
         // Remove um estudante de uma viagem, registrando o desembarque.
@@ -234,13 +237,16 @@ public class TravelService {
             throw new TravelException("Viagem " + travelId + " não está em andamento.");
         }
 
-        boolean studentTravel = trip.getStudentTravels().stream()
+        Student student = studentRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante com email " + studentEmail + " nao encontrado"));
+
+        boolean isStudentLinked = trip.getStudentTravels().stream()
                 .filter(st -> st.isEmbark() && st.getStudent() != null)
-                .anyMatch(student -> student.getStudent().getId().equals(studentId));
+                .anyMatch(st -> st.getStudent().getId().equals(student.getId()));
 
-        if (!studentTravel) throw new TravelStudentAssociationNotFoundException("Estudante " + studentId + " não está ATIVO na viagem.");
+        if (!isStudentLinked) throw new TravelStudentAssociationNotFoundException("Estudante " + studentEmail + " não está ATIVO na viagem.");
 
-        deactivateStudentLink(trip, studentId);
+        deactivateStudentLink(trip, student);
     }
 
     public Set<StudentTravelResponseDTO> linkedStudentTravel(UUID travelId) {
@@ -286,21 +292,19 @@ public class TravelService {
                 studentTravel.getPosition());
     }
 
-    private void persistStudentLink(Travel actualTrip, UUID studentId) {
+    private void persistStudentLink(Travel actualTrip, Student student) {
         StudentTravel studentTravel = new StudentTravel();
 
-        Student studentReferenceId = studentRepository.getReferenceById(studentId);
-
         studentTravel.setTravel(actualTrip);
-        studentTravel.setStudent(studentReferenceId);
+        studentTravel.setStudent(student);
         studentTravel.setEmbark(true);
         studentTravel.setEmbarkHour(Instant.now());
 
         studentTravelRepository.save(studentTravel);
     }
 
-    private void deactivateStudentLink(Travel actualTrip, UUID studentId) {
-        StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), studentId)
+    private void deactivateStudentLink(Travel actualTrip, Student student) {
+        StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), student.getId())
                 .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[leaveTravel] Vínculo aluno-viagem não encontrado."));
 
         studentTravel.setEmbark(false);
