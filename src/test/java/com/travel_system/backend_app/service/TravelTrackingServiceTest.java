@@ -7,6 +7,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
@@ -273,7 +274,7 @@ class TravelTrackingServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(routeDeviationDTO);
             when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(routeDetailsDTO);
@@ -296,7 +297,7 @@ class TravelTrackingServiceTest {
             travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
             verify(travelRepository, times(1)).findById(any());
-            verify(routeCalculationService, times(1)).isRouteDeviation(anyDouble(), anyDouble(), anyString());
+            verify(routeCalculationService, times(1)).isRouteDeviation(any());
             verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
 
             verify(redisTrackingService, times(1)).storeLiveLocation(
@@ -323,7 +324,7 @@ class TravelTrackingServiceTest {
             previousStateDTO = new PreviousStateDTO(10.0, 5000.0, FIXED_TIMESTAMP - 1000L);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
             when(redisTrackingService.getPreviousEta(String.valueOf(travel.getId()))).thenReturn(previousStateDTO);
 
@@ -332,7 +333,7 @@ class TravelTrackingServiceTest {
             travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
             verify(travelRepository, times(1)).findById(any());
-            verify(routeCalculationService, times(1)).isRouteDeviation(anyDouble(), anyDouble(), anyString());
+            verify(routeCalculationService, times(1)).isRouteDeviation(any());
 
             verifyNoInteractions(mapboxAPIService);
 
@@ -423,7 +424,8 @@ class TravelTrackingServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(routeDeviationDTO);
 
             when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
@@ -451,7 +453,7 @@ class TravelTrackingServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(eq(vehicleLocationRequestDTO.latitude()), eq(vehicleLocationRequestDTO.longitude()), eq(travel.getPolylineRoute())))
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
             when(redisTrackingService.getPreviousEta(String.valueOf(travel.getId()))).thenReturn(previousStateDTO);
 
@@ -548,7 +550,7 @@ class TravelTrackingServiceTest {
             when(redisTrackingService.getLiveLocation(travel.getId().toString())).
                     thenReturn(liveLocationDTO);
 
-            when(routeCalculationService.isRouteDeviation(eq(liveLocationDTO.lastCalcLat()), eq(liveLocationDTO.lastCalcLng()), eq(liveLocationDTO.geometry())))
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng())))
                     .thenReturn(routeDeviationDTO);
             when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(routeDetailsDTO);
@@ -643,7 +645,6 @@ class TravelTrackingServiceTest {
             return Stream.of(
                     Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
                     Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
-                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, null, 12.5, -12.970000, -38.500000)),
                     Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000)),
                     Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000)),
                     Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null)),
@@ -661,7 +662,7 @@ class TravelTrackingServiceTest {
             when(redisTrackingService.getLiveLocation(travel.getId().toString())).
                     thenReturn(liveLocationDTO);
 
-            when(routeCalculationService.isRouteDeviation(eq(liveLocationDTO.lastCalcLat()), eq(liveLocationDTO.lastCalcLng()), eq(liveLocationDTO.geometry())))
+            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng())))
                     .thenReturn(routeDeviationDTO);
             when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(RouteDetails);
