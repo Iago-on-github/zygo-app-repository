@@ -61,6 +61,10 @@ public class TravelTrackingService {
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
     public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
+        if (!travelId.equals(vehicleLocationRequest.travelId())) {
+            throw new IllegalStateException("TravelID da URL diferente do body");
+        }
+
         if (cityId == null || travelId == null) {
             throw new EmptyMandatoryFieldsFound("[markDriverCheckpoint] CityId: " + cityId + " ou TravelId " + travelId + " são obrigatorios.");
         }
@@ -299,6 +303,8 @@ public class TravelTrackingService {
     // MÉTODOS AUXILIARES
     private LiveLocationDTO extractLiveCoordinates(UUID travelId) {
         LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(String.valueOf(travelId));
+
+        logger.info("currentLocation: {}", currentLocation);
 
         if (currentLocation == null ||
                 currentLocation.lastCalcLat() == null ||
