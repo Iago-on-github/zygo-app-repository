@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/travel/tracking")
+@RequestMapping("/v1/tracking")
 public class TravelTrackingController {
 
     private final TravelTrackingService travelTrackingService;
@@ -23,30 +23,31 @@ public class TravelTrackingController {
         this.travelTrackingService = travelTrackingService;
     }
 
-    @PostMapping("/locationUpdate/{cityId}/{travelId}")
+    @PostMapping("/travels/{travelId}/locations/{cityId}")
     public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
         return ResponseEntity.ok().build();
     }
 
+    /* endpoint temporário para testes */
     @GetMapping("/{travelId}/location")
     public ResponseEntity<Void> processNewLocation(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.processNewLocation(vehicleLocationRequest);
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/confirmEmbark/{studentId}/{travelId}")
+    @PostMapping("/travels/{travelId}/students/{studentId}/embark")
     public ResponseEntity<Void> confirmStudentEmbark(@PathVariable UUID studentId, @PathVariable UUID travelId) {
         travelTrackingService.confirmEmbarkOnTravel(studentId, travelId);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/fastview/{travelId}")
+    @GetMapping("/travels/{travelId}/location")
     public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
 
-    @GetMapping("/{travelId}/historyPoints")
+    @GetMapping("/travels/{travelId}/history")
     public ResponseEntity<Page<LocationPointDTO>> getTravelHistory(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getTravelHistory(travelId));
     }
