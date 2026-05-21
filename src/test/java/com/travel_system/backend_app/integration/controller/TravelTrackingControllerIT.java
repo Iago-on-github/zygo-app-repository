@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
@@ -165,7 +166,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("should process full location flow async after first ping (offRoute path)")
             void shouldProcessLocationAfterFirstPingAsync() throws Exception {
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
 
                 // dispara o checkpoint que publica o evento async
@@ -198,7 +199,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("should recalculate eta internally when vehicle is not offRoute ")
             void shouldRecalculateEtaInternallyWhenVehicleIsNotOffRoute() throws Exception {
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
 
                 String key = "travelId:" + travelId;
@@ -223,7 +224,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("should process location after second (or more) ping")
             void shouldProcessLocationAfterSecondPingOrMore() throws Exception {
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
 
                 String key = "travelId:" + travelId;
@@ -395,7 +396,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("throw exception and not processing when previousETA returns null fields from Redis")
             void shouldStopProcessingWhenPreviousEtaIsInvalidAndThrowException() throws Exception {
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
 
                 mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travelId)
@@ -487,7 +488,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             void shouldReturnDriverPositonWhenIsRouteOffReturnsTrueWithSuccess() throws Exception {
                 String key = "travelId:" + travelId;
 
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
                 when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                         .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
@@ -523,7 +524,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             void shouldReturnDriverPositionWhenIsRouteOffReturnsFalseWithSuccess() throws Exception {
                 String key = "travelId:" + travelId;
 
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
 
                 // getLiveLocation
@@ -555,7 +556,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             void shouldRecalculateRouteWhenGeometryDataIsNull() throws Exception {
                 String key = "travelId:" + travelId;
 
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
                 when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                         .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
@@ -639,7 +640,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             void throwExceptionWhenCalculateRouteReturnsNullOrInvalidValues(RouteDetailsDTO routeDetailsDTO) throws Exception {
                 String key = "travelId:" + travelId;
 
-                when(routeCalculationService.isRouteDeviation(anyDouble(), anyDouble(), any()))
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
                         .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
 
                 when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
