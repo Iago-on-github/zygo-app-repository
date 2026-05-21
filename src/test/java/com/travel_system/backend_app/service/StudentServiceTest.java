@@ -4,9 +4,11 @@ import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
+import com.travel_system.backend_app.interfaces.mappers.StudentMapper;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
@@ -67,9 +69,12 @@ class StudentServiceTest {
     @Mock
     private PermissionsRepository permissionsRepository;
 
-    Student student;
+    @Mock
+    private StudentMapper studentMapper;
 
+    Student student;
     StudentRequestDTO studentRequestDTO;
+    StudentUpdateDTO studentUpdateDTO;
 
     @BeforeEach
     void setUp() {
@@ -89,6 +94,17 @@ class StudentServiceTest {
         );
 
         studentRequestDTO = new StudentRequestDTO(
+                "student.test01@email.com",
+                "Test@1234",
+                "Lucas",
+                "Oliveira",
+                "71988887777",
+                "imagem_teste",
+                InstitutionType.UNIVERSITY,
+                "Engenharia de Software"
+        );
+
+        studentUpdateDTO = new StudentUpdateDTO(
                 "student.test01@email.com",
                 "Test@1234",
                 "Lucas",
@@ -146,68 +162,41 @@ class StudentServiceTest {
     }
 
     @Nested
-    class getAllActiveStudents {
+    class getStudentsByStatus {
 
         @Test
-        @DisplayName("should return all active students with success")
-        void shouldReturnAllActiveStudentsWithSuccess() {
-            GeneralStatus status = GeneralStatus.ACTIVE;
+        void shouldGetStudentsByStatusWithSuccess() {
+            when(repository.findAllByStatus(student.getStatus())).thenReturn(List.of(student));
 
-            when(repository.findAllByStatus(eq(status))).thenReturn(List.of(student, student));
+            List<StudentResponseDTO> result = studentService.getStudentsByStatus(student.getStatus());
 
-            List<StudentResponseDTO> result = studentService.getAllActiveStudents();
+            assertNotNull(result);
 
-            assertFalse(result.isEmpty());
+            assertAll(
+                    () -> assertEquals(1, result.size()),
+                    () -> assertEquals(GeneralStatus.ACTIVE, result.getFirst().status())
+            );
 
-            verify(repository, times(1)).findAllByStatus(any());
+            verify(repository).findAllByStatus(GeneralStatus.ACTIVE);
         }
 
         @Test
-        @DisplayName("should return empty list when active students not found from database")
-        void shouldReturnEmptyListWhenActiveStudentsNotFound(){
-            GeneralStatus status = GeneralStatus.ACTIVE;
+        void shouldSetActiveStatusWhenParameterIsNotProvider() {
+            student.setStatus(GeneralStatus.ACTIVE);
 
-            when(repository.findAllByStatus(eq(status))).thenReturn(List.of());
+            when(repository.findAllByStatus(GeneralStatus.ACTIVE))
+                    .thenReturn(List.of(student));
 
-            List<StudentResponseDTO> result = studentService.getAllActiveStudents();
+            List<StudentResponseDTO> result = studentService.getStudentsByStatus(null);
 
-            assertTrue(result.isEmpty());
+            assertNotNull(result);
 
-            verify(repository, times(1)).findAllByStatus(any());
-        }
-    }
+            assertAll(
+                    () -> assertEquals(1, result.size()),
+                    () -> assertEquals(GeneralStatus.ACTIVE, result.getFirst().status())
+            );
 
-    @Nested
-    class getAllInactiveStudents {
-
-        @Test
-        @DisplayName("should return all inactive students with success")
-        void shouldReturnAllInactiveStudentsWithSuccess() {
-            GeneralStatus status = GeneralStatus.INACTIVE;
-            student.setStatus(status);
-
-            when(repository.findAllByStatus(eq(status))).thenReturn(List.of(student, student));
-
-            List<StudentResponseDTO> result = studentService.getAllInactiveStudents();
-
-            assertFalse(result.isEmpty());
-
-            verify(repository, times(1)).findAllByStatus(any());
-        }
-
-        @Test
-        @DisplayName("should return empty list when inactive students not found from database")
-        void shouldReturnEmptyListWhenInactiveStudentsNotFound(){
-            GeneralStatus status = GeneralStatus.INACTIVE;
-            student.setStatus(status);
-
-            when(repository.findAllByStatus(eq(status))).thenReturn(List.of());
-
-            List<StudentResponseDTO> result = studentService.getAllInactiveStudents();
-
-            assertTrue(result.isEmpty());
-
-            verify(repository, times(1)).findAllByStatus(any());
+            verify(repository).findAllByStatus(GeneralStatus.ACTIVE);
         }
     }
 
@@ -383,7 +372,7 @@ class StudentServiceTest {
     }
 
     @Nested
-    class updateLoggedStudent {
+    class updateCurrentStudent {
 
         @Test
         @DisplayName("should update logged student with success")
@@ -391,11 +380,23 @@ class StudentServiceTest {
             String authEmail = "authEmail@gmail.com";
 
             when(repository.findByEmail(authEmail)).thenReturn(Optional.of(student));
-            when(repository.findByEmailOrTelephoneAndIdNot(studentRequestDTO.email(), studentRequestDTO.telephone(), student.getId()))
-                    .thenReturn(Optional.empty());
             when(repository.save(any(Student.class))).thenReturn(student);
 
-            StudentResponseDTO result = studentService.updateLoggedStudent(authEmail, studentRequestDTO);
+            doAnswer(invocation -> {
+                StudentUpdateDTO dto = invocation.getArgument(0);
+                Student entity = invocation.getArgument(1);
+
+                entity.setName(dto.name());
+                entity.setLastName(dto.lastName());
+                entity.setCourse(dto.course());
+                entity.setInstitutionType(dto.institutionType());
+                entity.setTelephone(dto.telephone());
+                entity.setProfilePicture(dto.profilePicture());
+
+                return null;
+            }).when(studentMapper).studentUpdateFromDTO(studentUpdateDTO, student);
+
+            StudentResponseDTO result = studentService.updateCurrentStudent(authEmail, studentUpdateDTO);
 
             ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
 
@@ -405,18 +406,18 @@ class StudentServiceTest {
             assertNotNull(result);
 
             assertAll(
-                    () -> assertEquals(studentRequestDTO.email(), storedValue.getEmail()),
+                    () -> assertEquals(studentUpdateDTO.email(), storedValue.getEmail()),
                     () -> assertTrue(passwordEncoder.matches("Test@1234", storedValue.getPassword())),
-                    () -> assertEquals(studentRequestDTO.name(), storedValue.getName()),
-                    () -> assertEquals(studentRequestDTO.lastName(), storedValue.getLastName()),
-                    () -> assertEquals(studentRequestDTO.telephone(), storedValue.getTelephone()),
-                    () -> assertEquals(studentRequestDTO.profilePicture(), storedValue.getProfilePicture()),
-                    () -> assertEquals(studentRequestDTO.institutionType(), storedValue.getInstitutionType()),
-                    () -> assertEquals(studentRequestDTO.course(), storedValue.getCourse())
+                    () -> assertEquals(studentUpdateDTO.name(), storedValue.getName()),
+                    () -> assertEquals(studentUpdateDTO.lastName(), storedValue.getLastName()),
+                    () -> assertEquals(studentUpdateDTO.telephone(), storedValue.getTelephone()),
+                    () -> assertEquals(studentUpdateDTO.profilePicture(), storedValue.getProfilePicture()),
+                    () -> assertEquals(studentUpdateDTO.institutionType(), storedValue.getInstitutionType()),
+                    () -> assertEquals(studentUpdateDTO.course(), storedValue.getCourse())
             );
 
-            verify(repository, times(1)).findByEmail(any());
-            verify(repository, times(1)).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(repository, times(2)).findByEmail(any());
+            verify(repository, times(1)).findByTelephone(any());
         }
 
         @Test
@@ -424,7 +425,7 @@ class StudentServiceTest {
         void throwExceptionWhenStudentNotFound() {
             when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
 
-            assertThrows(EntityNotFoundException.class, () -> studentService.updateLoggedStudent("unexistingEmail@gmail.com", studentRequestDTO));
+            assertThrows(EntityNotFoundException.class, () -> studentService.updateCurrentStudent("unexistingEmail@gmail.com", studentUpdateDTO));
 
             verify(repository, times(1)).findByEmail(any());
 
@@ -441,7 +442,7 @@ class StudentServiceTest {
 
             when(repository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
-            assertThrows(InactiveAccountModificationException.class, () -> studentService.updateLoggedStudent(student.getEmail(), studentRequestDTO));
+            assertThrows(InactiveAccountModificationException.class, () -> studentService.updateCurrentStudent(student.getEmail(), studentUpdateDTO));
 
             verify(repository, times(1)).findByEmail(any());
 
@@ -452,16 +453,13 @@ class StudentServiceTest {
         }
 
         @Test
-        @DisplayName("throw exception if email/telephone/id already exists from database")
-        void throwExceptionIfEmailTelephoneOrIdAlreadyExists() {
-            when(repository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-            when(repository.findByEmailOrTelephoneAndIdNot(studentRequestDTO.email(), studentRequestDTO.telephone(), student.getId()))
-                    .thenReturn(Optional.of(student));
+        void throwExceptionIfEmailAlreadyExists() {
 
-            assertThrows(DuplicateResourceException.class, () -> studentService.updateLoggedStudent(student.getEmail(), studentRequestDTO));
+            when(repository.findByEmail(any())).thenReturn(Optional.of(student));
 
-            verify(repository, times(1)).findByEmail(any());
-            verify(repository, times(1)).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            assertThrows(DuplicateResourceException.class, () -> studentService.updateCurrentStudent(student.getEmail(), studentUpdateDTO));
+
+            verify(repository, times(2)).findByEmail(any());
 
             verify(repository, never()).save(any(Student.class));
 
@@ -470,14 +468,14 @@ class StudentServiceTest {
     }
 
     @Nested
-    class getLoggedInStudentProfile {
+    class getCurrentStudent {
 
         @Test
         @DisplayName("should get logged in student profile with success")
         void shouldGetLoggedInStudentProfileWithSuccess() {
             when(repository.findByEmail("email@gmail.com")).thenReturn(Optional.of(student));
 
-            StudentResponseDTO result = studentService.getLoggedInStudentProfile("email@gmail.com");
+            StudentResponseDTO result = studentService.getCurrentStudent("email@gmail.com");
 
             assertNotNull(result);
 
@@ -489,52 +487,48 @@ class StudentServiceTest {
         void throwExceptionWhenStudentNotFound() {
             when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
 
-            assertThrows(EntityNotFoundException.class, () -> studentService.getLoggedInStudentProfile("unexistingEmail@gmail.com"));
+            assertThrows(EntityNotFoundException.class, () -> studentService.getCurrentStudent("unexistingEmail@gmail.com"));
 
             verify(repository, times(1)).findByEmail(any());
         }
     }
 
     @Nested
-    class disableStudent {
+    class updateStudentStatus {
 
         @Test
-        @DisplayName("should disable student with success")
-        void shouldDisableStudentWithSuccess() {
+        void shouldUpdateStudentStatusWithSuccess() {
             when(repository.findById(student.getId())).thenReturn(Optional.of(student));
-            when(repository.save(any(Student.class))).thenReturn(student);
+            when(repository.save(student)).thenReturn(student);
 
-            studentService.disableStudent(student.getId());
+            studentService.updateStudentStatus(student.getId(), GeneralStatus.INACTIVE);
 
             ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
 
             verify(repository, times(1)).save(studentCaptor.capture());
-            Student storedValue = studentCaptor.getValue();
+            Student savedStudent = studentCaptor.getValue();
 
-            assertEquals(GeneralStatus.INACTIVE, storedValue.getStatus());
+            assertEquals(GeneralStatus.INACTIVE, savedStudent.getStatus());
+            assertNotNull(savedStudent.getUpdatedAt());
         }
 
         @Test
-        @DisplayName("throw exception when student not found from database")
-        void throwExceptionWhenStudentNotFound(){
+        void throwExceptionWhenStudentNotFound() {
             when(repository.findById(student.getId())).thenReturn(Optional.empty());
 
-            assertThrows(EntityNotFoundException.class, () -> studentService.disableStudent(student.getId()));
+            assertThrows(EntityNotFoundException.class, () -> studentService.updateStudentStatus(student.getId(), GeneralStatus.INACTIVE));
 
-            verify(repository, times(1)).findById(any());
-            verify(repository, never()).save(any(Student.class));
+            verifyNoMoreInteractions(repository);
         }
 
         @Test
-        @DisplayName("throw exception when student was inactive from database")
-        void throwExceptionWhenStudentWasInactive() {
-            student.setStatus(GeneralStatus.INACTIVE);
-
+        void throwExceptionWhenStudentAlreadyHasStatus() {
             when(repository.findById(student.getId())).thenReturn(Optional.of(student));
 
-            assertThrows(InactiveAccountModificationException.class, () -> studentService.disableStudent(student.getId()));
+            assertThrows(DuplicateResourceException.class, () -> studentService.updateStudentStatus(student.getId(), GeneralStatus.ACTIVE));
 
-            verify(repository, never()).save(any(Student.class));
+            verifyNoMoreInteractions(repository);
         }
     }
+
 }
