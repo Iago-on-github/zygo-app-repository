@@ -87,7 +87,7 @@ public class StudentService {
         }
 
         // verifica se email já existe
-        if (studentUpdateDTO.email() != null && studentUpdateDTO.email().equals(studentEntity.getEmail())) {
+        if (studentUpdateDTO.email() != null && !studentUpdateDTO.email().equals(studentEntity.getEmail())) {
             boolean isEmailExists = repository.findByEmail(studentUpdateDTO.email()).isPresent();
 
             if (isEmailExists) throw new DuplicateResourceException("Email já em uso por outro usuário.");
@@ -96,7 +96,7 @@ public class StudentService {
         }
 
         // verifica se telefone já existe
-        if (studentUpdateDTO.telephone() != null && studentUpdateDTO.telephone().equals(studentEntity.getTelephone())) {
+        if (studentUpdateDTO.telephone() != null && !studentUpdateDTO.telephone().equals(studentEntity.getTelephone())) {
             boolean isTelephoneExists = repository.findByTelephone(studentUpdateDTO.telephone()).isPresent();
 
             if (isTelephoneExists) throw new DuplicateResourceException("Telefone já em uso por outro usuário.");
@@ -129,7 +129,7 @@ public class StudentService {
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + studentId));
 
         if (student.getStatus().equals(newStatus)) {
-            throw new InactiveAccountModificationException("Estudante " + studentId + " já com o status " + newStatus);
+            throw new DuplicateResourceException("Estudante " + studentId + " já com o status " + newStatus);
         }
 
         student.setStatus(newStatus);
