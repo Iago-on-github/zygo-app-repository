@@ -76,7 +76,6 @@ public class TravelService {
 
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
-        travel.setStartHourTravel(Instant.now());
 
         travelRepository.save(travel);
 
