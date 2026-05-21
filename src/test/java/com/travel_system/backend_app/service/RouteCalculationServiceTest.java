@@ -1,7 +1,16 @@
 package com.travel_system.backend_app.service;
 
 import com.mapbox.geojson.Point;
+import com.travel_system.backend_app.model.City;
+import com.travel_system.backend_app.model.Driver;
+import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
+import com.travel_system.backend_app.model.enums.CitySize;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.repository.TravelRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -10,8 +19,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Arrays;
-import java.util.List;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -23,12 +33,22 @@ class RouteCalculationServiceTest {
     private RouteCalculationService routeCalculationService;
 
     @Mock
+    private TravelRepository travelRepository;
+
+    @Mock
     private PolylineService polylineService;
 
     private final String POLYLINE_MOCK = "encoded_polyline_mock";
 
     @Nested
     class isRouteDeviation {
+        Travel travel;
+
+        @BeforeEach
+        void setUp() {
+            travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>()), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
+            travel.setPolylineRoute(POLYLINE_MOCK);
+        }
 
         @Test
         @DisplayName("should return offRoute=true when driver is beyond 50m tolerance")
@@ -36,9 +56,12 @@ class RouteCalculationServiceTest {
             Point p1 = Point.fromLngLat(-38.5016, -12.9714);
             Point p2 = Point.fromLngLat(-38.5016, -12.9800);
 
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
             when(polylineService.formattedPolylineDecoded(POLYLINE_MOCK)).thenReturn(List.of(p1, p2));
 
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.832, -13.283, POLYLINE_MOCK);
+            RouteDeviationDTO result = routeCalculationService
+                    .isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), -12.832, -13.283));
 
             assertTrue(result.isOffRoute());
             assertTrue(result.distanceToRouteMeters() > 50.0);
@@ -50,11 +73,13 @@ class RouteCalculationServiceTest {
             Point p1 = Point.fromLngLat(-38.5016, -12.9714);
             Point p2 = Point.fromLngLat(-38.5016, -12.9800);
 
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
             when(polylineService.formattedPolylineDecoded(POLYLINE_MOCK))
                     .thenReturn(List.of(p1, p2));
 
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(
-                    -12.9750, -38.5016, POLYLINE_MOCK);
+            RouteDeviationDTO result = routeCalculationService
+                    .isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), -12.9750, -38.5016));
 
             System.out.println("Distância calc debugging: " + result.distanceToRouteMeters());
 
@@ -65,37 +90,44 @@ class RouteCalculationServiceTest {
         @Test
         @DisplayName("should return offRoute=false when polyline has less than two points")
         void shouldReturnOffRouteFalseWhenPolylineHasLessThanTwoPoints() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
             when(polylineService.formattedPolylineDecoded(POLYLINE_MOCK)).thenReturn(List.of(Point.fromLngLat(-12.433, -11.927)));
 
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.97, -38.50, POLYLINE_MOCK);
+            RouteDeviationDTO result = routeCalculationService
+                    .isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), -12.97, -38.50));
 
             assertFalse(result.isOffRoute());
             assertEquals(0.0, result.distanceToRouteMeters());
         }
 
         @Test
-        @DisplayName("should return offRoute=true when polylineRoute is null")
-        void shouldReturnOffRouteWhenPolylineIsNull() {
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.97, -38.50, null);
+        @DisplayName("should return offRoute = false when polylineRoute is null")
+        void shouldReturnOffRouteFalseWhenPolylineIsNull() {
+            travel.setPolylineRoute(null);
 
-            assertTrue(result.isOffRoute());
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), -12.97, -38.50));
+
+            assertFalse(result.isOffRoute());
         }
 
         @Test
-        @DisplayName("should return offRoute=true when currentLat is null")
-        void shouldReturnOffRouteWhenCurrentLatIsNull() {
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(null, -38.50, POLYLINE_MOCK);
+        @DisplayName("should return offRoute = false when currentLat is null")
+        void shouldReturnFalseFromOffRouteWhenCurrentLatIsNull() {
+            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), null, -38.50));
 
-            assertTrue(result.isOffRoute());
+            assertFalse(result.isOffRoute());
             assertEquals(0.0, result.distanceToRouteMeters());
         }
 
         @Test
-        @DisplayName("should return offRoute=true when currentLng is null")
-        void shouldReturnOffRouteWhenCurrentLngIsNull() {
-            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(-12.97, null, POLYLINE_MOCK);
+        @DisplayName("should return offRoute = false when currentLng is null")
+        void shouldReturnFalseFromOffRouteWhenCurrentLngIsNull() {
+            RouteDeviationDTO result = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), -12.97, null));
 
-            assertTrue(result.isOffRoute());
+            assertFalse(result.isOffRoute());
         }
     }
 
