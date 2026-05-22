@@ -37,9 +37,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/v1/auth/**").permitAll()
                                 // permite para o servidor externo do rabbitmq
-                                .requestMatchers("/api/messaging/auth/**").permitAll()
+                                .requestMatchers("/v1/messaging/auth/**").permitAll()
+                                .requestMatchers("/testing/**").permitAll() // endpoints para testes
                                 .requestMatchers("/v1/admins/**").hasRole("ADMIN")
-                                .requestMatchers("/api/v1/gps/**").hasRole("DRIVER")
+                                .requestMatchers("/v1/drivers/**").hasRole("DRIVER")
+                                .requestMatchers("/v1/gps**").hasRole("DRIVER")
                                 // temporário para desenvolvimento
                                 .anyRequest().permitAll()
                 )
