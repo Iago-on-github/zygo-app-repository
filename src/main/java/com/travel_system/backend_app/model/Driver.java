@@ -17,15 +17,19 @@ public class Driver extends UserModel {
     private Integer totalTrips;
     @OneToMany(mappedBy = "driver")
     private List<Travel> travels = new ArrayList<>();
+    @ManyToOne
+    @JoinColumn(name = "city_id")
+    private City city;
 
     public Driver() {
     }
 
-    public Driver(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, String areaOfActivity, Integer totalTrips, List<Travel> travels) {
+    public Driver(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, String areaOfActivity, Integer totalTrips, List<Travel> travels, City city) {
         super(id, email, password, name, lastName, telephone, profilePicture, status, createdAt, updatedAt);
         this.areaOfActivity = areaOfActivity;
         this.totalTrips = totalTrips;
         this.travels = travels;
+        this.city = city;
     }
 
     public String getAreaOfActivity() {
@@ -51,5 +55,13 @@ public class Driver extends UserModel {
 
     public void setTravels(List<Travel> travels) {
         this.travels = travels;
+    }
+
+    public City getCity() {
+        return city;
+    }
+
+    public void setCity(City city) {
+        this.city = city;
     }
 }
