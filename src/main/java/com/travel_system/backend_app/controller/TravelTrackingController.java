@@ -29,13 +29,6 @@ public class TravelTrackingController {
         return ResponseEntity.ok().build();
     }
 
-    /* endpoint temporário para testes */
-    @GetMapping("/{travelId}/location")
-    public ResponseEntity<Void> processNewLocation(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
-        travelTrackingService.processNewLocation(vehicleLocationRequest);
-        return ResponseEntity.noContent().build();
-    }
-
     @PostMapping("/travels/{travelId}/students/{studentId}/embark")
     public ResponseEntity<Void> confirmStudentEmbark(@PathVariable UUID studentId, @PathVariable UUID travelId) {
         travelTrackingService.confirmEmbarkOnTravel(studentId, travelId);
