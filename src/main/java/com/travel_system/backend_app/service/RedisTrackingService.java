@@ -44,7 +44,7 @@ public class RedisTrackingService {
         this.hashOperations = redisTemplate.opsForHash();
     }
 
-    // armazena a localização mais recente do motorista em cache com redisTemplate
+    // armazena a localização mais recente do motorista em cache
     public void storeLiveLocation(String travelId, String latitude, String longitude, Double distance, String geometry) {
         if (travelId == null || latitude == null || longitude == null) {
             logger.warn("[storeLiveLocation] dados de localização null ou inválidos");
@@ -109,6 +109,29 @@ public class RedisTrackingService {
         }
     }
 
+    // armazena os dados da posição atual do veículo
+    public void storeCurrentLocation(UUID travelId, Double currentLatitude, Double currentLongitude, Double speed, Double heading) {
+        if (travelId == null || currentLatitude == null || currentLongitude == null) {
+            logger.warn("[storeCurrentLocation] dados de localização null ou inválidos");
+            return;
+        }
+
+        String key = HASH_KEY_PREFIX + travelId;
+
+        Map<String, String> data = new HashMap<>();
+
+        data.put("current_lat", currentLatitude.toString());
+        data.put("current_lng", currentLongitude.toString());
+
+        data.put("current_location_timestamp", String.valueOf(Instant.now().toEpochMilli()));
+
+        if (speed != null) data.put("current_speed", String.valueOf(speed));
+
+        if (heading != null) data.put("current_heading", String.valueOf(heading));
+
+        hashOperations.putAll(key, data);
+    }
+
     // provê a distância acumulada armazeada no redis
     public String getAccumulatedDistance(UUID travelId) {
         if (travelId == null) return null;
@@ -147,13 +170,13 @@ public class RedisTrackingService {
 
         Map<String, String> data = hashOperations.entries(key);
 
-        // última posição
-        String latitude = data.get("lat");
-        String longitude = data.get("lng");
+        // posição atual do motorista
+        String latitude = data.get("last_calc_lat");
+        String longitude = data.get("last_calc_lng");
 
         // dados de rota que ficarão em cache
         String geometry = data.get("geometry");
-        String distance = data.get("distance");
+        String distance = data.get("distanceRemaining");
 
         // posição do último cálculo da chamada da api
         String lastCalcLat = data.get("last_calc_lat");
