@@ -4,6 +4,7 @@ import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
@@ -74,6 +75,7 @@ public class TravelService {
         travel.setFinalLongitude(travelRequestDTO.finalLongitude());
         travel.setFinalLatitude(travelRequestDTO.finalLatitude());
 
+        travel.setCreatedAt(Instant.now());
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
 
@@ -323,12 +325,18 @@ public class TravelService {
                 travel.getTravelStatus(),
                 driverResponseDTO,
                 travel.getStudentTravels(),
+                travel.getCreatedAt(),
                 travel.getStartHourTravel(),
                 travel.getEndHourTravel()
         );
     }
 
     private DriverResponseDTO driverMapper(Driver driver) {
+        CityResponseDTO cityResponseDTO = null;
+
+        if (driver.getCity() != null) {
+            cityResponseDTO = new CityResponseDTO(driver.getCity().getId(), driver.getCity().getName(), driver.getCity().getSize());
+        }
         return new DriverResponseDTO(
                 driver.getId(),
                 driver.getName(),
@@ -339,6 +347,8 @@ public class TravelService {
                 driver.getCreatedAt(),
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
-                driver.getTotalTrips());
+                driver.getTotalTrips(),
+                cityResponseDTO
+        );
     }
 }
