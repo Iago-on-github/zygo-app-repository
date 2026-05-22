@@ -3,6 +3,8 @@ package com.travel_system.backend_app.model;
 import com.travel_system.backend_app.model.enums.CitySize;
 import jakarta.persistence.*;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -15,6 +17,8 @@ public class City {
     @Enumerated(EnumType.STRING)
     private CitySize size;
     private boolean isActive = true;
+    @OneToMany(mappedBy = "city")
+    private Set<Driver> drivers = new HashSet<>();
 
     public City() {
     }
@@ -56,5 +60,13 @@ public class City {
 
     public void setActive(boolean active) {
         isActive = active;
+    }
+
+    public Set<Driver> getDrivers() {
+        return drivers;
+    }
+
+    public void setDrivers(Set<Driver> drivers) {
+        this.drivers = drivers;
     }
 }
