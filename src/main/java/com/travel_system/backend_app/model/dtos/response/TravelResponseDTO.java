@@ -13,6 +13,7 @@ public record TravelResponseDTO(
         TravelStatus status,
         DriverResponseDTO driverResponseDTO,
         Set<StudentTravel> studentTravel,
+        Instant createdAt,
         Instant startHourTravel,
         Instant endHourTravel
         ) {
