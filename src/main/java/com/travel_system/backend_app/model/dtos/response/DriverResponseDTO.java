@@ -15,6 +15,7 @@ public record DriverResponseDTO(
         LocalDateTime createdAt,
         GeneralStatus status,
         String areaOfActivity,
-        Integer totalTrips
+        Integer totalTrips,
+        CityResponseDTO city
 ) {
 }
