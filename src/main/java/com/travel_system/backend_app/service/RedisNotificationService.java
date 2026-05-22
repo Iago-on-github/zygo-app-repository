@@ -1,9 +1,6 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.InvalidNotificationStateException;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.NotificationStateDTO;
-import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.HashOperations;
