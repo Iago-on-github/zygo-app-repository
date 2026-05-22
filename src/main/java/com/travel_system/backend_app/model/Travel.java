@@ -25,6 +25,7 @@ public class Travel {
     private Driver driver;
     @OneToMany(mappedBy = "travel")
     private Set<StudentTravel> studentTravels = new HashSet<>();
+    private Instant createdAt;
     private Instant startHourTravel;
     private Instant endHourTravel;
 
@@ -45,11 +46,12 @@ public class Travel {
     public Travel() {
     }
 
-    public Travel(UUID id, City city, TravelStatus travelStatus, Driver driver, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude) {
+    public Travel(UUID id, City city, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude) {
         this.id = id;
         this.city = city;
         this.travelStatus = travelStatus;
         this.driver = driver;
+        this.createdAt = createdAt;
         this.startHourTravel = startHourTravel;
         this.endHourTravel = endHourTravel;
         this.polylineRoute = polylineRoute;
@@ -95,6 +97,14 @@ public class Travel {
 
     public Instant getStartHourTravel() {
         return startHourTravel;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     public void setStartHourTravel(Instant startHourTravel) {
