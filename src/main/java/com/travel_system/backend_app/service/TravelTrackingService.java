@@ -162,6 +162,8 @@ public class TravelTrackingService {
                 currentPolyline = newEtaRecalculateByApi.geometry();
 
             } else {
+                logger.info("[processNewLocation] - ônibus não se encontra fora de Rota");
+
                 previousEta = redisTrackingService.getPreviousEta(travel.getId().toString());
 
                 if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
