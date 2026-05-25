@@ -20,6 +20,7 @@ public class RouteCalculationService {
     private final TravelRepository travelRepository;
 
     private final double TOLERANCE_DISTANCE = 50.0;
+
     private final double EARTH_RADIUS_METERS = 6371000;
 
     private Logger logger = LoggerFactory.getLogger(RouteCalculationService.class);
