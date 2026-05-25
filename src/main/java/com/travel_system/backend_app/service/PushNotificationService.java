@@ -6,6 +6,8 @@ import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteCalculationReferenceDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
@@ -261,9 +263,11 @@ public class PushNotificationService {
         Double latitude = vehicleLocationRequest.latitude();
         Double longitude = vehicleLocationRequest.longitude();
 
-        LiveLocationDTO lastRecentPosition = redisTrackingService.getLiveLocation(String.valueOf(travelId));
+        RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
+        RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
+
         LastLocationDTO lastLocation = redisTrackingService.getLastLocation(travelId);
-        LiveLocationDTO actuallyPosition = getLiveLocationDTO(latitude, longitude, lastRecentPosition);
+        LiveLocationDTO actuallyPosition = getLiveLocationDTO(latitude, longitude, routeCalculateReference, routeState);
 
         VelocityAnalysisDTO result;
 
@@ -299,9 +303,6 @@ public class PushNotificationService {
             return new VelocityAnalysisDTO(null, null, null, null, MovementState.INSUFFICIENT_DATA);
         }
 
-        // atualiza última posição no redis mesmo se algo falhar
-        redisTrackingService.keepMemoryBetweenDriverPings(travelId, actuallyPosition);
-
         Double distanceBetweenPings =
                 routeCalculationService.calculateHaversineDistanceInMeters(
                         latitude, longitude,
@@ -318,6 +319,12 @@ public class PushNotificationService {
                     null,
                     MovementState.INSUFFICIENT_DATA);
         }
+
+        // update da prop 'accumulatedDistance' no redis
+        redisTrackingService.updateAccumulatedDistance(travelId, distanceBetweenPings);
+
+        // atualiza última posição no redis mesmo se algo falhar
+        redisTrackingService.keepMemoryBetweenDriverPings(travelId, actuallyPosition);
 
         PreviousStateDTO previousEta =
                 redisTrackingService.getPreviousEta(String.valueOf(travelId));
@@ -366,11 +373,11 @@ public class PushNotificationService {
         return result;
     }
 
-    private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, LiveLocationDTO lastRecentPosition) {
-        String geometry = lastRecentPosition != null ? lastRecentPosition.geometry() : null;
-        double distance = (lastRecentPosition != null && lastRecentPosition.distance() != null) ? lastRecentPosition.distance() : 0.0;
-        double lastCalcLat = (lastRecentPosition != null && lastRecentPosition.lastCalcLat() != null) ? lastRecentPosition.lastCalcLat() : 0.0;
-        double lastCalcLng = (lastRecentPosition != null && lastRecentPosition.lastCalcLng() != null) ? lastRecentPosition.lastCalcLng() : 0.0;
+    private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, RouteCalculationReferenceDTO routeCalculateReference, RouteDetailsDTO routeState) {
+        String geometry = routeState != null ? routeState.geometry() : null;
+        double distance = (routeState != null && routeState.distance() != null) ? routeState.distance() : 0.0;
+        double lastCalcLat = (routeCalculateReference != null && routeCalculateReference.lastCalcLat() != null) ? routeCalculateReference.lastCalcLat() : 0.0;
+        double lastCalcLng = (routeCalculateReference != null && routeCalculateReference.lastCalcLng() != null) ? routeCalculateReference.lastCalcLng() : 0.0;
 
         return new LiveLocationDTO(
                 latitude,
