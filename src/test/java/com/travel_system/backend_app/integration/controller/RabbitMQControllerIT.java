@@ -249,11 +249,11 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
