@@ -29,7 +29,9 @@ public class RedisTrackingService {
     private final Logger logger = LoggerFactory.getLogger(RedisTrackingService.class);
 
     private final String SET_KEY = "ACTIVE_TRAVELS_KEY";
-    private final String HASH_KEY_PREFIX = "travelId:";
+
+    private final String TRACKING_KEY_PREFIX = "travel:tracking:";
+    private final String ROUTE_KEY_PREFIX = "travel:route:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;
