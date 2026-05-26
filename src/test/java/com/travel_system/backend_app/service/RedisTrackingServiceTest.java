@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import jakarta.inject.Inject;
@@ -545,7 +546,7 @@ class RedisTrackingServiceTest {
             Double distance = 300.0;
             String status = "mocked_status";
 
-            redisTrackingService.storeTravelMetadata(travelId.toString(), durationRemaining, distance, status);
+            redisTrackingService.storeTravelMetadata(travelId, new RouteDetailsDTO(durationRemaining, distance, null), status);
 
             ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
@@ -565,7 +566,8 @@ class RedisTrackingServiceTest {
             Double distance = 300.0;
             String status = "mocked_status";
 
-            redisTrackingService.storeTravelMetadata(null, durationRemaining, distance, status);
+            redisTrackingService.storeTravelMetadata(null, new RouteDetailsDTO(durationRemaining, distance, null), status);
+
 
             verify(hashOperations, never()).putAll(any(), anyMap());
         }
@@ -788,7 +790,7 @@ class RedisTrackingServiceTest {
             UUID travelId = UUID.randomUUID();
             String key = "travelId:" + travelId;
 
-            redisTrackingService.markNotificationAsSent(travelId.toString());
+            redisTrackingService.markNotificationAsSent(travelId);
 
             verify(hashOperations, times(1))
                     .put(eq(key), eq("lastNotificationSendAt"), anyString());
