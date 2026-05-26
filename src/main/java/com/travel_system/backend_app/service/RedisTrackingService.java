@@ -39,14 +39,14 @@ public class RedisTrackingService {
         this.hashOperations = redisTemplate.opsForHash();
     }
 
-    // armazena a localização mais recente do motorista em cache
+    // persiste estado calculado da rota
     public void storeCalculatedRouteState(String travelId, String calculationLatitude, String calculationLongitude, RouteDetailsDTO routeDetails) {
         if (travelId == null || calculationLatitude == null || calculationLongitude == null) {
             logger.warn("[storeLiveLocation] dados de cálculo de rota null ou inválidos");
             return;
         }
 
-        String trackingKey = TRACKING_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
@@ -69,7 +69,7 @@ public class RedisTrackingService {
         data.put("last_calc_lat", calculationLatitude);
         data.put("last_calc_lng", calculationLongitude);
 
-        hashOperations.putAll(trackingKey, data);
+        hashOperations.putAll(routeKey, data);
     }
 
     // atualiza o campo "accumulatedDistance"
@@ -79,14 +79,14 @@ public class RedisTrackingService {
             return;
         }
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         try {
             double currentAccumulated = Double.parseDouble(getAccumulatedDistance(travelId));
 
             String updatedAccumulated = String.valueOf(currentAccumulated + incrementalDistance);
 
-            hashOperations.put(key, "accumulatedDistance", updatedAccumulated);
+            hashOperations.put(routeKey, "accumulatedDistance", updatedAccumulated);
 
             logger.info("[updateAccumulatedDistance] distância acumulada atualizada para viagem {}: {}", travelId, updatedAccumulated);
 
@@ -105,7 +105,7 @@ public class RedisTrackingService {
         String currentLatitude = currentVehicleLocation.latitude().toString();
         String currentLongitude = currentVehicleLocation.longitude().toString();
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
@@ -118,16 +118,16 @@ public class RedisTrackingService {
 
         if (currentVehicleLocation.heading() != null) data.put("current_heading", String.valueOf(currentVehicleLocation.speed()));
 
-        hashOperations.putAll(key, data);
+        hashOperations.putAll(trackingKey, data);
     }
 
     // provê a distância acumulada armazeada no redis
     public String getAccumulatedDistance(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
-        String accumulatedDistance = hashOperations.get(key, "accumulatedDistance");
+        String accumulatedDistance = hashOperations.get(routeKey, "accumulatedDistance");
 
         return accumulatedDistance != null ? accumulatedDistance : "0.0";
     }
@@ -167,9 +167,9 @@ public class RedisTrackingService {
     public RouteDetailsDTO getRouteState(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
-        Map<String, String> data = hashOperations.entries(key);
+        Map<String, String> data = hashOperations.entries(routeKey);
 
         if (data == null || data.isEmpty()) {
             return null;
@@ -191,9 +191,9 @@ public class RedisTrackingService {
     public RouteCalculationReferenceDTO getRouteCalculateReference(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
-        Map<String, String> data = hashOperations.entries(key);
+        Map<String, String> data = hashOperations.entries(routeKey);
 
         if (data == null || data.isEmpty()) return null;
 
@@ -211,9 +211,10 @@ public class RedisTrackingService {
     // retorna o último ETA armazenado + a distância
     public PreviousStateDTO getPreviousEta(String travelId) {
         if (travelId == null) return null;
-        String key = HASH_KEY_PREFIX + travelId;
 
-        List<String> consultData = hashOperations.multiGet(key, Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp"));
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+        List<String> consultData = hashOperations.multiGet(routeKey, Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp"));
 
         String durationRemaining = consultData.get(0);
         String distance = consultData.get(1);
@@ -231,21 +232,23 @@ public class RedisTrackingService {
     public LiveLocationDTO getLiveLocation(String travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        Map<String, String> data = hashOperations.entries(key);
+        Map<String, String> routeData = hashOperations.entries(routeKey);
+        Map<String, String> trackingData = hashOperations.entries(trackingKey);
 
         // posição atual do motorista
-        String latitude = data.get("current_lat");
-        String longitude = data.get("current_lng");
+        String latitude = trackingData.get("current_lat");
+        String longitude = trackingData.get("current_lng");
 
         // dados de rota que ficarão em cache
-        String geometry = data.get("geometry");
-        String distance = data.get("distanceRemaining");
+        String geometry = routeData.get("geometry");
+        String distance = routeData.get("distanceRemaining");
 
         // posição do último cálculo da chamada da api
-        String lastCalcLat = data.get("last_calc_lat");
-        String lastCalcLng = data.get("last_calc_lng");
+        String lastCalcLat = routeData.get("last_calc_lat");
+        String lastCalcLng = routeData.get("last_calc_lng");
 
         try {
             return new LiveLocationDTO(
@@ -302,9 +305,9 @@ public class RedisTrackingService {
     public AnalyzeMovementStateDTO getLastMovementState(String travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
-        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt"));
+        List<String> hashFields = hashOperations.multiGet(routeKey, Arrays.asList("movementState", "stateStartedAt", "lastNotificationSendAt", "lastEtaNotificationAt"));
 
         String cacheMovementState = hashFields.get(0);
         String cacheStateStartedAt = hashFields.get(1);
@@ -344,7 +347,7 @@ public class RedisTrackingService {
         String durationRemaining = String.valueOf(routeDetails.duration());
         String distanceRemaining = String.valueOf(routeDetails.distance());
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         // HSET: vai atualizar os campos de distance, eta e status sem afetar LAT/LNG
         Map<String, String> mapToStoredUpdatedData = new HashMap<>();
@@ -354,7 +357,7 @@ public class RedisTrackingService {
         mapToStoredUpdatedData.put("distanceRemaining", distanceRemaining);
         mapToStoredUpdatedData.put("status", status);
 
-        hashOperations.putAll(key, mapToStoredUpdatedData);
+        hashOperations.putAll(routeKey, mapToStoredUpdatedData);
     }
 
     // mantém memória entre os pings do driver
@@ -387,7 +390,7 @@ public class RedisTrackingService {
         String durationRemainingToString = String.valueOf(durationRemaining);
         String timestampToString = String.valueOf(timestamp.toEpochMilli());
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
@@ -395,7 +398,7 @@ public class RedisTrackingService {
         data.put("durationRemaining", durationRemainingToString);
         data.put("timestamp", timestampToString);
 
-        hashOperations.putAll(key, data);
+        hashOperations.putAll(routeKey, data);
     }
 
     // armazena apenas o estado de movimento
@@ -405,14 +408,14 @@ public class RedisTrackingService {
         // primeiro ping
         if (analyzeMovementStateDTO == null) return;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         String movementState = String.valueOf(analyzeMovementStateDTO.movementState());
         String stateStartedAt = String.valueOf(analyzeMovementStateDTO.stateStartedAt());
 
         Map<String, String> data = new HashMap<>();
 
-        List<String> fieldsHash = hashOperations.multiGet(key, Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt"));
+        List<String> fieldsHash = hashOperations.multiGet(routeKey, Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt"));
 
         String cacheMovementState = fieldsHash.get(0);
         String lastNotificationSendAt = fieldsHash.get(1);
@@ -420,15 +423,15 @@ public class RedisTrackingService {
 
         if (cacheMovementState == null) {
             logger.info("[saveAnalyzedMovementState] - sem movementState salvo no redis, viagem: {}", travelId);
-            velocityAnalysisHelper(key, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
+            velocityAnalysisHelper(routeKey, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
         }
         else if (!movementState.equals(cacheMovementState)) {
             logger.info("[saveAnalyzedMovementState] - movementState atual é diferente do salvo no redis, viagem: {}", travelId);
-            velocityAnalysisHelper(key, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
+            velocityAnalysisHelper(routeKey, movementState, data, stateStartedAt, lastNotificationSendAt, lastEtaNotificationAt);
         } else {
             logger.info("[saveAnalyzedMovementState] - movementState atual é exatamente o salvo no redis, viagem: {}", travelId);
             data.put("movementState", movementState);
-            hashOperations.putAll(key, data);
+            hashOperations.putAll(routeKey, data);
         }
     }
 
@@ -436,11 +439,11 @@ public class RedisTrackingService {
     public void markNotificationAsSent(String travelId) {
         if (travelId == null) return;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         String lastNotificationSendAt = String.valueOf(Instant.now());
 
-        hashOperations.put(key, "lastNotificationSendAt", lastNotificationSendAt);
+        hashOperations.put(routeKey, "lastNotificationSendAt", lastNotificationSendAt);
     }
 
     // adiciona ids de viagens ativas no set do redis
@@ -475,9 +478,10 @@ public class RedisTrackingService {
     public void clearTravelLocationCache(UUID travelId) {
         if (travelId == null) return;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        redisTemplate.delete(key);
+        redisTemplate.delete(List.of(routeKey, trackingKey));
 
         redisTemplate.opsForSet().remove(SET_KEY, travelId.toString());
     }
