@@ -213,7 +213,7 @@ public class TravelTrackingService {
             } else {
                 logger.info("[processNewLocation] - ônibus não se encontra fora de Rota");
 
-                previousEta = redisTrackingService.getPreviousEta(travel.getId().toString());
+                previousEta = redisTrackingService.getPreviousEta(travel.getId());
 
                 if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
                     throw new EtaDataStatesInvalidException("[processNewLocation] dados do previousEta inválidos ou null para a viagem: " + previousEta);
@@ -250,7 +250,7 @@ public class TravelTrackingService {
         }
 
         redisTrackingService.storeTravelMetadata(
-                travel.getId().toString(),
+                travel.getId(),
                 currentRouteDetails,
                 travel.getTravelStatus().toString()
         );
