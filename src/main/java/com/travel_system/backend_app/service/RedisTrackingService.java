@@ -46,7 +46,7 @@ public class RedisTrackingService {
             return;
         }
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
@@ -69,7 +69,7 @@ public class RedisTrackingService {
         data.put("last_calc_lat", calculationLatitude);
         data.put("last_calc_lng", calculationLongitude);
 
-        hashOperations.putAll(key, data);
+        hashOperations.putAll(trackingKey, data);
     }
 
     // atualiza o campo "accumulatedDistance"
@@ -136,9 +136,9 @@ public class RedisTrackingService {
     public CurrentVehicleLocationDTO getCurrentLocation(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        Map<String, String> data = hashOperations.entries(key);
+        Map<String, String> data = hashOperations.entries(trackingKey);
 
         if (data == null || data.isEmpty()) {
             return null;
@@ -265,10 +265,10 @@ public class RedisTrackingService {
     public LastLocationDTO getLastLocation(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         // read hash
-        List<String> hashFields = hashOperations.multiGet(key, Arrays.asList("last_ping_lat", "last_ping_lng", "last_ping_timestamp"));
+        List<String> hashFields = hashOperations.multiGet(trackingKey, Arrays.asList("last_ping_lat", "last_ping_lng", "last_ping_timestamp"));
 
         String lastPingLat = hashFields.get(0);
         String lastPingLng = hashFields.get(1);
@@ -363,7 +363,7 @@ public class RedisTrackingService {
 
         long now = Instant.now().toEpochMilli();
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         Map<String, String> data = new HashMap<>();
 
@@ -373,7 +373,7 @@ public class RedisTrackingService {
 
         logger.info("[keepMemoryBetweenDriverPings] Com estado, salvando...: {}", travelId);
 
-        hashOperations.putAll(key, data);
+        hashOperations.putAll(trackingKey, data);
     }
 
     // atualiza o estado de ETA da viagem
@@ -464,9 +464,9 @@ public class RedisTrackingService {
     public Long getLastPingTimestamp(UUID travelId) {
         if (travelId == null) return null;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        String timestamp = hashOperations.get(key, "timestamp");
+        String timestamp = hashOperations.get(trackingKey, "timestamp");
 
         return timestamp != null ? Long.parseLong(timestamp) : null;
     }
@@ -486,23 +486,24 @@ public class RedisTrackingService {
     public void saveHistoryPingLocation(UUID travelId, Instant lastPing) {
         if (travelId == null) return;
 
-        String key = HASH_KEY_PREFIX + travelId;
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         logger.info("[redis] saveHistoryPingLocation called, saving data... {}", travelId);
 
-        hashOperations.put(key, "last_ping_history", lastPing.toString());
+        hashOperations.put(trackingKey, "last_ping_history", lastPing.toString());
     }
 
     // verifica se o último ping da viagem foi salvo há menos de X segundos
     public boolean isLocationUpdateAllowed(UUID travelId) {
         if (travelId == null) return false;
-        String key = HASH_KEY_PREFIX + travelId;
+
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
         // segundos permitidos
         final int allowedSeconds = 10;
         Instant now = Instant.now();
 
-        String getSavedLastPing = hashOperations.get(key, "last_ping_history");
+        String getSavedLastPing = hashOperations.get(trackingKey, "last_ping_history");
 
         Instant lastPingSave;
         // se primeiro ping, retorna true direto
@@ -515,6 +516,7 @@ public class RedisTrackingService {
 
         return differenceBetweenTimes.toSeconds() >= allowedSeconds;
     }
+
 
     private void velocityAnalysisHelper(String key, String movementState, Map<String, String> data, String stateStartedAt, String lastNotificationSendAt, String lastEtaNotificationAt) {
         data.put("movementState", movementState);
