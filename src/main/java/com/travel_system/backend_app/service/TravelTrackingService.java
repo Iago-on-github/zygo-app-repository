@@ -110,7 +110,7 @@ public class TravelTrackingService {
                 throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travel);
             }
 
-            redisTrackingService.storeCalculatedRouteState(String.valueOf(travelId), strLatitude, strLongitude, routeDetailsDTO);
+            redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
         }
         // faz recalculo da rota/ETA se necessário
         else {
@@ -125,7 +125,7 @@ public class TravelTrackingService {
                     RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
                     if (routeDetailsDTO != null) {
-                        redisTrackingService.storeCalculatedRouteState(String.valueOf(travelId), strLatitude, strLongitude, routeDetailsDTO);
+                        redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
                     }
 
                 }
@@ -243,7 +243,7 @@ public class TravelTrackingService {
         // atualiza somente se houve recalculate real de rota
         if (shouldRecalculateRoute && routeDeviation.isOffRoute()) {
             redisTrackingService.storeCalculatedRouteState(
-                    travel.getId().toString(),
+                    travel.getId(),
                     currentLat.toString(),
                     currentLng.toString(),
                     currentRouteDetails);
@@ -307,7 +307,7 @@ public class TravelTrackingService {
 
     // MÉTODOS AUXILIARES
     private LiveLocationDTO extractLiveCoordinates(UUID travelId) {
-        LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(String.valueOf(travelId));
+        LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(travelId);
 
         logger.info("currentLocation: {}", currentLocation);
 
