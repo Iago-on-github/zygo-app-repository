@@ -251,7 +251,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList(expectedDurationRemaining, null, expectedTimestamp));
 
-            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId.toString());
+            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId);
 
             assertNotNull(result);
 
@@ -454,7 +454,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList("STOPPED", stateStartedAt, lastNotification, lastEta));
 
-            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId);
 
             assertNotNull(result);
 
@@ -478,7 +478,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList(null, stateStartedAt, lastNotification, lastEta));
 
-            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId);
 
             assertNull(result);
         }
@@ -498,7 +498,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList("", stateStartedAt, lastNotification, lastEta));
 
-            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId);
 
             assertNull(result);
         }
@@ -518,7 +518,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList("STOPPED", stateStartedAt, lastNotification, lastEta));
 
-            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId.toString());
+            AnalyzeMovementStateDTO result = redisTrackingService.getLastMovementState(travelId);
 
             assertNull(result);
         }
