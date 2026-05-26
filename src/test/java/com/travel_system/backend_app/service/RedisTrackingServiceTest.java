@@ -227,7 +227,7 @@ class RedisTrackingServiceTest {
             when(hashOperations.multiGet(eq(key), eq(fields)))
                     .thenReturn(Arrays.asList(expectedDurationRemaining, expectedDistanceRemaining, expectedTimestamp));
 
-            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId.toString());
+            PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId);
 
             assertNotNull(result);
 
