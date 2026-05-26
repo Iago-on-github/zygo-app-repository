@@ -21,7 +21,6 @@ import java.util.*;
 @Service
 public class RedisTrackingService {
 
-    private final RouteCalculationService routeCalculationService;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> hashOperations;
@@ -33,8 +32,7 @@ public class RedisTrackingService {
     private final String TRACKING_KEY_PREFIX = "travel:tracking:";
     private final String ROUTE_KEY_PREFIX = "travel:route:";
 
-    public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
-        this.routeCalculationService = routeCalculationService;
+    public RedisTrackingService(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.hashOperations = redisTemplate.opsForHash();
     }
@@ -209,7 +207,7 @@ public class RedisTrackingService {
     }
 
     // retorna o último ETA armazenado + a distância
-    public PreviousStateDTO getPreviousEta(String travelId) {
+    public PreviousStateDTO getPreviousEta(UUID travelId) {
         if (travelId == null) return null;
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
@@ -302,7 +300,7 @@ public class RedisTrackingService {
     }
 
     // fornece o último estado do veículo
-    public AnalyzeMovementStateDTO getLastMovementState(String travelId) {
+    public AnalyzeMovementStateDTO getLastMovementState(UUID travelId) {
         if (travelId == null) return null;
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
@@ -341,7 +339,7 @@ public class RedisTrackingService {
     }
 
     // atualiza ETA restante, distância restante e o status atualizado
-    public void storeTravelMetadata(String travelId, RouteDetailsDTO routeDetails, String status) {
+    public void storeTravelMetadata(UUID travelId, RouteDetailsDTO routeDetails, String status) {
         if (travelId == null) return;
 
         String durationRemaining = String.valueOf(routeDetails.duration());
@@ -381,10 +379,7 @@ public class RedisTrackingService {
 
     // atualiza o estado de ETA da viagem
     public void updateTripEtaState(UUID travelId, Double distanceRemaining, Double durationRemaining, Instant timestamp) {
-        if (travelId == null) {
-            logger.debug("[updateTripEtaState] - viagem não encontrada: {} ", travelId);
-            return;
-        }
+        if (travelId == null) return;
 
         String distanceRemainingString = String.valueOf(distanceRemaining);
         String durationRemainingToString = String.valueOf(durationRemaining);
@@ -436,7 +431,7 @@ public class RedisTrackingService {
     }
 
     // marca que uma notificação foi enviada
-    public void markNotificationAsSent(String travelId) {
+    public void markNotificationAsSent(UUID travelId) {
         if (travelId == null) return;
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
