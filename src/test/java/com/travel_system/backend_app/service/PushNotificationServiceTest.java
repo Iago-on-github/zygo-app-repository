@@ -668,7 +668,7 @@ class PushNotificationServiceTest {
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.8);
 
-            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+            when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -734,7 +734,7 @@ class PushNotificationServiceTest {
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(2.0);
 
-            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+            when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -801,7 +801,7 @@ class PushNotificationServiceTest {
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(23.0);
 
-            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+            when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -868,7 +868,7 @@ class PushNotificationServiceTest {
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(23.0);
 
-            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(null);
+            when(redisTrackingService.getPreviousEta(travelId)).thenReturn(null);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -933,7 +933,7 @@ class PushNotificationServiceTest {
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(23.0);
 
-            when(redisTrackingService.getPreviousEta(travelId.toString())).thenReturn(previousState);
+            when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
