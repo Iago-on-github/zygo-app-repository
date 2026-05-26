@@ -64,104 +64,55 @@ class RedisTrackingServiceTest {
     }
 
     @Nested
-    class storeLiveLocation {
+    class storeCalculatedRouteState {
 
         @Test
-        @DisplayName("should stored more recently live location with success")
-        void shouldStoredMoreRecentlyLiveLocationWithSuccess() {
+        void shouldStoreCalculatedRouteStateWithSuccess() {
             UUID travelId = UUID.randomUUID();
             String latitude = "-32.932";
             String longitude = "-12.402";
             Double distance = 392.12;
             String geometry = "geometry_teste";
 
-            String key = "travelId:" + travelId;
+            String routeKey = "travel:route:" + travelId;
 
-            List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
-            List<String> values = Arrays.asList("-32.932", "-12.402", null);
-
-            Map<String, String> oldDataMock = new HashMap<>();
-
-            when(hashOperations.multiGet(eq(key), eq(fields))).thenReturn(values);
-            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                    .thenReturn(392.12);
-
-            redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
+            redisTrackingService.storeCalculatedRouteState(travelId, latitude, longitude, new RouteDetailsDTO(null, distance, geometry));
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(anyString(), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> savedMap = captorMap.getValue();
 
             assertEquals(latitude, savedMap.get("last_calc_lat"));
             assertEquals(longitude, savedMap.get("last_calc_lng"));
 
-            assertEquals("392.12", savedMap.get("accumulatedDistance"));
+            assertEquals("392.12", savedMap.get("distanceRemaining"));
+            assertEquals("geometry_teste", savedMap.get("geometry"));
         }
 
         @Test
-        @DisplayName("should initialize accumulated distance on first location with success")
-        void shouldInitializeAccumulatedDistanceOnFirstLocationWithSuccess() {
+        @DisplayName("should store without optional properties like geometry or distance")
+        void shouldStoreCalculatedRouteStateWithoutOptionalPropertiesWithSuccess() {
             UUID travelId = UUID.randomUUID();
             String latitude = "-32.932";
             String longitude = "-12.402";
-            Double distance = 302.12;
-            String geometry = "geometry_teste";
 
-            String key = "travelId:" + travelId;
+            String routeKey = "travel:route:" + travelId;
 
-            List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
-            List<String> values = Arrays.asList(null, null, null);
-
-            when(hashOperations.multiGet(eq(key), eq(fields))).thenReturn(values);
-//            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-//                    .thenReturn(392.12);
-
-            redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
+            redisTrackingService.storeCalculatedRouteState(travelId, latitude, longitude, new RouteDetailsDTO(null, null, null));
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(anyString(), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> savedMap = captorMap.getValue();
-
-            System.out.println("savedMap" + savedMap);
 
             assertEquals(latitude, savedMap.get("last_calc_lat"));
             assertEquals(longitude, savedMap.get("last_calc_lng"));
 
-            assertEquals("302.12", savedMap.get("accumulatedDistance"));
+            assertNull(savedMap.get("distanceRemaining"));
+            assertNull(savedMap.get("geometry"));
         }
 
-        @Test
-        @DisplayName("should continue processing when input parameters are null")
-        void shouldContinueProcessingWhenInputParametersAreNull() {
-            UUID travelId = UUID.randomUUID();
-
-            redisTrackingService.storeLiveLocation(travelId.toString(), null, null, null, null);
-
-            verify(hashOperations, never()).putAll(anyString(), anyMap());
-        }
-
-        @Test
-        @DisplayName("should continue processing when stored coordinates are invalid")
-        void shouldContinueProcessingWhenStoredCoordinatesAreInvalid() {
-            UUID travelId = UUID.randomUUID();
-            String latitude = "-32.932";
-            String longitude = "-12.402";
-            Double distance = 392.12;
-            String geometry = "geometry_teste";
-
-            String key = "travelId:" + travelId;
-
-            List<String> fields = Arrays.asList("last_calc_lat", "last_calc_lng", "accumulatedDistance");
-            List<String> values = Arrays.asList("abc", "-12.402", null);
-
-            when(hashOperations.multiGet(eq(key), eq(fields))).thenReturn(values);
-
-            redisTrackingService.storeLiveLocation(travelId.toString(), latitude, longitude, distance, geometry);
-
-            verify(hashOperations, never()).putAll(anyString(), anyMap());
-        }
     }
 
     @Nested
@@ -291,7 +242,7 @@ class RedisTrackingServiceTest {
 
             when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
 
-            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
             verify(hashOperations, times(1)).entries(eq(key));
 
@@ -321,7 +272,7 @@ class RedisTrackingServiceTest {
 
             when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
 
-            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
             verify(hashOperations, times(1)).entries(eq(key));
 
@@ -352,7 +303,7 @@ class RedisTrackingServiceTest {
 
             when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
 
-            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId.toString());
+            LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
             verify(hashOperations, times(1)).entries(eq(key));
 
@@ -843,7 +794,7 @@ class RedisTrackingServiceTest {
 
             redisTrackingService.removeUnactiveTravel(travelId);
 
-            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId.toString()));
+            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId));
         }
 
         @Test
@@ -933,7 +884,7 @@ class RedisTrackingServiceTest {
 
             redisTrackingService.clearTravelLocationCache(travelId);
 
-            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId.toString()));
+            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId));
         }
 
         @Test
