@@ -20,7 +20,7 @@ import java.util.*;
 
 @Service
 public class RedisTrackingService {
-
+    private final RouteCalculationService routeCalculationService;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> hashOperations;
@@ -32,15 +32,16 @@ public class RedisTrackingService {
     private final String TRACKING_KEY_PREFIX = "travel:tracking:";
     private final String ROUTE_KEY_PREFIX = "travel:route:";
 
-    public RedisTrackingService(RedisTemplate<String, String> redisTemplate) {
+    public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
+        this.routeCalculationService = routeCalculationService;
         this.redisTemplate = redisTemplate;
         this.hashOperations = redisTemplate.opsForHash();
     }
 
     // persiste estado calculado da rota
-    public void storeCalculatedRouteState(String travelId, String calculationLatitude, String calculationLongitude, RouteDetailsDTO routeDetails) {
+    public void storeCalculatedRouteState(UUID travelId, String calculationLatitude, String calculationLongitude, RouteDetailsDTO routeDetails) {
         if (travelId == null || calculationLatitude == null || calculationLongitude == null) {
-            logger.warn("[storeLiveLocation] dados de cálculo de rota null ou inválidos");
+            logger.warn("[storeCalculatedRouteState] dados de cálculo de rota null ou inválidos");
             return;
         }
 
@@ -52,16 +53,16 @@ public class RedisTrackingService {
         if (routeDetails.distance() != null) {
             data.put("distanceRemaining", routeDetails.distance().toString());
         } else {
-            logger.debug("[storeLiveLocation] distanceRemaining ausente para viagem {}, campo omitido no cache", travelId);
+            logger.debug("[storeCalculatedRouteState] distanceRemaining ausente para viagem {}, campo omitido no cache", travelId);
         }
 
         if (routeDetails.geometry() != null && !routeDetails.geometry().isBlank()) {
             data.put("geometry", routeDetails.geometry());
         } else {
-            logger.debug("[storeLiveLocation] geometry ausente para viagem {}, campo omitido no cache", travelId);
+            logger.debug("[storeCalculatedRouteState] geometry ausente para viagem {}, campo omitido no cache", travelId);
         }
 
-        logger.info("[storeLiveLocation] começando tratamento de dados para a viagem: {} ", travelId);
+        logger.info("[storeCalculatedRouteState] começando tratamento de dados para a viagem: {} ", travelId);
 
         // ponto de referência de onde a rota foi calculada
         data.put("last_calc_lat", calculationLatitude);
@@ -227,7 +228,7 @@ public class RedisTrackingService {
     }
 
     // fornece a loc mais recente e o timestamp para o front-end
-    public LiveLocationDTO getLiveLocation(String travelId) {
+    public LiveLocationDTO getLiveLocation(UUID travelId) {
         if (travelId == null) return null;
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
