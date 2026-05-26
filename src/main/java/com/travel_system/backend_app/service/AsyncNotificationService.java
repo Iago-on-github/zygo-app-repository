@@ -68,7 +68,7 @@ public class AsyncNotificationService {
         Priority priority = Priority.NORMAL;
 
         // controlar cooldawn
-        redisTrackingService.markNotificationAsSent(String.valueOf(travelId));
+        redisTrackingService.markNotificationAsSent(travelId);
 
         List<UUID> studentsAtTrip = studentTravelRepository.findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId);
 
@@ -97,7 +97,7 @@ public class AsyncNotificationService {
         Priority priority = Priority.NORMAL;
 
         // controlar cooldawn
-        redisTrackingService.markNotificationAsSent(String.valueOf(travelId));
+        redisTrackingService.markNotificationAsSent(travelId);
 
         List<UUID> studentsAtTrip = studentTravelRepository.findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId);
 
