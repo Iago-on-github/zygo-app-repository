@@ -556,7 +556,7 @@ class PushNotificationServiceTest {
                     -38.9658
             );
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(null);
 
             // act
@@ -602,7 +602,7 @@ class PushNotificationServiceTest {
                     timestampLessThanMinSeconds
             );
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             // act
@@ -660,9 +660,9 @@ class PushNotificationServiceTest {
                     null
             );
 
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -726,9 +726,9 @@ class PushNotificationServiceTest {
                     null
             );
 
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -793,9 +793,9 @@ class PushNotificationServiceTest {
                     null
             );
 
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -860,9 +860,9 @@ class PushNotificationServiceTest {
                     null
             );
 
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -925,9 +925,9 @@ class PushNotificationServiceTest {
                     null
             );
 
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
 
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -976,12 +976,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance less than 1 = stopped
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.5);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(null);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(null);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -1030,12 +1030,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance less than 1 = stopped
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.5);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -1091,12 +1091,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance more than 1 = slow
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(1.1);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -1152,12 +1152,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance less than 1 = stopped
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.5);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -1213,12 +1213,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance less than 1 = stopped
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.5);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
@@ -1274,12 +1274,12 @@ class PushNotificationServiceTest {
             );
 
             when(redisTrackingService.getLastLocation(travelId)).thenReturn(lastLocationDTO);
-            when(redisTrackingService.getLiveLocation(travelId.toString())).thenReturn(liveLocation);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocation);
 
             // distance less than 1 = stopped
             when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(0.5);
-            when(redisTrackingService.getLastMovementState(travelId.toString())).thenReturn(lastMovementState);
+            when(redisTrackingService.getLastMovementState(travelId)).thenReturn(lastMovementState);
 
             // act
             pushNotificationService.processVehicleMovement(request);
