@@ -63,7 +63,7 @@ class AsyncNotificationServiceTest {
             asyncNotificationService.processNotificationType(travelId, velocityAnalysis, ShouldNotify.SHOULD_NO_NOTIFY, traceId);
 
             // assert
-            verify(redisTrackingService, never()).markNotificationAsSent(String.valueOf(travelId));
+            verify(redisTrackingService, never()).markNotificationAsSent(travelId);
 
             verify(studentTravelRepository, never()).findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId);
 
@@ -92,7 +92,7 @@ class AsyncNotificationServiceTest {
             asyncNotificationService.processNotificationType(travelId, velocityAnalysis, ShouldNotify.SHOULD_NOTIFY_SLOW, traceId);
 
             // assert
-            verify(redisTrackingService, times(1)).markNotificationAsSent(String.valueOf(travelId));
+            verify(redisTrackingService, times(1)).markNotificationAsSent(travelId);
 
             verify(studentTravelRepository, times(1)).findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId);
 
@@ -122,7 +122,7 @@ class AsyncNotificationServiceTest {
             asyncNotificationService.processNotificationType(travelId, velocityAnalysis, ShouldNotify.SHOULD_NOTIFY_STOPPED, traceId);
 
             // assert
-            verify(redisTrackingService, times(1)).markNotificationAsSent(String.valueOf(travelId));
+            verify(redisTrackingService, times(1)).markNotificationAsSent(travelId);
 
             verify(studentTravelRepository, times(1)).findStudentIdsByTravelIdAndDisembarkHourIsNull(travelId);
 
