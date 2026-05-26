@@ -110,7 +110,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
             travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
@@ -151,7 +151,7 @@ public class TravelControllerIT extends IntegrationTestBase {
         @DisplayName("throw exception when Travel has TravelStatus 'PENDING' or 'TRAVELLING' ")
         void throwExceptionWhenTravelAlreadyUnderway() throws Exception {
             Travel travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
@@ -183,11 +183,11 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
              travel = new Travel(
-                    null, null, TravelStatus.PENDING, driver,
+                    null, null, TravelStatus.PENDING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
@@ -293,11 +293,11 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
@@ -487,11 +487,12 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
+
             driverRepository.save(driver);
 
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
@@ -603,11 +604,11 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
@@ -727,11 +728,11 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>());
+                    "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver,
+                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
                     Instant.now(), null, "fndnA~y~iFvt@?",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
