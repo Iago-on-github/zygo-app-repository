@@ -177,7 +177,7 @@ public class PushNotificationService {
     // usa analyzeVehicleMovement e decide se deve notificar
     private ShouldNotify shouldSendNotification(UUID travelId, VelocityAnalysisDTO velocityAnalysis, UUID traceId) {
         // verificar mudanças de estado
-        AnalyzeMovementStateDTO lastMovementState = redisTrackingService.getLastMovementState(String.valueOf(travelId));
+        AnalyzeMovementStateDTO lastMovementState = redisTrackingService.getLastMovementState(travelId);
         MovementState actualMovementState = velocityAnalysis.movementState();
 
         Instant lastEtaNotifyAt = (lastMovementState != null) ? lastMovementState.lastEtaNotificationAt() : null;
@@ -326,8 +326,7 @@ public class PushNotificationService {
         // atualiza última posição no redis mesmo se algo falhar
         redisTrackingService.keepMemoryBetweenDriverPings(travelId, actuallyPosition);
 
-        PreviousStateDTO previousEta =
-                redisTrackingService.getPreviousEta(String.valueOf(travelId));
+        PreviousStateDTO previousEta = redisTrackingService.getPreviousEta(travelId);
 
         Double newETA = null;
         double distanceRemaining = 0;
