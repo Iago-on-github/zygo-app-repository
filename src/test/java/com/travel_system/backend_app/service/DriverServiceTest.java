@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.interfaces.mappers.DriverMapper;
+import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
@@ -77,7 +78,7 @@ class DriverServiceTest {
         @DisplayName("should return all drivers from database with success")
         void shouldReturnAllDriversWithSuccess() {
             // arrange
-            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver@email.com", "123456", "João", "Silva", "75999999999", "https://minha-imagem.com/driver.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>());
+            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver@email.com", "123456", "João", "Silva", "75999999999", "https://minha-imagem.com/driver.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>(), new City());
 
             List<Driver> drivers = List.of(exemple_driver);
 
@@ -119,7 +120,7 @@ class DriverServiceTest {
 
         @BeforeEach
         void setUp() {
-            driver = new Driver(UUID.randomUUID(), "driver2@email.com", "123", "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>());
+            driver = new Driver(UUID.randomUUID(), "driver2@email.com", "123", "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>(), new City());
 
         }
 
@@ -155,7 +156,7 @@ class DriverServiceTest {
             // arrange
             String encodePassword = passwordEncoder.encode("123");
 
-            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver2@email.com", encodePassword, "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>());
+            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver2@email.com", encodePassword, "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>(), new City());
 
             String role = "ROLE_DRIVER";
             Permissions perm = new Permissions(role);
@@ -220,7 +221,7 @@ class DriverServiceTest {
             // arrange
             String encodePassword = "encoded-password-123";
 
-            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver2@email.com", encodePassword, "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>());
+            Driver exemple_driver = new Driver(UUID.randomUUID(), "driver2@email.com", encodePassword, "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>(), new City());
 
             DriverRequestDTO driverRequestDTO = new DriverRequestDTO(
                     "driver2@email.com",
@@ -254,7 +255,7 @@ class DriverServiceTest {
                     "João", "Silva", "75999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador - BA", 25, new ArrayList<>()
+                    "Salvador - BA", 25, new ArrayList<>(), new City()
             );
 
             DriverRequestDTO driverRequestDTO = new DriverRequestDTO(
@@ -328,7 +329,8 @@ class DriverServiceTest {
                     LocalDateTime.now(),
                     "Salvador - BA",
                     25,
-                    new ArrayList<>()
+                    new ArrayList<>(),
+                    new City()
             );
 
             DriverUpdateDTO driverUpdateDTO = new DriverUpdateDTO(
@@ -532,7 +534,7 @@ class DriverServiceTest {
 
         @BeforeEach
         void setUp() {
-            driver = new Driver(UUID.randomUUID(), "driver2@email.com", "123", "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>());
+            driver = new Driver(UUID.randomUUID(), "driver2@email.com", "123", "João", "Silva", "75999999999", null, GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador - BA", 25, new ArrayList<>(), new City());
 
         }
         @Test
