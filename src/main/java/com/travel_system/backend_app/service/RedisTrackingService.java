@@ -371,7 +371,7 @@ public class RedisTrackingService {
 
         data.put("last_ping_lat", String.valueOf(driverPosition.latitude()));
         data.put("last_ping_lng", String.valueOf(driverPosition.longitude()));
-        data.put("timestamp", String.valueOf(now));
+        data.put("lastPingReceivedAt", String.valueOf(now));
 
         logger.info("[keepMemoryBetweenDriverPings] Com estado, salvando...: {}", travelId);
 
@@ -465,7 +465,7 @@ public class RedisTrackingService {
 
         String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        String timestamp = hashOperations.get(trackingKey, "timestamp");
+        String timestamp = hashOperations.get(trackingKey, "lastPingReceivedAt");
 
         return timestamp != null ? Long.parseLong(timestamp) : null;
     }
