@@ -441,6 +441,15 @@ class RedisTrackingServiceTest {
             assertEquals(-12.123, result.lastCalcLat());
             assertEquals(-13.206, result.lastCalcLng());
         }
+
+        @Test
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            RouteCalculationReferenceDTO result = redisTrackingService.getRouteCalculateReference(null);
+
+            assertNull(result);
+
+            verifyNoInteractions(hashOperations);
+        }
     }
 
     @Nested
