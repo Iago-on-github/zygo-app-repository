@@ -35,6 +35,8 @@ public class Travel {
     private Double duration;
     private Double distance;
 
+    private String destinationCity;
+
     // coordenadas
     private Double originLatitude;
     private Double originLongitude;
@@ -46,7 +48,7 @@ public class Travel {
     public Travel() {
     }
 
-    public Travel(UUID id, City city, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude) {
+    public Travel(UUID id, City city, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity) {
         this.id = id;
         this.city = city;
         this.travelStatus = travelStatus;
@@ -61,6 +63,7 @@ public class Travel {
         this.originLongitude = originLongitude;
         this.finalLatitude = finalLatitude;
         this.finalLongitude = finalLongitude;
+        this.destinationCity = destinationCity;
     }
 
     public UUID getId() {
@@ -181,5 +184,13 @@ public class Travel {
 
     public void setCity(City city) {
         this.city = city;
+    }
+
+    public String getDestinationCity() {
+        return destinationCity;
+    }
+
+    public void setDestinationCity(String destinationCity) {
+        this.destinationCity = destinationCity;
     }
 }
