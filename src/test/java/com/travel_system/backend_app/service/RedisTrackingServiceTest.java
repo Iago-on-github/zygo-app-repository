@@ -1153,13 +1153,11 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should save the last history ping from the trip")
         void shouldSaveTheLastHistoryPingFromTheTrip() {
-            UUID travelId = UUID.randomUUID();
             Instant lastPing = Instant.now();
-            String key = "travelId:" + travelId;
 
             redisTrackingService.saveHistoryPingLocation(travelId, lastPing);
 
-            verify(hashOperations, times(1)).put(eq(key), eq("last_ping_history"), eq(lastPing.toString()));
+            verify(hashOperations, times(1)).put(eq(trackingKey), eq("last_ping_history"), eq(lastPing.toString()));
         }
 
         @Test
@@ -1171,8 +1169,6 @@ class RedisTrackingServiceTest {
 
             verify(hashOperations, never()).put(anyDouble(), anyString(), any());
         }
-
-
 
     }
 
