@@ -161,14 +161,27 @@ class RedisTrackingServiceTest {
         }
 
         @Test
-        void shouldReturnNullSilentlyWhenErrorOccurs() {
+        void shouldReturnSilentlyWhenErrorOccurs() {
             when(hashOperations.get(eq(routeKey), eq("accumulatedDistance"))).thenReturn("invalid_value");
 
             redisTrackingService.updateAccumulatedDistance(travelId, 25.0);
 
             verify(hashOperations, never()).put(anyString(), anyString(), anyString());
+        }
 
+        @ParameterizedTest
+        @MethodSource("nullRequireParameterProvider")
+        void shouldReturnSilentlyWhenRequireParametersAreNull(UUID travelId, Double incrementalDistance) {
+            redisTrackingService.updateAccumulatedDistance(travelId, incrementalDistance);
 
+            verifyNoInteractions(hashOperations);
+        }
+
+        public static Stream<Arguments> nullRequireParameterProvider() {
+            return Stream.of(
+                    Arguments.of(null, 100.0),
+                    Arguments.of(UUID.randomUUID(), null)
+            );
         }
     }
 
