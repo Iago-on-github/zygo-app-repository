@@ -1127,17 +1127,15 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should clear redis cache data from travel")
         void shouldClearRedisCacheDataFromTravel() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-            String setKey = "ACTIVE_TRAVELS_KEY";
+            List<String> expectedKeys = List.of(routeKey, trackingKey);
 
-            when(redisTemplate.delete(eq(key))).thenReturn(true);
-
+            when(redisTemplate.delete(eq(expectedKeys))).thenReturn(2L);
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
             redisTrackingService.clearTravelLocationCache(travelId);
 
-            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId));
+            verify(redisTemplate, times(1)).delete(eq(expectedKeys));
+            verify(setOperations, times(1)).remove(eq(activeTravelKey), eq(travelId.toString()));
         }
 
         @Test
