@@ -115,7 +115,7 @@ public class RedisTrackingService {
 
         if (currentVehicleLocation.speed() != null) data.put("current_speed", String.valueOf(currentVehicleLocation.speed()));
 
-        if (currentVehicleLocation.heading() != null) data.put("current_heading", String.valueOf(currentVehicleLocation.speed()));
+        if (currentVehicleLocation.heading() != null) data.put("current_heading", String.valueOf(currentVehicleLocation.heading()));
 
         hashOperations.putAll(trackingKey, data);
     }
