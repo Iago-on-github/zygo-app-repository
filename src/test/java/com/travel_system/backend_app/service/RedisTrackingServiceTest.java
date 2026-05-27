@@ -532,22 +532,23 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return more recently location and timestamp for front-end")
         void shouldReturnMoreRecentlyLocationAndTimestamp() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
+            Map<String, String> expectedMapTracking = new HashMap<>();
+            expectedMapTracking.put("current_lat", "-32.932");
+            expectedMapTracking.put("current_lng", "-12.402");
 
-            Map<String, String> expectedMap = new HashMap<>();
-            expectedMap.put("lat", "-32.932");
-            expectedMap.put("lng", "-12.402");
-            expectedMap.put("geometry", "geometry_teste");
-            expectedMap.put("distance", "392.12");
-            expectedMap.put("last_calc_lat", "-32.900");
-            expectedMap.put("last_calc_lng", "-12.400");
+            Map<String, String> expectedMapRoute = new HashMap<>();
+            expectedMapRoute.put("geometry", "geometry_teste");
+            expectedMapRoute.put("distanceRemaining", "392.12");
+            expectedMapRoute.put("last_calc_lat", "-32.900");
+            expectedMapRoute.put("last_calc_lng", "-12.400");
 
-            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(expectedMapTracking);
+            when(hashOperations.entries(eq(routeKey))).thenReturn(expectedMapRoute);
 
             LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
-            verify(hashOperations, times(1)).entries(eq(key));
+            verify(hashOperations, times(1)).entries(eq(trackingKey));
+            verify(hashOperations, times(1)).entries(eq(routeKey));
 
             assertNotNull(result);
 
@@ -562,22 +563,23 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return default value when field is null")
         void shouldReturnDefaultValueWhenFieldIsNull() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
+            Map<String, String> expectedMapTracking = new HashMap<>();
+            expectedMapTracking.put("current_lat", "-32.932");
+            expectedMapTracking.put("current_lng", "-12.402");
 
-            Map<String, String> expectedMap = new HashMap<>();
-            expectedMap.put("lat", "-32.932");
-            expectedMap.put("lng", "-12.402");
-            expectedMap.put("geometry", null);
-            expectedMap.put("distance", "392.12");
-            expectedMap.put("last_calc_lat", null);
-            expectedMap.put("last_calc_lng", "-12.400");
+            Map<String, String> expectedMapRoute = new HashMap<>();
+            expectedMapRoute.put("geometry", null);
+            expectedMapRoute.put("distanceRemaining", "392.12");
+            expectedMapRoute.put("last_calc_lat", null);
+            expectedMapRoute.put("last_calc_lng", "-12.400");
 
-            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(expectedMapTracking);
+            when(hashOperations.entries(eq(routeKey))).thenReturn(expectedMapRoute);
 
             LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
-            verify(hashOperations, times(1)).entries(eq(key));
+            verify(hashOperations, times(1)).entries(eq(trackingKey));
+            verify(hashOperations, times(1)).entries(eq(routeKey));
 
             assertNotNull(result);
 
@@ -593,22 +595,23 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return silently when field has a invalid value")
         void shouldReturnSilentlyWhenFieldHasInvalidValue() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
+            Map<String, String> expectedMapTracking = new HashMap<>();
+            expectedMapTracking.put("current_lat", "abc");
+            expectedMapTracking.put("current_lng", "-12.402");
 
-            Map<String, String> expectedMap = new HashMap<>();
-            expectedMap.put("lat", "-32.932");
-            expectedMap.put("lng", "abc");
-            expectedMap.put("geometry", null);
-            expectedMap.put("distance", "392.12");
-            expectedMap.put("last_calc_lat", null);
-            expectedMap.put("last_calc_lng", "-12.400");
+            Map<String, String> expectedMapRoute = new HashMap<>();
+            expectedMapRoute.put("geometry", null);
+            expectedMapRoute.put("distanceRemaining", "add");
+            expectedMapRoute.put("last_calc_lat", null);
+            expectedMapRoute.put("last_calc_lng", "-12.400");
 
-            when(hashOperations.entries(eq(key))).thenReturn(expectedMap);
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(expectedMapTracking);
+            when(hashOperations.entries(eq(routeKey))).thenReturn(expectedMapRoute);
 
             LiveLocationDTO result = redisTrackingService.getLiveLocation(travelId);
 
-            verify(hashOperations, times(1)).entries(eq(key));
+            verify(hashOperations, times(1)).entries(eq(trackingKey));
+            verify(hashOperations, times(1)).entries(eq(routeKey));
 
             assertNull(result);
         }
