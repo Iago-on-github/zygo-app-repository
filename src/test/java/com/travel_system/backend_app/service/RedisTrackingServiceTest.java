@@ -329,6 +329,29 @@ class RedisTrackingServiceTest {
 
             assertNull(result);
         }
+
+        @ParameterizedTest
+        @MethodSource("nullFieldsProvider")
+        void shouldReturnSilentlyWhenNoneHaveStoredValueOfLatitudeOrLongitudeData() {
+            Map<String, String> redisData = new HashMap<>();
+
+            redisData.put("current_lat", null);
+            redisData.put("current_lng", null);
+
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(redisData);
+
+            CurrentVehicleLocationDTO result = redisTrackingService.getCurrentLocation(travelId);
+
+            assertNull(result);
+        }
+
+        public static Stream<Arguments> nullFieldsProvider() {
+            return Stream.of(
+                    Arguments.of(null, "-12.422"),
+                    Arguments.of("-11.32", null),
+                    Arguments.of(null, null)
+            );
+        }
     }
 
     @Nested
