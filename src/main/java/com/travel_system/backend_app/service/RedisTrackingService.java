@@ -352,7 +352,7 @@ public class RedisTrackingService {
         Map<String, String> mapToStoredUpdatedData = new HashMap<>();
 
         mapToStoredUpdatedData.put("durationRemaining", durationRemaining);
-        mapToStoredUpdatedData.put("timestamp", String.valueOf(Instant.now().toEpochMilli()));
+        mapToStoredUpdatedData.put("metadataUpdatedAt", String.valueOf(Instant.now().toEpochMilli()));
         mapToStoredUpdatedData.put("distanceRemaining", distanceRemaining);
         mapToStoredUpdatedData.put("status", status);
 
