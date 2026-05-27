@@ -789,6 +789,8 @@ class RedisTrackingServiceTest {
             assertEquals("20.0", mapCaptorValue.get("durationRemaining"));
             assertEquals("300.0", mapCaptorValue.get("distanceRemaining"));
             assertEquals("mocked_status", mapCaptorValue.get("status"));
+
+            assertNotNull(mapCaptorValue.get("metadataUpdatedAt"));
         }
 
         @Test
@@ -799,7 +801,6 @@ class RedisTrackingServiceTest {
             String status = "mocked_status";
 
             redisTrackingService.storeTravelMetadata(null, new RouteDetailsDTO(durationRemaining, distance, null), status);
-
 
             verify(hashOperations, never()).putAll(any(), anyMap());
         }
@@ -830,7 +831,7 @@ class RedisTrackingServiceTest {
             assertEquals("-23.5505", mapCaptorValue.get("last_ping_lat"));
             assertEquals("-46.6333", mapCaptorValue.get("last_ping_lng"));
 
-            assertNotNull(mapCaptorValue.get("timestamp"));
+            assertNotNull(mapCaptorValue.get("lastPingReceivedAt"));
         }
 
         @Test
