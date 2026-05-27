@@ -476,16 +476,13 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return stored previous eta and distance with success")
         void shouldReturnStoredPreviousEtaAndDistanceWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             String expectedDurationRemaining = "20.0";
             String expectedDistanceRemaining = "500.0";
             String expectedTimestamp = String.valueOf(Instant.now().toEpochMilli());
 
-            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "timestamp");
+            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp");
 
-            when(hashOperations.multiGet(eq(key), eq(fields)))
+            when(hashOperations.multiGet(eq(routeKey), eq(fields)))
                     .thenReturn(Arrays.asList(expectedDurationRemaining, expectedDistanceRemaining, expectedTimestamp));
 
             PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId);
@@ -501,15 +498,12 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("Should return null fields when redis values are null")
         void shouldReturnNullWhenAnyFieldIsNullFromRedis() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             String expectedDurationRemaining = "20.0";
             String expectedTimestamp = String.valueOf(Instant.now().toEpochMilli());
 
-            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "timestamp");
+            List<String> fields = Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp");
 
-            when(hashOperations.multiGet(eq(key), eq(fields)))
+            when(hashOperations.multiGet(eq(routeKey), eq(fields)))
                     .thenReturn(Arrays.asList(expectedDurationRemaining, null, expectedTimestamp));
 
             PreviousStateDTO result = redisTrackingService.getPreviousEta(travelId);
