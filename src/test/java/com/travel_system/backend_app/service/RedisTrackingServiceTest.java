@@ -772,9 +772,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should update remaining ETA, remaining distance and updated status with success")
         void shouldStoreTravelMetadataWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             Double durationRemaining = 20.0;
             Double distance = 300.0;
             String status = "mocked_status";
@@ -783,13 +780,12 @@ class RedisTrackingServiceTest {
 
             ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), mapCaptor.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), mapCaptor.capture());
             Map<String, String> mapCaptorValue = mapCaptor.getValue();
 
             assertEquals("20.0", mapCaptorValue.get("durationRemaining"));
             assertEquals("300.0", mapCaptorValue.get("distanceRemaining"));
             assertEquals("mocked_status", mapCaptorValue.get("status"));
-
         }
 
         @Test
