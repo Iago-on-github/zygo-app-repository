@@ -159,6 +159,17 @@ class RedisTrackingServiceTest {
             assertNotNull(storedValue);
             assertEquals("125.0", storedValue);
         }
+
+        @Test
+        void shouldReturnNullSilentlyWhenErrorOccurs() {
+            when(hashOperations.get(eq(routeKey), eq("accumulatedDistance"))).thenReturn("invalid_value");
+
+            redisTrackingService.updateAccumulatedDistance(travelId, 25.0);
+
+            verify(hashOperations, never()).put(anyString(), anyString(), anyString());
+
+
+        }
     }
 
     @Nested
