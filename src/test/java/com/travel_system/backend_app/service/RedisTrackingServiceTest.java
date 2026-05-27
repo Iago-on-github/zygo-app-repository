@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.CurrentVehicleLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
@@ -62,6 +63,7 @@ class RedisTrackingServiceTest {
 
     private UUID travelId;
     private String routeKey;
+    private String trackingKey;
 
     @BeforeEach
     void setUp() {
@@ -71,6 +73,7 @@ class RedisTrackingServiceTest {
 
         travelId = UUID.randomUUID();
         routeKey = "travel:route:" + travelId;
+        trackingKey = "travel:tracking:" + travelId;
 
     }
 
@@ -182,6 +185,31 @@ class RedisTrackingServiceTest {
                     Arguments.of(null, 100.0),
                     Arguments.of(UUID.randomUUID(), null)
             );
+        }
+    }
+
+    @Nested
+    class storeCurrentLocation {
+
+        @Test
+        void shouldStoreCurrentLocationWithSuccess() {
+            redisTrackingService.storeCurrentLocation(travelId, new CurrentVehicleLocationDTO(-11.34, -12.234, 56.43, 22.1));
+
+            ArgumentCaptor<Map<String, String>> mapArgumentCaptor = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(trackingKey), mapArgumentCaptor.capture());
+            Map<String, String> storedValue = mapArgumentCaptor.getValue();
+
+            assertNotNull(storedValue);
+
+            assertEquals("-11.34", storedValue.get("current_lat"));
+            assertEquals("-12.234", storedValue.get("current_lng"));
+
+            assertEquals("56.43", storedValue.get("current_speed"));
+            assertEquals("22.1", storedValue.get("current_heading"));
+
+            assertNotNull(storedValue.get("current_location_timestamp"));
+
         }
     }
 
