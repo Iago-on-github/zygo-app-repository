@@ -9,5 +9,6 @@ public record TravelRequestDTO(
         Double originLongitude,
         Double originLatitude,
         Double finalLongitude,
-        Double finalLatitude) {
+        Double finalLatitude,
+        String destinationCity) {
 }
