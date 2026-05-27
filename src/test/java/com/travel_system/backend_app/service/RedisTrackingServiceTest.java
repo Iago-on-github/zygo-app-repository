@@ -233,6 +233,22 @@ class RedisTrackingServiceTest {
             assertNotNull(storedValue.get("current_location_timestamp"));
         }
 
+        @ParameterizedTest
+        @MethodSource("nullParametersProvider")
+        void shouldReturnSilentlyWhenRequireParametersAreNull(UUID travelId, CurrentVehicleLocationDTO currentVehicleLocation) {
+            redisTrackingService.storeCurrentLocation(travelId, currentVehicleLocation);
+
+            verifyNoInteractions(hashOperations);
+        }
+
+        public static Stream<Arguments> nullParametersProvider() {
+            return Stream.of(
+                    Arguments.of(null, new CurrentVehicleLocationDTO(-11.34, -12.234, null, null)),
+                    Arguments.of(UUID.randomUUID(), new CurrentVehicleLocationDTO(null, -12.234, null, null)),
+                    Arguments.of(UUID.randomUUID(), new CurrentVehicleLocationDTO(-11.34, null, null, null)),
+                    Arguments.of(UUID.randomUUID(), new CurrentVehicleLocationDTO(null, null, null, null))
+            );
+        }
     }
 
     @Nested
