@@ -1,10 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.CurrentVehicleLocationDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import jakarta.inject.Inject;
@@ -423,6 +420,26 @@ class RedisTrackingServiceTest {
             RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
 
             assertNull(result);
+        }
+    }
+
+    @Nested
+    class getRouteCalculateReference {
+
+        @Test
+        void shouldGetRouteCalculateReferenceWithSuccess() {
+            Map<String, String> redisData = new HashMap<>();
+            redisData.put("last_calc_lat", "-12.123");
+            redisData.put("last_calc_lng", "-13.206");
+
+            when(hashOperations.entries(routeKey)).thenReturn(redisData);
+
+            RouteCalculationReferenceDTO result = redisTrackingService.getRouteCalculateReference(travelId);
+
+            assertNotNull(result);
+
+            assertEquals(-12.123, result.lastCalcLat());
+            assertEquals(-13.206, result.lastCalcLng());
         }
     }
 
