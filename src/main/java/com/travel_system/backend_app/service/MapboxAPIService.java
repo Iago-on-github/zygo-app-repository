@@ -4,6 +4,7 @@ import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
 import com.travel_system.backend_app.interfaces.MapboxAPICalling;
 import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.MapboxApiResponse;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RoutesDTO;
@@ -69,6 +70,30 @@ public class MapboxAPIService implements MapboxAPICalling {
         return calculateRoute(currentLng, currentLat, finalLong, finalLat);
     }
 
+    // retorna dados de preview para a viagem
+    public TravelPreviewDTO getTripPreview(Double originLong, Double originLat, Double destLong, Double destLat) {
+        if (originLong == null || originLat == null || destLong == null || destLat == null) {
+            logger.debug("[getTripPreview] dados de coordenada inválidos ou insuficientes: {}, {}, {}, {}", originLong, originLat, destLong, destLat);
+            return null;
+        }
+
+        logger.info("[getTripPreview] dados de coordenadas validados, criando waypoints e fazendo chamada à api...");
+
+        String waypoints = originLong + "," + originLat + ";" + destLong + "," + destLat;
+
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/mapbox/driving/{waypoints}")
+                        .queryParam("geometries", "polyline")
+                        .queryParam("overview", "full")
+                        .queryParam("access_token", accessToken)
+                        .build(waypoints))
+                .retrieve()
+                .bodyToMono(MapboxApiResponse.class)
+                .flatMap(response -> Mono.justOrEmpty(travelPreviewMapper(response)))
+                .block();
+    }
+
     // salva os dados de distance, duration e polyline na entidade Travel
     @Transactional
     public void getAndSaveRouteDetailsDTO(Double originLong, Double originLat, Double destLong, Double destLat) {
@@ -107,6 +132,25 @@ public class MapboxAPIService implements MapboxAPICalling {
                 (double) Math.round(routesDto.duration()),
                 (double) Math.round(routesDto.distance()),
                 routesDto.geometry()
+        );
+    }
+
+    private TravelPreviewDTO travelPreviewMapper(MapboxApiResponse mapboxApiResponse) {
+        System.out.println("[travelPreviewMapper] - DEBUGGING ROUTE: " + mapboxApiResponse.code());
+
+        if (mapboxApiResponse.routes().isEmpty()) {
+            logger.debug("[travelPreviewMapper] routes is empty: {}", mapboxApiResponse.routes());
+            return null;
+        }
+
+        RoutesDTO routesDto = mapboxApiResponse.routes().getFirst();
+
+        // retorna null nos campos "destinationCity" e "arrivalTime", são preenchidos na chamada
+        return new TravelPreviewDTO(
+                (double) Math.round(routesDto.distance()),
+                (double) Math.round(routesDto.duration()),
+                null,
+                null
         );
     }
 }
