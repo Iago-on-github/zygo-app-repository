@@ -1001,13 +1001,9 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should mark notification as sent with success")
         void shouldMarkNotificationAsSentWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             redisTrackingService.markNotificationAsSent(travelId);
 
-            verify(hashOperations, times(1))
-                    .put(eq(key), eq("lastNotificationSendAt"), anyString());
+            verify(hashOperations, times(1)).put(eq(routeKey), eq("lastNotificationSendAt"), anyString());
         }
 
         @Test
