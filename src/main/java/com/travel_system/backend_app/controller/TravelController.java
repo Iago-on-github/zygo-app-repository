@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.service.TravelService;
@@ -56,5 +57,10 @@ public class TravelController {
 
         travelService.leaveTravel(travelId, studentEmail);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{travelId}/preview")
+    public ResponseEntity<TravelPreviewDTO> getTravelPreview(@PathVariable UUID travelId) {
+        return ResponseEntity.ok().body(travelService.getTravelPreview(travelId));
     }
 }
