@@ -460,6 +460,20 @@ class RedisTrackingServiceTest {
 
             assertNull(result);
         }
+
+        @Test
+        void shouldReturnSilentlyWhenErrorOccursDuringDataProcessing() {
+            Map<String, String> redisData = new HashMap<>();
+
+            redisData.put("last_calc_lat", "Invalid_Data");
+            redisData.put("last_calc_lng", "46.63");
+
+            when(hashOperations.entries(eq(routeKey))).thenReturn(redisData);
+
+            RouteCalculationReferenceDTO result = redisTrackingService.getRouteCalculateReference(travelId);
+
+            assertNull(result);
+        }
     }
 
     @Nested
