@@ -392,7 +392,7 @@ public class RedisTrackingService {
 
         data.put("distanceRemaining", distanceRemainingString);
         data.put("durationRemaining", durationRemainingToString);
-        data.put("timestamp", timestampToString);
+        data.put("etaLastUpdatedAt", timestampToString);
 
         hashOperations.putAll(routeKey, data);
     }
