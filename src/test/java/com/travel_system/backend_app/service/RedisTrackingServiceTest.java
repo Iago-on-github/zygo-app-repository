@@ -254,12 +254,9 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return accumulated distance stored from redis with success")
         void shouldReturnAccumulatedDistanceWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             String expectedAccumulatedDist = "50.0";
 
-            when(hashOperations.get(eq(key), eq("accumulatedDistance"))).thenReturn(expectedAccumulatedDist);
+            when(hashOperations.get(eq(routeKey), eq("accumulatedDistance"))).thenReturn(expectedAccumulatedDist);
 
             String result = redisTrackingService.getAccumulatedDistance(travelId);
 
@@ -271,14 +268,11 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return zero when accumulated distance are null from redis")
         void shouldReturnZeroWhenAccumulatedDistanceAreNull() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
-            when(hashOperations.get(eq(key), eq("accumulatedDistance"))).thenReturn(null);
+            when(hashOperations.get(eq(routeKey), eq("accumulatedDistance"))).thenReturn(null);
 
             String result = redisTrackingService.getAccumulatedDistance(travelId);
 
-            verify(hashOperations, times(1)).get(any(), any());
+            verify(hashOperations, times(1)).get(eq(routeKey), eq("accumulatedDistance"));
 
             assertEquals("0.0", result);
         }
