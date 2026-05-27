@@ -1089,33 +1089,27 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return the last moment recorded by gps with success")
         void shouldReturnTheLastMomentRecordedByGpsWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             String timestamp = String.valueOf(Instant.parse("2026-04-23T18:50:00Z").toEpochMilli());
 
-            when(hashOperations.get(eq(key), eq("timestamp"))).thenReturn(timestamp);
+            when(hashOperations.get(eq(trackingKey), eq("lastPingReceivedAt"))).thenReturn(timestamp);
 
             Long result = redisTrackingService.getLastPingTimestamp(travelId);
 
             assertNotNull(result);
 
-            verify(hashOperations, times(1)).get(eq(key), eq("timestamp"));
+            verify(hashOperations, times(1)).get(eq(trackingKey), eq("lastPingReceivedAt"));
         }
 
         @Test
         @DisplayName("should return null if the stored value from redis is null")
         void shouldReturnNullIfTheStoredValueIsNull() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
-            when(hashOperations.get(eq(key), eq("timestamp"))).thenReturn(null);
+            when(hashOperations.get(eq(trackingKey), eq("lastPingReceivedAt"))).thenReturn(null);
 
             Long result = redisTrackingService.getLastPingTimestamp(travelId);
 
             assertNull(result);
 
-            verify(hashOperations, times(1)).get(eq(key), eq("timestamp"));
+            verify(hashOperations, times(1)).get(eq(trackingKey), eq("lastPingReceivedAt"));
         }
 
         @Test
