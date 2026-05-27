@@ -59,8 +59,10 @@ class RedisTrackingServiceTest {
     private HashOperations hashOperations;
 
     private UUID travelId;
+
     private String routeKey;
     private String trackingKey;
+    private String activeTravelKey;
 
     @BeforeEach
     void setUp() {
@@ -71,6 +73,7 @@ class RedisTrackingServiceTest {
         travelId = UUID.randomUUID();
         routeKey = "travel:route:" + travelId;
         trackingKey = "travel:tracking:" + travelId;
+        activeTravelKey = "ACTIVE_TRAVELS_KEY";
 
     }
 
@@ -1046,14 +1049,11 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should remove unactive travelId in redis with success")
         void shouldRemoveUnactiveTravelIdInRedisWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String setKey = "ACTIVE_TRAVELS_KEY";
-
             when(redisTemplate.opsForSet()).thenReturn(setOperations);
 
             redisTrackingService.removeUnactiveTravel(travelId);
 
-            verify(setOperations, times(1)).remove(eq(setKey), eq(travelId));
+            verify(setOperations, times(1)).remove(eq(activeTravelKey), eq(travelId.toString()));
         }
 
         @Test
