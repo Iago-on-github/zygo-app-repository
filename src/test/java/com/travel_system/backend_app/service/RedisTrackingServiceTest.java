@@ -371,6 +371,28 @@ class RedisTrackingServiceTest {
     }
 
     @Nested
+    class getRouteState {
+
+        @Test
+        void shouldGetRouteStateWithSuccess() {
+            Map<String, String> redisData = new HashMap<>();
+            redisData.put("durationRemaining", "12.43");
+            redisData.put("distanceRemaining", "700.3");
+            redisData.put("geometry", "encoded_polyline_exemple");
+
+            when(hashOperations.entries(routeKey)).thenReturn(redisData);
+
+            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
+
+            assertNotNull(result);
+
+            assertEquals(12.43, result.duration());
+            assertEquals(700.3, result.distance());
+            assertEquals("encoded_polyline_exemple", result.geometry());
+        }
+    }
+
+    @Nested
     class getPreviousEta {
 
         @Test
