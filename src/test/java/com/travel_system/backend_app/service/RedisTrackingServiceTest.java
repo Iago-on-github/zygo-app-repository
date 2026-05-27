@@ -890,9 +890,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should save actually state if stored movement state is null, and should update all fields")
         void shouldSaveActuallyStateIfStoredMovementStateIsNull() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
 
             AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
@@ -902,14 +899,14 @@ class RedisTrackingServiceTest {
                     Instant.parse("2026-04-23T21:50:00Z")
             );
 
-            when(hashOperations.multiGet(eq(key), eq(fields)))
+            when(hashOperations.multiGet(eq(routeKey), eq(fields)))
                     .thenReturn(Arrays.asList(null, String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
 
             redisTrackingService.saveAnalyzedMovementState(travelId, dto);
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> capturedValues = captorMap.getValue();
 
             assertEquals("STOPPED", capturedValues.get("movementState"));
@@ -921,9 +918,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should update redis if movementState are different, and should update all fields")
         void shouldUpdateRedisIfMovementStateAreDifferent() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
 
             AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
@@ -933,14 +927,14 @@ class RedisTrackingServiceTest {
                     Instant.parse("2026-04-23T21:50:00Z")
             );
 
-            when(hashOperations.multiGet(eq(key), eq(fields)))
+            when(hashOperations.multiGet(eq(routeKey), eq(fields)))
                     .thenReturn(Arrays.asList("NORMAL", String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
 
             redisTrackingService.saveAnalyzedMovementState(travelId, dto);
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> capturedValues = captorMap.getValue();
 
             assertEquals("STOPPED", capturedValues.get("movementState"));
@@ -952,9 +946,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should update only movement state from redis when both movementState are equals")
         void shouldUpdateOnlyMovementStateFromRedisWhenBothMovementStateAreEquals() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             List<String> fields = Arrays.asList("movementState", "lastNotificationSendAt", "lastEtaNotificationAt");
 
             AnalyzeMovementStateDTO dto = new AnalyzeMovementStateDTO(
@@ -964,14 +955,14 @@ class RedisTrackingServiceTest {
                     Instant.parse("2026-04-23T21:50:00Z")
             );
 
-            when(hashOperations.multiGet(eq(key), eq(fields)))
+            when(hashOperations.multiGet(eq(routeKey), eq(fields)))
                     .thenReturn(Arrays.asList("STOPPED", String.valueOf(dto.lastNotificationSendAt()), String.valueOf(dto.lastEtaNotificationAt())));
 
             redisTrackingService.saveAnalyzedMovementState(travelId, dto);
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> capturedValues = captorMap.getValue();
 
             assertEquals("STOPPED", capturedValues.get("movementState"));
