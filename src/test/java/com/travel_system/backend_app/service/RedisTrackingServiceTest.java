@@ -352,6 +352,22 @@ class RedisTrackingServiceTest {
                     Arguments.of(null, null)
             );
         }
+
+        @Test
+        void shouldReturnSilentlyWhenErrorOccursDuringDataProcessing() {
+            Map<String, String> redisData = new HashMap<>();
+
+            redisData.put("current_lat", "Invalid_Data");
+            redisData.put("current_lng", "-46.63");
+            redisData.put("current_speed", "80.0");
+            redisData.put("current_heading", "180.0");
+
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(redisData);
+
+            CurrentVehicleLocationDTO result = redisTrackingService.getCurrentLocation(travelId);
+
+            assertNull(result);
+        }
     }
 
     @Nested
