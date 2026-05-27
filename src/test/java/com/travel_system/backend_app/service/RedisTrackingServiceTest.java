@@ -298,6 +298,30 @@ class RedisTrackingServiceTest {
     }
 
     @Nested
+    class getCurrentLocation {
+
+        @Test
+        void shouldGetCurrentLocationWithSuccess() {
+            Map<String, String> redisData = new HashMap<>();
+
+            redisData.put("current_lat", "-23.55");
+            redisData.put("current_lng", "-46.63");
+            redisData.put("current_speed", "80.0");
+            redisData.put("current_heading", "180.0");
+
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(redisData);
+
+            CurrentVehicleLocationDTO result = redisTrackingService.getCurrentLocation(travelId);
+
+            assertNotNull(result);
+            assertEquals(-23.55, result.latitude());
+            assertEquals(-46.63, result.longitude());
+            assertEquals(80.0, result.speed());
+            assertEquals(180.0, result.heading());
+        }
+    }
+
+    @Nested
     class getPreviousEta {
 
         @Test
