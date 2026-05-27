@@ -390,6 +390,15 @@ class RedisTrackingServiceTest {
             assertEquals(700.3, result.distance());
             assertEquals("encoded_polyline_exemple", result.geometry());
         }
+
+        @Test
+        void shouldReturnSilentlyWhenTravelIdIsNull() {
+            RouteDetailsDTO result = redisTrackingService.getRouteState(null);
+
+            assertNull(result);
+
+            verifyNoInteractions(hashOperations);
+        }
     }
 
     @Nested
