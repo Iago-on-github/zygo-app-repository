@@ -211,6 +211,28 @@ class RedisTrackingServiceTest {
             assertNotNull(storedValue.get("current_location_timestamp"));
 
         }
+
+        @Test
+        @DisplayName("should store with success even when optional data no passed")
+        void shouldStoreCurrentLocationWhenOptionalDataIsNotPassed() {
+            redisTrackingService.storeCurrentLocation(travelId, new CurrentVehicleLocationDTO(-11.34, -12.234, null, null));
+
+            ArgumentCaptor<Map<String, String>> mapArgumentCaptor = ArgumentCaptor.forClass(Map.class);
+
+            verify(hashOperations, times(1)).putAll(eq(trackingKey), mapArgumentCaptor.capture());
+            Map<String, String> storedValue = mapArgumentCaptor.getValue();
+
+            assertNotNull(storedValue);
+
+            assertEquals("-11.34", storedValue.get("current_lat"));
+            assertEquals("-12.234", storedValue.get("current_lng"));
+
+            assertNull(storedValue.get("current_speed"));
+            assertNull(storedValue.get("current_heading"));
+
+            assertNotNull(storedValue.get("current_location_timestamp"));
+        }
+
     }
 
     @Nested
