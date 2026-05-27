@@ -403,9 +403,24 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("when data not found, should return null silently")
         void shouldReturnSilentlyWhenNotFoundAnyDataInRedis() {
-            when(hashOperations.entries(eq(trackingKey))).thenReturn(null);
+            when(hashOperations.entries(eq(routeKey))).thenReturn(null);
 
-            CurrentVehicleLocationDTO result = redisTrackingService.getCurrentLocation(travelId);
+            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
+
+            assertNull(result);
+        }
+
+        @Test
+        void shouldReturnSilentlyWhenErrorOccursDuringDataProcessing() {
+            Map<String, String> redisData = new HashMap<>();
+
+            redisData.put("durationRemaining", "Invalid_Data");
+            redisData.put("distanceRemaining", "46.63");
+            redisData.put("geometry", "encoded_polyline");
+
+            when(hashOperations.entries(eq(routeKey))).thenReturn(redisData);
+
+            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
 
             assertNull(result);
         }
