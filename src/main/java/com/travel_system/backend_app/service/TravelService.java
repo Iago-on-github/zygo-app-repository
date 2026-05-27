@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
@@ -78,6 +79,19 @@ public class TravelService {
         travel.setCreatedAt(Instant.now());
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
+
+        // obtém preview da viagem
+        TravelPreviewDTO tripPreview = mapboxAPIService.getTripPreview(
+                travelRequestDTO.originLongitude(),
+                travelRequestDTO.originLatitude(),
+                travelRequestDTO.finalLongitude(),
+                travelRequestDTO.finalLatitude());
+
+        // armazena dados 'preview' da viagem
+        travel.setDistance(tripPreview.distance());
+        travel.setDuration(tripPreview.duration());
+
+        travel.setDestinationCity(travelRequestDTO.destinationCity());
 
         travelRepository.save(travel);
 
@@ -279,6 +293,20 @@ public class TravelService {
         }
     }
 
+    public TravelPreviewDTO getTravelPreview(UUID travelId) {
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada"));
+
+        String arrivalTime = null;
+
+        // faz o cálculo do arrivalTime baseando-se na hora de inicio da viagem
+        if (travel.getStartHourTravel() != null && travel.getDuration() != null) {
+            arrivalTime = travel.getStartHourTravel().plusSeconds(travel.getDuration().longValue()).toString();
+        }
+
+        return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
+    }
+
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
@@ -320,6 +348,17 @@ public class TravelService {
 
     private TravelResponseDTO travelConverted(Travel travel) {
         DriverResponseDTO driverResponseDTO = driverMapper(travel.getDriver());
+
+        String arrivalTime = null;
+
+        // Usa campo "createdAt" para exibir preview ao motorista APENAS ao criar a viagem (sem inicia-la)
+        if (travel.getCreatedAt() != null && travel.getDuration() != null) {
+            arrivalTime = travel.getCreatedAt()
+                    .plusSeconds(travel.getDuration().longValue()).toString();
+        }
+
+        TravelPreviewDTO travelPreviewDTO = new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
+
         return new TravelResponseDTO(
                 travel.getId(),
                 travel.getTravelStatus(),
@@ -327,7 +366,7 @@ public class TravelService {
                 travel.getStudentTravels(),
                 travel.getCreatedAt(),
                 travel.getStartHourTravel(),
-                travel.getEndHourTravel()
+                travelPreviewDTO
         );
     }
 
