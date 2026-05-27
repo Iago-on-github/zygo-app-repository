@@ -854,9 +854,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should update trip ETA state of the trip with success")
         void shouldUpdateTripEtaStateWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             Double distanceRemaining = 250.1;
             Double durationRemaining = 7.01;
             Instant timestamp = Instant.now().minusSeconds(10);
@@ -865,13 +862,13 @@ class RedisTrackingServiceTest {
 
             ArgumentCaptor<Map<String, String>> captorMap = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), captorMap.capture());
+            verify(hashOperations, times(1)).putAll(eq(routeKey), captorMap.capture());
             Map<String, String> captureMapValue = captorMap.getValue();
 
             assertEquals("250.1", captureMapValue.get("distanceRemaining"));
             assertEquals("7.01", captureMapValue.get("durationRemaining"));
 
-            assertNotNull(captureMapValue.get("timestamp"));
+            assertNotNull(captureMapValue.get("etaLastUpdatedAt"));
         }
 
         @Test
