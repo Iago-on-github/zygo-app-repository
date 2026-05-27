@@ -60,11 +60,18 @@ class RedisTrackingServiceTest {
     @Mock
     private HashOperations hashOperations;
 
+    private UUID travelId;
+    private String routeKey;
+
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
 
         redisTrackingService = new RedisTrackingService(routeCalculationService, redisTemplate);
+
+        travelId = UUID.randomUUID();
+        routeKey = "travel:route:" + travelId;
+
     }
 
     @Nested
@@ -131,6 +138,26 @@ class RedisTrackingServiceTest {
                     Arguments.of(UUID.randomUUID(), null, "-13.242"),
                     Arguments.of(UUID.randomUUID(), "-12.234", null)
             );
+        }
+    }
+
+    @Nested
+    class UpdateAccumulatedDistance {
+
+        @Test
+        void shouldUpdateAccumulatedDistanceWithSuccess() {
+            when(hashOperations.get(eq(routeKey), eq("accumulatedDistance"))).thenReturn("100.0");
+
+            redisTrackingService.updateAccumulatedDistance(travelId, 25.0);
+
+            ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
+
+            verify(hashOperations, times(1)).put(eq(routeKey), eq("accumulatedDistance"), valueCaptor.capture());
+
+            String storedValue = valueCaptor.getValue();
+
+            assertNotNull(storedValue);
+            assertEquals("125.0", storedValue);
         }
     }
 
