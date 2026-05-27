@@ -1178,13 +1178,10 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return true if the last ping is saved less than allowed seconds")
         void shouldReturnTrueIfTheLastPingIsSavedLessThanAllowedSeconds() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             Instant fifteenSecondsAgo = Instant.now().minusSeconds(15);
             String lastPingString = fifteenSecondsAgo.toString();
 
-            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(lastPingString);
+            when(hashOperations.get(eq(trackingKey), eq("last_ping_history"))).thenReturn(lastPingString);
 
             boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
 
@@ -1194,13 +1191,10 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return false if the last ping was less than 10s ago")
         void shouldReturnFalseIfLastPingIsRecent() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             Instant fifteenSecondsAgo = Instant.now().minusSeconds(2);
             String lastPingString = fifteenSecondsAgo.toString();
 
-            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(lastPingString);
+            when(hashOperations.get(eq(trackingKey), eq("last_ping_history"))).thenReturn(lastPingString);
 
             boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
 
@@ -1210,13 +1204,7 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should return true if first ping")
         void shouldReturnTrueIfFirstPing() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
-            Instant fifteenSecondsAgo = Instant.now().minusSeconds(2);
-            String lastPingString = fifteenSecondsAgo.toString();
-
-            when(hashOperations.get(eq(key), eq("last_ping_history"))).thenReturn(null);
+            when(hashOperations.get(eq(trackingKey), eq("last_ping_history"))).thenReturn(null);
 
             boolean result = redisTrackingService.isLocationUpdateAllowed(travelId);
 
