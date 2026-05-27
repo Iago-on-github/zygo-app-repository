@@ -12,6 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -24,6 +27,7 @@ import org.springframework.data.redis.core.SetOperations;
 import java.rmi.server.UID;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
@@ -113,6 +117,21 @@ class RedisTrackingServiceTest {
             assertNull(savedMap.get("geometry"));
         }
 
+        @ParameterizedTest
+        @MethodSource("nullParametersProvider")
+        void throwExceptionWhenRequireParametersAreNull(UUID travelId, String calculationLatitude, String calculationLongitude) {
+            redisTrackingService.storeCalculatedRouteState(travelId, calculationLatitude, calculationLongitude, null);
+
+            verifyNoInteractions(hashOperations);
+        }
+
+        public static Stream<Arguments> nullParametersProvider() {
+            return Stream.of(
+                    Arguments.of(null, "-12.234", "-13.242"),
+                    Arguments.of(UUID.randomUUID(), null, "-13.242"),
+                    Arguments.of(UUID.randomUUID(), "-12.234", null)
+            );
+        }
     }
 
     @Nested
