@@ -808,9 +808,6 @@ class RedisTrackingServiceTest {
         @Test
         @DisplayName("should memory between driver pings with success")
         void shouldMemoryBetweenDriverPingsWithSuccess() {
-            UUID travelId = UUID.randomUUID();
-            String key = "travelId:" + travelId;
-
             LiveLocationDTO liveLocationDTO = new LiveLocationDTO(
                     -23.5505,
                     -46.6333,
@@ -824,7 +821,7 @@ class RedisTrackingServiceTest {
 
             ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
 
-            verify(hashOperations, times(1)).putAll(eq(key), mapCaptor.capture());
+            verify(hashOperations, times(1)).putAll(eq(trackingKey), mapCaptor.capture());
             Map<String, String> mapCaptorValue = mapCaptor.getValue();
 
             assertEquals("-23.5505", mapCaptorValue.get("last_ping_lat"));
