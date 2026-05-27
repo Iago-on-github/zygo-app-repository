@@ -399,6 +399,16 @@ class RedisTrackingServiceTest {
 
             verifyNoInteractions(hashOperations);
         }
+
+        @Test
+        @DisplayName("when data not found, should return null silently")
+        void shouldReturnSilentlyWhenNotFoundAnyDataInRedis() {
+            when(hashOperations.entries(eq(trackingKey))).thenReturn(null);
+
+            CurrentVehicleLocationDTO result = redisTrackingService.getCurrentLocation(travelId);
+
+            assertNull(result);
+        }
     }
 
     @Nested
