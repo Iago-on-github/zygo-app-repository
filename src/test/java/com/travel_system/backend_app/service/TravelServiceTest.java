@@ -2,14 +2,13 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
-import com.travel_system.backend_app.model.enums.CitySize;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.InstitutionType;
-import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,9 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
-import java.rmi.server.UID;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -57,6 +54,8 @@ class TravelServiceTest {
     private MapboxAPIService mapboxAPIService;
     @Mock
     private PolylineService polylineService;
+    @Mock
+    private PushNotificationService pushNotificationService;
 
     @Mock
     private TravelReportsRepository travelReportsRepository;
@@ -82,16 +81,16 @@ class TravelServiceTest {
 
     @BeforeEach
     void setUp() {
-        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(),null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
+        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(),null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana");
 
-        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678);
+        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
 
         driver = new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City());
 
         student = new Student(UUID.randomUUID(), "student@gmail.com", "123456", "Maria", "Oliveira", "75988888888", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), InstitutionType.UNIVERSITY, "Computer Science");
 
-        studentTravel = new StudentTravel(UUID.randomUUID(), new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.TRAVELLING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345),
-                new Student(), true, Instant.now(), null, new GeoPosition(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), null));
+        studentTravel = new StudentTravel(UUID.randomUUID(), new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.TRAVELLING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana"),
+                new Student(), true, Instant.now(), null, new GeoPosition(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), null), StudentTravelStatus.ACTIVE);
 
     }
 
@@ -280,9 +279,9 @@ class TravelServiceTest {
             travel.setStartHourTravel(Instant.now().minusSeconds(180));
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
             );
 
             List<TravelLocationHistory> locationHistories = List.of(new TravelLocationHistory());
@@ -324,16 +323,16 @@ class TravelServiceTest {
             travel.setStartHourTravel(Instant.now().minusSeconds(180));
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
             );
 
             travel.setStudentTravels(studentTravels);
@@ -362,9 +361,9 @@ class TravelServiceTest {
             travel.setStartHourTravel(Instant.now());
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null, StudentTravelStatus.ACTIVE),
+                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
             );
 
             travel.setStudentTravels(studentTravels);
@@ -547,7 +546,7 @@ class TravelServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
             );
 
             travel.setStudentTravels(studentTravels);
@@ -584,7 +583,7 @@ class TravelServiceTest {
                     true,
                     Instant.now(),
                     null,
-                    null
+                    null, StudentTravelStatus.ACTIVE
             );
 
             travel.setStudentTravels(Set.of(studentTravel));
@@ -594,7 +593,7 @@ class TravelServiceTest {
             when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
                     .thenReturn(Optional.of(studentTravel));
 
-            travelService.leaveTravel(travel.getId(), student.getEmail());
+            travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
 
             ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
 
@@ -614,7 +613,7 @@ class TravelServiceTest {
         @DisplayName("throw exception when require params are null")
         @MethodSource("nullFieldsProvider")
         void throwExceptionWhenRequireParamsAreNull(UUID travelId, String studentEmail) {
-            assertThrows(IllegalArgumentException.class, () -> travelService.leaveTravel(travelId, studentEmail));
+            assertThrows(IllegalArgumentException.class, () -> travelService.leaveTravel(travelId, studentEmail, StudentTravelStatus.LEFT));
 
             verify(travelRepository, never()).getReferenceById(any());
 
@@ -638,7 +637,7 @@ class TravelServiceTest {
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
 
-            assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail()));
+            assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT));
 
             verify(travelRepository, times(1)).getReferenceById(any());
 
@@ -661,7 +660,7 @@ class TravelServiceTest {
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
             when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
-            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail()));
+            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT));
 
             verify(travelRepository, times(1)).getReferenceById(any());
 
@@ -674,7 +673,7 @@ class TravelServiceTest {
         void throwExceptionWhenIsEmbarkReturnsFalse() {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, false, Instant.now(), null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, student, false, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
             );
             travel.setStudentTravels(studentTravels);
 
@@ -682,7 +681,7 @@ class TravelServiceTest {
             when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
             assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getEmail());
+                travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
             });
 
             verify(travelRepository, times(1)).getReferenceById(any());
@@ -698,7 +697,7 @@ class TravelServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
             );
             travel.setStudentTravels(studentTravels);
 
@@ -706,7 +705,7 @@ class TravelServiceTest {
             when(studentRepository.findByEmail(any())).thenReturn(Optional.of(student));
 
             assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getEmail());
+                travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
             });
 
             verify(travelRepository, times(1)).getReferenceById(any());
@@ -728,7 +727,7 @@ class TravelServiceTest {
             when(travelRepository.findByIdWithStudents(eq(travel.getId()))).thenReturn(Optional.of(travel));
 
             Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null)
+                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
             );
             travel.setStudentTravels(studentTravels);
 
@@ -828,6 +827,89 @@ class TravelServiceTest {
 
             verify(travelRepository, never()).existsByIdAndDriverId(any(), any());
         }
+    }
+
+    @Nested
+    class processStudentAwayState {
+        UUID travelId;
+        Travel travelEntity;
+        LiveLocationDTO liveLocationDTO;
+        DistanceResponseDTO distanceResponse;
+
+        @BeforeEach
+        void setUp() {
+            travelId = UUID.randomUUID();
+
+            // student
+            Student student = new Student();
+            student.setId(UUID.randomUUID());
+            student.setEmail("student@email.com");
+
+            // position
+            GeoPosition position = new GeoPosition(
+                    UUID.randomUUID(),
+                    -23.55,
+                    -46.63,
+                    Instant.now(),
+                    null
+            );
+
+            // studentTravel
+            StudentTravel studentTravel = new StudentTravel();
+            studentTravel.setId(UUID.randomUUID());
+            studentTravel.setStudent(student);
+            studentTravel.setPosition(position);
+            studentTravel.setEmbark(true);
+            studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+
+            // travel
+            travelEntity = new Travel();
+            travelEntity.setId(travelId);
+            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravel)));
+
+            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
+            distanceResponse = new DistanceResponseDTO(student.getId(), 300 + 100.0);
+        }
+
+        @Test
+        void shouldMarkStudentAsAwayWhenNoTimestampExists() {
+            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(null);
+
+            travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+            StudentTravel savedValue = stArgCaptor.getValue();
+
+            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, savedValue.getStudentTravelStatus());
+
+            verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
+
+        }
+
+        @Test
+        void shouldKeepStudentAwayWhenDisconnectTimeHasNotElapsed() {
+            studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+
+            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+
+            // timestamp recente, tempo ainda não esgotado
+            long recentTimestamp = Instant.now().toEpochMilli();
+            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(recentTimestamp);
+
+            travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravel.getStudentTravelStatus());
+
+            verify(redisTrackingService, never()).markStudentAsAway(any(), any());
+            verify(redisTrackingService, never()).clearStudentAwayState(any(), any());
+            verify(studentTravelRepository, never()).save(any());
+        }
+
+        // falta completar os restantes dos cenários
     }
 
 }
