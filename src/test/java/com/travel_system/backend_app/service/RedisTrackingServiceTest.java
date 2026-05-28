@@ -1260,4 +1260,36 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class getStudentAwayTimestamp {
+        UUID studentId;
+        String studentTravelKey;
+
+        final String STUDENT_TRAVEL_KEY_PREFIX = "student:travel:";
+        @BeforeEach
+        void setUp() {
+            studentId = UUID.randomUUID();
+            studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+
+        }
+
+        @Test
+        void shouldGetStudentAwayTimestampWithSuccess() {
+            String timestampString = String.valueOf(Instant.now().toEpochMilli());
+
+            when(hashOperations.get(eq(studentTravelKey), eq("studentAwayTimestamp"))).thenReturn(timestampString);
+
+            redisTrackingService.getStudentAwayTimestamp(travelId, new DistanceResponseDTO(studentId, 382.12));
+
+            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
+        }
+
+        @Test
+        void shouldReturnNullWhenHasNoData() {
+            redisTrackingService.getStudentAwayTimestamp(travelId, new DistanceResponseDTO(studentId, 382.12));
+
+            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
+        }
+    }
+
 }
