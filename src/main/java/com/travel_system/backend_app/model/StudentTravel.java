@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -22,11 +23,13 @@ public class StudentTravel {
     private Instant disembarkHour;
     @OneToOne
     private GeoPosition position;
+    @Enumerated(EnumType.STRING)
+    private StudentTravelStatus studentTravelStatus;
 
     public StudentTravel() {
     }
 
-    public StudentTravel(UUID id, Travel travel, Student student, boolean embark, Instant embarkHour, Instant disembarkHour, GeoPosition position) {
+    public StudentTravel(UUID id, Travel travel, Student student, boolean embark, Instant embarkHour, Instant disembarkHour, GeoPosition position, StudentTravelStatus studentTravelStatus) {
         this.id = id;
         this.travel = travel;
         this.student = student;
@@ -34,6 +37,7 @@ public class StudentTravel {
         this.embarkHour = embarkHour;
         this.disembarkHour = disembarkHour;
         this.position = position;
+        this.studentTravelStatus = studentTravelStatus;
     }
 
     public UUID getId() {
@@ -90,5 +94,13 @@ public class StudentTravel {
 
     public void setPosition(GeoPosition position) {
         this.position = position;
+    }
+
+    public StudentTravelStatus getStudentTravelStatus() {
+        return studentTravelStatus;
+    }
+
+    public void setStudentTravelStatus(StudentTravelStatus studentTravelStatus) {
+        this.studentTravelStatus = studentTravelStatus;
     }
 }
