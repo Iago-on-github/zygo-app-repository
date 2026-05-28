@@ -4,13 +4,12 @@ import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,10 +39,14 @@ public class TravelService {
     private final TravelReportsRepository travelReportsRepository;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final PolylineService polylineService;
+    private final PushNotificationService pushNotificationService;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService) {
+    private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
+    private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
+
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, PushNotificationService pushNotificationService) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -52,6 +56,7 @@ public class TravelService {
         this.travelReportsRepository = travelReportsRepository;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.polylineService = polylineService;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Transactional
@@ -240,7 +245,7 @@ public class TravelService {
     }
 
     @Transactional
-    public void leaveTravel(UUID travelId, String studentEmail) {
+    public void leaveTravel(UUID travelId, String studentEmail, StudentTravelStatus studentTravelStatus) {
         if (travelId == null || studentEmail == null) {
             throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
         }
@@ -261,7 +266,7 @@ public class TravelService {
 
         if (!isStudentLinked) throw new TravelStudentAssociationNotFoundException("Estudante " + studentEmail + " não está ATIVO na viagem.");
 
-        deactivateStudentLink(trip, student);
+        deactivateStudentLink(trip, student, studentTravelStatus);
     }
 
     public Set<StudentTravelResponseDTO> linkedStudentTravel(UUID travelId) {
@@ -307,6 +312,65 @@ public class TravelService {
         return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
     }
 
+    // verifica se o estudante é compatível para auto-desvinculo
+    public void processStudentAwayState(UUID travelId, LiveLocationDTO liveLocationDTO) {
+        List<DistanceResponseDTO> distanceBetweenPositions = pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO);
+
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada."));
+
+        distanceBetweenPositions.forEach(dist -> {
+
+            Optional<StudentTravel> studentTravelOptional = travel.getStudentTravels().stream()
+                    .filter(st -> st.getStudent() != null
+                            && Objects.equals(st.getStudent().getId(), dist.studentId())
+                            && st.getPosition() != null
+                            && st.isEmbark()
+                            && StudentTravelStatus.AUTO_DISCONNECTED != st.getStudentTravelStatus()
+                            && StudentTravelStatus.LEFT != st.getStudentTravelStatus())
+                    .findFirst();
+
+            if (studentTravelOptional.isEmpty()) {
+                log.warn("[processStudentAwayState] - estudante {} ignorado, não passou na validação para a viagem {} ", dist.studentId(), travelId );
+                return;
+            }
+
+            StudentTravel studentTravel = studentTravelOptional.get();
+
+            String studentEmail = studentTravel.getStudent().getEmail();
+
+            // verifica se ja tem timestamp
+            Long studentAwayTimestamp = redisTrackingService.getStudentAwayTimestamp(travelId, dist);
+
+            if (dist.distance() >= AUTO_DISCONNECT_DISTANCE_METERS) {
+                studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+                if (studentAwayTimestamp != null) {
+
+                    long timeNow = Instant.now().toEpochMilli();
+                    long awayTimeMillis = timeNow - studentAwayTimestamp;
+
+                    if (awayTimeMillis >= AUTO_DISCONNECT_TIME){
+                        studentTravel.setStudentTravelStatus(StudentTravelStatus.AUTO_DISCONNECTED);
+
+                        leaveTravel(travelId, studentEmail, StudentTravelStatus.AUTO_DISCONNECTED);
+
+                        redisTrackingService.clearStudentAwayState(travelId, dist);
+                    }
+
+                } else {
+                    redisTrackingService.markStudentAsAway(travelId, dist);
+
+                    studentTravelRepository.save(studentTravel);
+                }
+            } else {
+                studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+                redisTrackingService.clearStudentAwayState(travelId, dist);
+
+                studentTravelRepository.save(studentTravel);
+            }
+        });
+    }
+
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
@@ -332,12 +396,13 @@ public class TravelService {
         studentTravelRepository.save(studentTravel);
     }
 
-    private void deactivateStudentLink(Travel actualTrip, Student student) {
+    private void deactivateStudentLink(Travel actualTrip, Student student, StudentTravelStatus studentTravelStatus) {
         StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), student.getId())
                 .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[leaveTravel] Vínculo aluno-viagem não encontrado."));
 
         studentTravel.setEmbark(false);
         studentTravel.setDisembarkHour(Instant.now());
+        studentTravel.setStudentTravelStatus(studentTravelStatus);
 
         studentTravelRepository.save(studentTravel);
     }
