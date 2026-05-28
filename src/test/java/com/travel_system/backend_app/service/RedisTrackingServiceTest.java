@@ -1292,4 +1292,24 @@ class RedisTrackingServiceTest {
         }
     }
 
+    @Nested
+    class clearStudentAwayState {
+        UUID studentId;
+        String studentTravelKey;
+
+        final String STUDENT_TRAVEL_KEY_PREFIX = "student:travel:";
+        @BeforeEach
+        void setUp() {
+            studentId = UUID.randomUUID();
+            studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+        }
+
+        @Test
+        void shouldClearStudentAwayStateWithSuccess() {
+            redisTrackingService.clearStudentAwayState(travelId, new DistanceResponseDTO(studentId, 120.12));
+
+            verify(hashOperations, times(1)).delete(eq(studentTravelKey), eq("studentAwayTimestamp"));
+        }
+    }
+
 }
