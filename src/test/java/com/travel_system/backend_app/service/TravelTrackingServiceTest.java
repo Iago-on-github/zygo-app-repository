@@ -12,6 +12,7 @@ import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDT
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.CitySize;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
@@ -93,13 +94,13 @@ class TravelTrackingServiceTest {
     @BeforeEach
     void setUp() {
         vehicleLocationRequestDTO = new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, -38.501234, 60.0, 180.0);
-        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()),Instant.now(),  Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345);
+        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()),Instant.now(),  Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana");
         liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000);
         newLocationReceivedEvents = new NewLocationReceivedEvents(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), TravelStatus.TRAVELLING, 60.0, 180.0);
         routeDeviationDTO = new RouteDeviationDTO(25.0, true, -12.972000, -38.500000);
         routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, "encoded_polyline_example");
         previousStateDTO = new PreviousStateDTO(1200.0, 18.5, System.currentTimeMillis());
-        studentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), false, null, null, new GeoPosition());
+        studentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), false, null, null, new GeoPosition(), StudentTravelStatus.ACTIVE);
     }
 
     @Nested
@@ -519,7 +520,7 @@ class TravelTrackingServiceTest {
         @DisplayName("throw exception when student already embark on this trip")
         void throwExceptionWhenStudentAlreadyEmbarkOnTrip() {
             UUID studentId = UUID.randomUUID();
-            StudentTravel mockStudentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), true, null, null, new GeoPosition());
+            StudentTravel mockStudentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), true, null, null, new GeoPosition(), StudentTravelStatus.ACTIVE);
 
             when(studentTravelRepository.findByStudentIdAndTravelId(studentId, travel.getId()))
                     .thenReturn(Optional.of(mockStudentTravel));
