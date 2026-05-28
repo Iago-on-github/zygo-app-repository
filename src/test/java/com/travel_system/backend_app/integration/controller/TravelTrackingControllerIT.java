@@ -117,7 +117,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
             travel.setStudentTravels(new HashSet<>());
@@ -466,7 +466,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
 
             travelRepository.save(travel);
@@ -717,7 +717,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
 
             travelRepository.save(travel);
@@ -817,7 +817,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
 
             travelRepository.save(travel);
