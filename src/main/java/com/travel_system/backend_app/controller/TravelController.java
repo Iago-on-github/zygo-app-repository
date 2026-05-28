@@ -3,6 +3,7 @@ package com.travel_system.backend_app.controller;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -55,7 +56,7 @@ public class TravelController {
     public ResponseEntity<Void> leaveTravel (@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
-        travelService.leaveTravel(travelId, studentEmail);
+        travelService.leaveTravel(travelId, studentEmail, StudentTravelStatus.LEFT);
         return ResponseEntity.noContent().build();
     }
 
