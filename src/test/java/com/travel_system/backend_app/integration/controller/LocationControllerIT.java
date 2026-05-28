@@ -72,7 +72,7 @@ public class LocationControllerIT extends IntegrationTestBase {
             );
             studentRepository.save(student);
 
-            studentTravel = new StudentTravel(null, null, student, true, Instant.now().minusSeconds(20), null, null);
+            studentTravel = new StudentTravel(null, null, student, true, Instant.now().minusSeconds(20), null, null, null);
             studentTravelRepository.save(studentTravel);
 
             liveCoordinates = new LiveCoordinates(-12.97000, -38.50000);
