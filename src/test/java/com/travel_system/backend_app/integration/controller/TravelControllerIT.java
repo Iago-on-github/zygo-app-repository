@@ -9,10 +9,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
-import com.travel_system.backend_app.model.enums.CitySize;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.InstitutionType;
-import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.MapboxAPIService;
 import com.travel_system.backend_app.service.PolylineService;
@@ -113,7 +110,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "Salvador", 0, new ArrayList<>(), new City());
             driverRepository.save(driver);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -155,7 +152,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
@@ -191,11 +188,11 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -301,17 +298,17 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
-            studentTravel = new StudentTravel(null, travel, null, true, Instant.now().minusSeconds(20), null, null);
+            studentTravel = new StudentTravel(null, travel, null, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
             travel.setStudentTravels(Set.of(studentTravel));
             travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -496,7 +493,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
@@ -518,7 +515,7 @@ public class TravelControllerIT extends IntegrationTestBase {
 
             travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -573,7 +570,7 @@ public class TravelControllerIT extends IntegrationTestBase {
         @Test
         void throwExceptionWhenStudentAlreadyLinked() throws Exception {
             // vincula estudante à viagem
-            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null);
+            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
             travel.setStudentTravels(Set.of(studentTravel));
@@ -612,7 +609,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
@@ -636,12 +633,12 @@ public class TravelControllerIT extends IntegrationTestBase {
             travelRepository.save(travel);
 
             // vincula estudante à viagem
-            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null);
+            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
             travel.setStudentTravels(Set.of(studentTravel));
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -736,7 +733,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "fndnA~y~iFvt@?",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
@@ -768,7 +765,7 @@ public class TravelControllerIT extends IntegrationTestBase {
 
 //            travel.setStudentTravels(Set.of(studentTravel));
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400);
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
