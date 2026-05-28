@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.repository.TravelRepository;
 import okhttp3.mockwebserver.MockResponse;
@@ -323,6 +324,76 @@ class MapboxAPIServiceTest {
                     Arguments.of(-38.5014, -12.9714, null, -12.9000),
                     Arguments.of(-38.5014, -12.9714, -38.4500, null)
             );
+        }
+    }
+
+    @Nested
+    class getTripPreview {
+
+        @Test
+        void shouldGetTripPreviewWithSuccess() {
+            String fakeResponse = """
+                    {
+                        "code": "Ok",
+                        "uuid": "123bc",
+                        "waypoints": [],
+                        "routes": [{
+                            "duration": 1900.2,
+                            "distance": 2110.7,
+                            "destinationCity": "Feira de Santana",
+                            "arrivalTime": 59.12
+                        }]
+                    }
+                    """;
+
+            mockWebServer.enqueue(new MockResponse().setBody(fakeResponse)
+                    .addHeader("Content-Type", "application/json"));
+
+            TravelPreviewDTO result = mapboxAPIService.getTripPreview(-38.5014, -12.9714, -38.4500, -12.9000);
+
+            assertNotNull(result);
+
+            assertEquals(1900.0, result.duration());
+            assertEquals(2111.0, result.distance());
+
+            assertNull(result.destinationCity());
+            assertNull(result.arrivalTime());
+        }
+
+        @ParameterizedTest
+        @MethodSource("nullFieldsProvider")
+        void shouldReturnSilentlyWhenRequireCoordsDataAreNull(Double currentLng, Double currentLat, Double finalLong, Double finalLat) {
+            TravelPreviewDTO result = mapboxAPIService.getTripPreview(currentLng, currentLat, finalLong, finalLat);
+
+            assertNull(result);
+        }
+
+        public static Stream<Arguments> nullFieldsProvider() {
+            return Stream.of(
+                    Arguments.of(null, -12.9714, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, null, -38.4500, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, null, -12.9000),
+                    Arguments.of(-38.5014, -12.9714, -38.4500, null)
+            );
+        }
+
+        @Test
+        void shouldReturnSilentlyWhenRoutesIsNull() {
+            String fakeResponseWithoutRoutes = """
+                    {
+                        "code": "Ok",
+                        "uuid": "123bc",
+                        "waypoints": [],
+                        "routes": []
+                    }
+                    """;
+
+            mockWebServer.enqueue(new MockResponse().setBody(fakeResponseWithoutRoutes)
+                    .setHeader("Content-Type", "application/json"));
+
+            TravelPreviewDTO result = mapboxAPIService.getTripPreview(-38.5014, -12.9714, -38.4500, -12.9000);
+
+            assertNull(result);
         }
     }
 }
