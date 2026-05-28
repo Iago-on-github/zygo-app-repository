@@ -3,11 +3,14 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
 import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -26,7 +29,11 @@ import org.springframework.stereotype.Service;
 
 import java.awt.*;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -40,6 +47,7 @@ public class TravelTrackingService {
     private final StudentTravelRepository studentTravelRepository;
     private final GpsDataIngestorService gpsDataIngestorService;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
+    private final TravelService travelService;
 
     private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
 
@@ -50,7 +58,7 @@ public class TravelTrackingService {
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
@@ -58,6 +66,7 @@ public class TravelTrackingService {
         this.studentTravelRepository = studentTravelRepository;
         this.gpsDataIngestorService = gpsDataIngestorService;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
+        this.travelService = travelService;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
@@ -131,6 +140,11 @@ public class TravelTrackingService {
                 }
             }
         }
+
+        LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
+
+        // algoritmo para verificar status do estudante na viagem - auto disconnect se está muito distante por X tempo
+        travelService.processStudentAwayState(travelId, liveLocationDTO);
 
         // dispara evento de domínio
         NewLocationReceivedEvents event = new NewLocationReceivedEvents(
