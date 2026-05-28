@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import io.micrometer.common.util.StringUtils;
@@ -31,6 +32,7 @@ public class RedisTrackingService {
 
     private final String TRACKING_KEY_PREFIX = "travel:tracking:";
     private final String ROUTE_KEY_PREFIX = "travel:route:";
+    private final String STUDENT_TRAVEL_KEY_PREFIX = "student:travel:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;
@@ -517,6 +519,56 @@ public class RedisTrackingService {
         return differenceBetweenTimes.toSeconds() >= allowedSeconds;
     }
 
+    // registra o timeStamp de distância do afastamento do student do onibus
+    public void markStudentAsAway(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
+        if (travelId == null || distanceResponseDTO.studentId() == null || distanceResponseDTO.distance() == null) {
+            logger.info("[studentAwayFromBus] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        UUID studentId = distanceResponseDTO.studentId();
+
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+
+        long now = Instant.now().toEpochMilli();
+
+        String studentAwayTimestamp = hashOperations.get(studentTravelKey, "studentAwayTimestamp");
+
+        // só armazena caso não haja timestamp anterior
+        if (studentAwayTimestamp == null || studentAwayTimestamp.isEmpty()) {
+            hashOperations.put(studentTravelKey,"studentAwayTimestamp", String.valueOf(now));
+        }
+    }
+
+    // recupera o timstamp do afastamento do student do onibus
+    public Long getStudentAwayTimestamp(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
+        if (travelId == null || distanceResponseDTO.studentId() == null) {
+            logger.info("[getStudentAwayTimestamp] dados de entrada inválidos ou insuficientes");
+            return null;
+        }
+
+        UUID studentId = distanceResponseDTO.studentId();
+
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+
+        String studentAwayTimestamp = hashOperations.get(studentTravelKey, "studentAwayTimestamp");
+
+        return studentAwayTimestamp != null ? Long.parseLong(studentAwayTimestamp) : null;
+    }
+
+    // limpa todo o registro de afastamento
+    public void clearStudentAwayState(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
+        if (travelId == null || distanceResponseDTO.studentId() == null) {
+            logger.info("[clearStudentAwayState] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        UUID studentId = distanceResponseDTO.studentId();
+
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+
+        hashOperations.delete(studentTravelKey, "studentAwayTimestamp");
+    }
 
     private void velocityAnalysisHelper(String key, String movementState, Map<String, String> data, String stateStartedAt, String lastNotificationSendAt, String lastEtaNotificationAt) {
         data.put("movementState", movementState);
