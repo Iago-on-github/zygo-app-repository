@@ -343,13 +343,17 @@ public class TravelService {
             Long studentAwayTimestamp = redisTrackingService.getStudentAwayTimestamp(travelId, dist);
 
             if (dist.distance() >= AUTO_DISCONNECT_DISTANCE_METERS) {
+                log.info("[processStudentAwayState] - distância do estudante maior do que a distância minima permitida");
                 studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
                 if (studentAwayTimestamp != null) {
+                    log.info("[processStudentAwayState] - estudante possui timestamp no redis");
 
                     long timeNow = Instant.now().toEpochMilli();
                     long awayTimeMillis = timeNow - studentAwayTimestamp;
 
                     if (awayTimeMillis >= AUTO_DISCONNECT_TIME){
+                        log.info("[processStudentAwayState] - estudante desembarcou. Começando desvinculação automática dele");
+
                         studentTravel.setStudentTravelStatus(StudentTravelStatus.AUTO_DISCONNECTED);
 
                         leaveTravel(travelId, studentEmail, StudentTravelStatus.AUTO_DISCONNECTED);
@@ -358,11 +362,15 @@ public class TravelService {
                     }
 
                 } else {
+                    log.info("[processStudentAwayState] - estudante não possui timestamp no redis");
+
                     redisTrackingService.markStudentAsAway(travelId, dist);
 
                     studentTravelRepository.save(studentTravel);
                 }
             } else {
+                log.info("[processStudentAwayState] - estudante não atende mais as regras do auto-desvinculo. Limpando redis");
+
                 studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
                 redisTrackingService.clearStudentAwayState(travelId, dist);
 
