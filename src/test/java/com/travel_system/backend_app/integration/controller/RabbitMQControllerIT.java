@@ -7,6 +7,7 @@ import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.TravelService;
@@ -257,7 +258,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
-                    -12.8000, -38.4000
+                    -12.8000, -38.4000, "Feira de Santana"
             );
             travelRepository.save(travel);
 
@@ -277,7 +278,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
             );
             studentRepository.save(student);
 
-            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null);
+            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
             travel.setStudentTravels(Set.of(studentTravel));
