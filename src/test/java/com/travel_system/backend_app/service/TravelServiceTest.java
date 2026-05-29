@@ -878,135 +878,155 @@ class TravelServiceTest {
             distanceResponse = new DistanceResponseDTO(studentEntity.getId(), 300 + 100.0);
         }
 
-        @Test
-        void shouldMarkStudentAsAwayWhenNoTimestampExists() {
-            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
-            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
-            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(null);
+        @Nested
+        class successScenarios {
+            @Test
+            void shouldMarkStudentAsAwayWhenNoTimestampExists() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+                when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(null);
 
-            travelService.processStudentAwayState(travelId, liveLocationDTO);
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
 
-            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
-            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
-            StudentTravel savedValue = stArgCaptor.getValue();
+                ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+                verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+                StudentTravel savedValue = stArgCaptor.getValue();
 
-            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, savedValue.getStudentTravelStatus());
+                assertEquals(StudentTravelStatus.AWAY_FROM_BUS, savedValue.getStudentTravelStatus());
 
-            verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
+                verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
 
+            }
+
+            @Test
+            void shouldKeepStudentAwayWhenDisconnectTimeHasNotElapsed() {
+                studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+
+                // timestamp recente, tempo ainda não esgotado
+                long recentTimestamp = Instant.now().toEpochMilli();
+                when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(recentTimestamp);
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravel.getStudentTravelStatus());
+
+                verify(redisTrackingService, never()).markStudentAsAway(any(), any());
+                verify(redisTrackingService, never()).clearStudentAwayState(any(), any());
+                verify(studentTravelRepository, never()).save(any());
+            }
+
+            @Test
+            @DisplayName("Should set AUTO_DISCONNECTED status and remove student from travel when elapsed time exceeds auto disconnect threshold")
+            void shouldAutoDisconnectStudentWhenElapsedTimeExceedsAutoDisconnectThreshold() {
+                studentTravel.setStudent(studentEntity);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(travelRepository.getReferenceById(travelId)).thenReturn(travelEntity);
+
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+
+                when(studentRepository.findByEmail(any())).thenReturn(Optional.of(studentEntity));
+                when(studentTravelRepository.findByTravelIdAndStudentId(any(), any())).thenReturn(Optional.of(studentTravel));
+
+                long millis = TimeUnit.MINUTES.toMillis(7);
+                when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(millis);
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+                verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+                StudentTravel storageValue = stArgCaptor.getValue();
+
+                assertEquals(StudentTravelStatus.AUTO_DISCONNECTED, storageValue.getStudentTravelStatus());
+
+                verify(redisTrackingService, times(1)).clearStudentAwayState(eq(travelId), eq(distanceResponse));
+            }
+
+            @Test
+            @DisplayName("Should set student status to ACTIVE and clear away state when distance is within allowed range")
+            void shouldSetStudentAsActiveWhenDistanceIsWithinAllowedRange() {
+                studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+                DistanceResponseDTO distanceResponseDTO = new DistanceResponseDTO(studentEntity.getId(), 100.0);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponseDTO));
+
+                travelService.processStudentAwayState(travelEntity.getId(), liveLocationDTO);
+
+                verify(redisTrackingService, times(1)).clearStudentAwayState(any(), any());
+
+                ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+                verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+                StudentTravel storageValue = stArgCaptor.getValue();
+
+                assertEquals(StudentTravelStatus.ACTIVE, storageValue.getStudentTravelStatus());
+            }
+
+            @Test
+            @DisplayName("Should process each student independently when some students match the filter and others do not")
+            void shouldProcessEachStudentIndependentlyWhenSomeMatchFilterAndOthersDoNot() {
+                Student student2 = new Student();
+                student2.setId(UUID.randomUUID());
+                student2.setEmail("student2@email.com");
+
+                GeoPosition position2 = new GeoPosition(
+                        UUID.randomUUID(),
+                        -23.60,
+                        -46.70,
+                        Instant.now(),
+                        null
+                );
+
+                StudentTravel studentTravel2 = new StudentTravel();
+                studentTravel2.setId(UUID.randomUUID());
+                studentTravel2.setStudent(student2);
+                studentTravel2.setPosition(position2);
+                studentTravel2.setEmbark(false);
+                studentTravel2.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+
+                travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity, studentTravel2)));
+
+                DistanceResponseDTO distanceResponse2 = new DistanceResponseDTO(student2.getId(), 300 + 100.0);
+                // fim do setUp basico
+
+                // teste
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse, distanceResponse2));
+
+                when(redisTrackingService.getStudentAwayTimestamp(eq(travelId), any())).thenReturn(null);
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravelEntity.getStudentTravelStatus());
+                verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
+
+                assertEquals(StudentTravelStatus.ACTIVE, studentTravel2.getStudentTravelStatus());
+                verify(redisTrackingService, never()).markStudentAsAway(eq(travelId), eq(distanceResponse2));
+            }
         }
 
-        @Test
-        void shouldKeepStudentAwayWhenDisconnectTimeHasNotElapsed() {
-            studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+        @Nested
+        class failureScenarios {
 
-            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
-            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+            @Test
+            void throwExceptionWhenTravelNotFound() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.empty());
 
-            // timestamp recente, tempo ainda não esgotado
-            long recentTimestamp = Instant.now().toEpochMilli();
-            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(recentTimestamp);
+                assertThrows(EntityNotFoundException.class, () -> travelService.processStudentAwayState(travelId, liveLocationDTO));
 
-            travelService.processStudentAwayState(travelId, liveLocationDTO);
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
 
-            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravel.getStudentTravelStatus());
-
-            verify(redisTrackingService, never()).markStudentAsAway(any(), any());
-            verify(redisTrackingService, never()).clearStudentAwayState(any(), any());
-            verify(studentTravelRepository, never()).save(any());
+                verifyNoMoreInteractions(travelRepository);
+            }
         }
 
-        @Test
-        @DisplayName("Should set AUTO_DISCONNECTED status and remove student from travel when elapsed time exceeds auto disconnect threshold")
-        void shouldAutoDisconnectStudentWhenElapsedTimeExceedsAutoDisconnectThreshold() {
-            studentTravel.setStudent(studentEntity);
-
-            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
-            when(travelRepository.getReferenceById(travelId)).thenReturn(travelEntity);
-
-            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
-
-            when(studentRepository.findByEmail(any())).thenReturn(Optional.of(studentEntity));
-            when(studentTravelRepository.findByTravelIdAndStudentId(any(), any())).thenReturn(Optional.of(studentTravel));
-
-            long millis = TimeUnit.MINUTES.toMillis(7);
-            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(millis);
-
-            travelService.processStudentAwayState(travelId, liveLocationDTO);
-
-            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
-
-            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
-            StudentTravel storageValue = stArgCaptor.getValue();
-
-            assertEquals(StudentTravelStatus.AUTO_DISCONNECTED, storageValue.getStudentTravelStatus());
-
-            verify(redisTrackingService, times(1)).clearStudentAwayState(eq(travelId), eq(distanceResponse));
-        }
-
-        @Test
-        @DisplayName("Should set student status to ACTIVE and clear away state when distance is within allowed range")
-        void shouldSetStudentAsActiveWhenDistanceIsWithinAllowedRange() {
-            studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
-            DistanceResponseDTO distanceResponseDTO = new DistanceResponseDTO(studentEntity.getId(), 100.0);
-
-            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
-            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponseDTO));
-
-            travelService.processStudentAwayState(travelEntity.getId(), liveLocationDTO);
-
-            verify(redisTrackingService, times(1)).clearStudentAwayState(any(), any());
-
-            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
-            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
-            StudentTravel storageValue = stArgCaptor.getValue();
-
-            assertEquals(StudentTravelStatus.ACTIVE, storageValue.getStudentTravelStatus());
-        }
-
-        @Test
-        @DisplayName("Should process each student independently when some students match the filter and others do not")
-        void shouldProcessEachStudentIndependentlyWhenSomeMatchFilterAndOthersDoNot() {
-            Student student2 = new Student();
-            student2.setId(UUID.randomUUID());
-            student2.setEmail("student2@email.com");
-
-            GeoPosition position2 = new GeoPosition(
-                    UUID.randomUUID(),
-                    -23.60,
-                    -46.70,
-                    Instant.now(),
-                    null
-            );
-
-            StudentTravel studentTravel2 = new StudentTravel();
-            studentTravel2.setId(UUID.randomUUID());
-            studentTravel2.setStudent(student2);
-            studentTravel2.setPosition(position2);
-            studentTravel2.setEmbark(false);
-            studentTravel2.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
-
-            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity, studentTravel2)));
-
-            DistanceResponseDTO distanceResponse2 = new DistanceResponseDTO(student2.getId(), 300 + 100.0);
-            // fim do setUp basico
-
-            // teste
-            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
-
-            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
-                    .thenReturn(List.of(distanceResponse, distanceResponse2));
-
-            when(redisTrackingService.getStudentAwayTimestamp(eq(travelId), any())).thenReturn(null);
-
-            travelService.processStudentAwayState(travelId, liveLocationDTO);
-
-            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravelEntity.getStudentTravelStatus());
-            verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
-
-            assertEquals(StudentTravelStatus.ACTIVE, studentTravel2.getStudentTravelStatus());
-            verify(redisTrackingService, never()).markStudentAsAway(eq(travelId), eq(distanceResponse2));
-        }
     }
 
 }
