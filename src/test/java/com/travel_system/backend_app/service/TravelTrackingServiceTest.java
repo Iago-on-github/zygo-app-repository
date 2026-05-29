@@ -164,6 +164,31 @@ class TravelTrackingServiceTest {
                 verify(travelService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
+
+            @Test
+            void shouldCallMapboxAndStoreNewStateWhenVehicleIsOffRoute() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+
+                when(redisTrackingService.getRouteCalculateReference(any()))
+                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
+                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO);
+
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
+                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
+                        .thenReturn(routeDeviationDTO);
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+                verify(redisTrackingService, times(1)).getLiveLocation(any());
+                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+            }
         }
     }
 
