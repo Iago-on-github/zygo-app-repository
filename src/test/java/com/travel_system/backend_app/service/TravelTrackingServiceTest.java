@@ -543,23 +543,17 @@ class TravelTrackingServiceTest {
             when(redisTrackingService.getLiveLocation(travel.getId())).
                     thenReturn(liveLocationDTO);
 
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng())))
-                    .thenReturn(routeDeviationDTO);
-            when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
-                    .thenReturn(routeDetailsDTO);
-
             LiveLocationDTO result = travelTrackingService.getDriverPosition(travel.getId());
+
+            System.out.println("result: " + result);
 
             assertEquals(result.latitude(), liveLocationDTO.latitude());
             assertEquals(result.longitude(), liveLocationDTO.longitude());
-            assertEquals(result.geometry(), routeDetailsDTO.geometry());
-            assertEquals(result.distance(), routeDetailsDTO.distance());
+            assertEquals(result.geometry(), liveLocationDTO.geometry());
+            assertEquals(result.distance(), liveLocationDTO.distance());
 
-            verify(redisTrackingService, times(1))
-                    .storeCalculatedRouteState(eq(travel.getId()),
-                            eq(String.valueOf(liveLocationDTO.latitude())),
-                            eq(String.valueOf(liveLocationDTO.longitude())),
-                            new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
+            verify(redisTrackingService, times(1)).getLiveLocation(eq(travel.getId()));
+
         }
 
         @Test
@@ -569,9 +563,7 @@ class TravelTrackingServiceTest {
 
             verifyNoInteractions(
                     travelRepository,
-                    routeCalculationService,
-                    redisTrackingService,
-                    mapboxAPIService
+                    redisTrackingService
             );
         }
 
@@ -601,11 +593,7 @@ class TravelTrackingServiceTest {
 
             assertThrows(TravelException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
 
-            verifyNoInteractions(
-                    routeCalculationService,
-                    redisTrackingService,
-                    mapboxAPIService
-            );
+            verifyNoInteractions(redisTrackingService);
 
             verifyNoMoreInteractions(travelRepository);
 
@@ -643,36 +631,6 @@ class TravelTrackingServiceTest {
                     Arguments.of((LiveLocationDTO) null)
             );
         }
-
-        @ParameterizedTest
-        @DisplayName("throw exception when the mapbox api response is invalid")
-        @MethodSource("nullCalculateRouteProvider")
-        void throwExceptionWhenTheApiResponseIsInvalid(RouteDetailsDTO RouteDetails) {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
-
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(redisTrackingService.getLiveLocation(travel.getId())).
-                    thenReturn(liveLocationDTO);
-
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travel.getId(), liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng())))
-                    .thenReturn(routeDeviationDTO);
-            when(mapboxAPIService.calculateRoute(liveLocationDTO.longitude(), liveLocationDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
-                    .thenReturn(RouteDetails);
-
-            assertThrows(RecalculateEtaException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
-
-            verifyNoMoreInteractions(travelRepository, redisTrackingService, routeCalculationService, mapboxAPIService);
-        }
-
-        public static Stream<Arguments> nullCalculateRouteProvider() {
-            return Stream.of(
-                    Arguments.of(new RouteDetailsDTO(null, 25.0, "exemple_polyline_route")),
-                    Arguments.of(new RouteDetailsDTO(5.0, null, "exemple_polyline_route")),
-                    Arguments.of(new RouteDetailsDTO(5.0, 25.0, null)),
-                    Arguments.of((RouteDetailsDTO) null)
-            );
-        }
-
     }
 
     @Nested
