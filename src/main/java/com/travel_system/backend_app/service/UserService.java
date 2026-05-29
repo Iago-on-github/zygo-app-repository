@@ -32,7 +32,7 @@ public class UserService implements UserDetailsService {
         UserModel user = repository.findUserByEmail(username);
 
         if (user == null) {
-            throw new EntityNotFoundException("Usuário não encontrado: " + username);
+            throw new UsernameNotFoundException("Usuário não encontrado: " + username);
         }
 
         return new CustomUserDetails(user);
