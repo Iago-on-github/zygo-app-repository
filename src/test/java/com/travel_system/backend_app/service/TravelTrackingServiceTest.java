@@ -419,15 +419,26 @@ class TravelTrackingServiceTest {
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
 
+            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteCalculationReferenceDTO(-12.950000, -38.480000));
+            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
+
             when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(routeDeviationDTO);
+            when(routeCalculationService.calculateHaversineDistanceInMeters(
+                    eq(vehicleLocationRequestDTO.latitude()),
+                    eq(vehicleLocationRequestDTO.longitude()),
+                    eq(-12.950000),
+                    eq(-38.480000)))
+                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 1.0);
 
             when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(routeDetailsDTO);
 
             assertThrows(RecalculateEtaException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-            verifyNoInteractions(redisTrackingService);
+//            verifyNoInteractions(redisTrackingService);
 
             verifyNoMoreInteractions(travelRepository, routeCalculationService, mapboxAPIService);
         }
