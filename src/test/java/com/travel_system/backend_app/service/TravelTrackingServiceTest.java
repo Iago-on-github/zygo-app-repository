@@ -308,6 +308,26 @@ class TravelTrackingServiceTest {
                 verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
 
             }
+
+            @ParameterizedTest
+            @MethodSource("nullRequireParametersProvider")
+            void throwExceptionWhenCityIdOrTravelIdIsEmpty(UUID cityId, UUID travelId) {
+                VehicleLocationRequestDTO newVehicleLocRequest = new VehicleLocationRequestDTO(travelId, -12.973456, -38.501234, 60.0, 180.0);
+
+                assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, newVehicleLocRequest));
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+
+            }
+
+            public static Stream<Arguments> nullRequireParametersProvider() {
+                return Stream.of(
+                        Arguments.of(UUID.randomUUID(), null),
+                        Arguments.of(null, UUID.randomUUID()),
+                        Arguments.of(null, null)
+                );
+            }
+
         }
     }
 
