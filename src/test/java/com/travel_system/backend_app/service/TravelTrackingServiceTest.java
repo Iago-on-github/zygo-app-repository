@@ -272,7 +272,32 @@ class TravelTrackingServiceTest {
         @Nested
         class failureScenarios {
 
-//            void
+            @ParameterizedTest
+            @MethodSource("nullRouteDetailFieldsProvider")
+            void shouldNotProceedWhenRouteReferenceIsNullAndMapboxReturnsNull(RouteDetailsDTO routeDetailsDTO) {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+
+                when(redisTrackingService.getRouteCalculateReference(any())).thenReturn(null);
+
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+
+                assertThrows(RecalculateEtaException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+
+                verify(redisTrackingService, times(1)).storeCurrentLocation(any(), any());
+                verify(redisTrackingService, times(1)).getRouteCalculateReference(any());
+                verify(redisTrackingService, times(1)).getRouteState(any());
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService);
+
+            }
+
+            public static Stream<Arguments> nullRouteDetailFieldsProvider() {
+                return Stream.of(
+                        Arguments.of(new RouteDetailsDTO(null, null, "encoded_geometry_exemple")),
+                        Arguments.of(new RouteDetailsDTO(null, 124.2, null)),
+                        Arguments.of((RouteDetailsDTO) null)
+                );
+            }
         }
     }
 
