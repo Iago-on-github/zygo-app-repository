@@ -1076,6 +1076,31 @@ class TravelServiceTest {
 
                 verifyNoMoreInteractions(travelRepository);
             }
+
+            @ParameterizedTest
+            @DisplayName("should ignore student when your status equals AUTO_DISCONNECTED or LEFT")
+            @MethodSource("studentTravelStatusProvider")
+            void shouldIgnoreStudentWhenYourStatusIsInvalidForAlgorithm(StudentTravelStatus studentTravelStatus) {
+                studentTravelEntity.setStudentTravelStatus(studentTravelStatus);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
+
+                verifyNoMoreInteractions(travelRepository);
+            }
+
+            public static Stream<Arguments> studentTravelStatusProvider() {
+                return Stream.of(
+                        Arguments.of(StudentTravelStatus.AUTO_DISCONNECTED),
+                        Arguments.of(StudentTravelStatus.LEFT   )
+                );
+            }
         }
 
     }
