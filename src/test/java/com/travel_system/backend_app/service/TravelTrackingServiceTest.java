@@ -189,6 +189,33 @@ class TravelTrackingServiceTest {
                 verify(travelService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
+
+            @Test
+            void shouldCallMapboxWhenGeometryIsNullRegardlessOfOffRouteStatus() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+
+                when(redisTrackingService.getRouteCalculateReference(any()))
+                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
+                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, null));
+
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
+                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
+                        .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+                verify(redisTrackingService, times(1)).getLiveLocation(any());
+
+                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+            }
         }
     }
 
