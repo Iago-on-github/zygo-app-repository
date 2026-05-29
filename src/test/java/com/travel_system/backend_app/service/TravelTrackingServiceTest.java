@@ -3,10 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
@@ -90,6 +87,7 @@ class TravelTrackingServiceTest {
     StudentTravel studentTravel;
 
     private static final long FIXED_TIMESTAMP = 1_700_000_000_000L;
+    private static final double ROUTE_RECALCULATION_THRESHOLD = 50.0;
 
     @BeforeEach
     void setUp() {
@@ -273,23 +271,22 @@ class TravelTrackingServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+
+            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteCalculationReferenceDTO(-12.950000, -38.480000));
+            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
+
             when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
                     .thenReturn(routeDeviationDTO);
             when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(routeDetailsDTO);
-
-            doNothing().when(redisTrackingService).storeCalculatedRouteState(
-                    eq(travel.getId()),
-                    eq(vehicleLocationRequestDTO.latitude().toString()),
-                    eq(vehicleLocationRequestDTO.longitude().toString()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry())
-            );
-
-            doNothing().when(redisTrackingService).storeTravelMetadata(
-                    eq(travel.getId()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()),
-                    eq(travel.getTravelStatus().toString())
-            );
+            when(routeCalculationService.calculateHaversineDistanceInMeters(
+                    eq(vehicleLocationRequestDTO.latitude()),
+                    eq(vehicleLocationRequestDTO.longitude()),
+                    eq(-12.950000),
+                    eq(-38.480000)))
+                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 1.0);
 
             travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
@@ -301,12 +298,12 @@ class TravelTrackingServiceTest {
                     eq(travel.getId()),
                     eq(vehicleLocationRequestDTO.latitude().toString()),
                     eq(vehicleLocationRequestDTO.longitude().toString()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry())
+                    eq(new RouteDetailsDTO(routeDetailsDTO.duration(), routeDetailsDTO.distance(), routeDetailsDTO.geometry()))
             );
 
             verify(redisTrackingService, times(1)).storeTravelMetadata(
                     eq(travel.getId()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()),
+                    eq(new RouteDetailsDTO(routeDetailsDTO.duration(), routeDetailsDTO.distance(), routeDetailsDTO.geometry())),
                     eq(travel.getTravelStatus().toString())
             );
         }
