@@ -323,6 +323,11 @@ public class TravelService {
             throw new TravelException("[processStudentAwayState] Viagem " + travelId + " não está em andamento");
         }
 
+        if (travel.getStudentTravels() == null) {
+            log.warn("[processStudentAwayState] - nenhum estudante encontrado na viagem {} ", travelId);
+            return;
+        }
+
         distanceBetweenPositions.forEach(dist -> {
 
             Optional<StudentTravel> studentTravelOptional = travel.getStudentTravels().stream()
