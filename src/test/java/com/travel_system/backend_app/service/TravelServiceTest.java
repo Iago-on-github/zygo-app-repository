@@ -1017,6 +1017,8 @@ class TravelServiceTest {
             @Test
             void throwExceptionWhenTravelNotFound() {
                 when(travelRepository.findById(travelId)).thenReturn(Optional.empty());
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
 
                 assertThrows(EntityNotFoundException.class, () -> travelService.processStudentAwayState(travelId, liveLocationDTO));
 
@@ -1031,6 +1033,8 @@ class TravelServiceTest {
                 travelEntity.setTravelStatus(TravelStatus.PENDING);
 
                 when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
 
                 assertThrows(TravelException.class, () -> travelService.processStudentAwayState(travelId, liveLocationDTO));
 
@@ -1046,6 +1050,24 @@ class TravelServiceTest {
                 travelEntity.setStudentTravels(null);
 
                 when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
+
+                verifyNoMoreInteractions(travelRepository);
+            }
+
+            @Test
+            void shouldIgnoreStudentWhenIsNotEmbark() {
+                studentTravelEntity.setEmbark(false);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
 
                 travelService.processStudentAwayState(travelId, liveLocationDTO);
 
