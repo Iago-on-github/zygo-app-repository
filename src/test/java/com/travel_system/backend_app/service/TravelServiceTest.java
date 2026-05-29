@@ -1117,6 +1117,22 @@ class TravelServiceTest {
 
                 verifyNoMoreInteractions(travelRepository);
             }
+
+            @Test
+            void shouldIgnoreStudentWhenStudentIsNull() {
+                studentTravelEntity.setStudent(null);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+                when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                        .thenReturn(List.of(distanceResponse));
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
+
+                verifyNoMoreInteractions(travelRepository);
+            }
         }
 
     }
