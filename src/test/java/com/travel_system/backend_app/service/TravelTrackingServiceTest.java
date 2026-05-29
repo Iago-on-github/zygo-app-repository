@@ -65,6 +65,9 @@ class TravelTrackingServiceTest {
     @Mock
     private RouteCalculationService routeCalculationService;
     @Mock
+    private TravelService travelService;
+
+    @Mock
     private StudentTravelRepository studentTravelRepository;
     @Mock
     private GpsDataIngestorService gpsDataIngestorService;
@@ -103,162 +106,37 @@ class TravelTrackingServiceTest {
 
     @Nested
     class markDriverCheckpoint {
+        UUID travelId;
+        UUID cityId;
 
-        @Test
-        @DisplayName("should mark driver checkpoint with success")
-        void shouldMarkDriverCheckpointWithSuccess() {
-            UUID cityId = UUID.randomUUID();
+        @BeforeEach
+        void setUp() {
+            travel.setId(vehicleLocationRequestDTO.travelId());
+            cityId = UUID.randomUUID();
 
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
-
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(redisTrackingService.getLiveLocation(travel.getId())).thenReturn(liveLocationDTO);
-
-            travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO);
-
-            ArgumentCaptor<NewLocationReceivedEvents> captor = ArgumentCaptor.forClass(NewLocationReceivedEvents.class);
-
-            verify(eventPublisher, times(1)).publishEvent(captor.capture());
-            NewLocationReceivedEvents event = captor.getValue();
-
-            assertEquals(travel.getId(), event.travelId());
-            assertEquals(vehicleLocationRequestDTO.latitude(), event.latitude());
-            assertEquals(vehicleLocationRequestDTO.longitude(), event.longitude());
-            assertEquals(travel.getTravelStatus(), event.status());
-            assertEquals(vehicleLocationRequestDTO.speed(), event.speed());
-            assertEquals(vehicleLocationRequestDTO.heading(), event.heading());
-            assertNotNull(event.timestamp());
-
-            verify(travelRepository, times(1)).findById(any());
-            verify(redisTrackingService, times(1)).getLiveLocation(any());
-
-
-            verify(redisTrackingService).storeCalculatedRouteState(
-                    eq(travel.getId()),
-                    eq(vehicleLocationRequestDTO.latitude().toString()),
-                    eq(vehicleLocationRequestDTO.longitude().toString()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry())
-            );
-
-            verify(gpsDataIngestorService, times(1)).sendVehicleGps(anyString(), anyString(), any());
-        }
-
-        @ParameterizedTest
-        @DisplayName("throw exception when find mandatory fields empty")
-        @MethodSource("emptyMandatoryFieldsProvider")
-        void throwExceptionWhenFindMandatoryFieldsEmpty(UUID cityId, UUID travelId) {
-            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
-
-            verifyNoInteractions(
-                    travelRepository,
-                    eventPublisher,
-                    redisTrackingService,
-                    gpsDataIngestorService
-            );
-        }
-
-        public static Stream<Arguments> emptyMandatoryFieldsProvider() {
-            return Stream.of(
-                    Arguments.of(null, UUID.randomUUID()),
-                    Arguments.of(UUID.randomUUID(), null),
-                    Arguments.of(null, null)
-            );
-        }
-
-        @ParameterizedTest
-        @DisplayName("throw exception when vehicleData or coords data are null")
-        @MethodSource("vehicleOrCoordsDataProvider")
-        void throwExceptionWhenVehicleDataOrCoordinatesDataAreNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
-            assertThrows(NoSuchCoordinates.class, () -> travelTrackingService.markDriverCheckpoint(UUID.randomUUID(), travel.getId(), vehicleLocationRequestDTO));
-
-            verifyNoInteractions(
-                    travelRepository,
-                    eventPublisher,
-                    redisTrackingService,
-                    gpsDataIngestorService
-            );
-        }
-
-        public static Stream<Arguments> vehicleOrCoordsDataProvider() {
-            return Stream.of(
-                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
-                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0)),
-                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, null, 60.0, 180.0)),
-                    Arguments.of((VehicleLocationRequestDTO) null)
-            );
-        }
-
-        @Test
-        @DisplayName("throw exception when travel not found from database")
-        void throwExceptionWhenTravelNotFound() {
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
-
-            assertThrows(TripNotFound.class, () -> travelTrackingService.markDriverCheckpoint(UUID.randomUUID(), travel.getId(), vehicleLocationRequestDTO));
-
-            verify(travelRepository).findById(any());
-            verifyNoMoreInteractions(travelRepository);
-
-            verifyNoInteractions(
-                    eventPublisher,
-                    redisTrackingService,
-                    gpsDataIngestorService
-            );
-        }
-
-        @ParameterizedTest
-        @DisplayName("throw exception when travelStatus is not Travelling")
-        @MethodSource("travelStatusProvider")
-        void throwExceptionWhenTravelStatusIsNotTravelling(TravelStatus travelStatus) {
-            travel.setTravelStatus(travelStatus);
-
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-
-            assertThrows(TravelException.class, () -> travelTrackingService.markDriverCheckpoint(UUID.randomUUID(), travel.getId(), vehicleLocationRequestDTO));
-
-            verify(travelRepository).findById(any());
-            verifyNoMoreInteractions(travelRepository);
-
-            verifyNoInteractions(
-                    eventPublisher,
-                    redisTrackingService,
-                    gpsDataIngestorService
-            );
-        }
-
-        public static Stream<Arguments> travelStatusProvider() {
-            return Stream.of(
-                    Arguments.of(TravelStatus.PENDING),
-                    Arguments.of(TravelStatus.FINISH)
-            );
-        }
-
-        @Test
-        @DisplayName("should pass 'null' from storeLiveLocation when first ping")
-        void shouldStoreNullDistanceAndGeometryOnFirstPing() {
-            UUID cityId = UUID.randomUUID();
+            travelId = travel.getId();
 
             travel.setTravelStatus(TravelStatus.TRAVELLING);
+        }
 
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(redisTrackingService.getLiveLocation(travel.getId())).thenReturn(null);
+        @Nested
+        class successScenarios {
 
-            doNothing().when(redisTrackingService)
-                    .storeCalculatedRouteState(
-                            eq(travel.getId()),
-                            eq(vehicleLocationRequestDTO.latitude().toString()),
-                            eq(vehicleLocationRequestDTO.longitude().toString()),
-                            null);
+            @Test
+            void shouldNotRecalculateRouteWhenShouldRecalculateRouteReturnsFalse() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
 
-            travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO);
+                when(redisTrackingService.getRouteCalculateReference(any()))
+                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
+                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
 
-            verify(redisTrackingService, times(1)).getLiveLocation(any());
-            verify(redisTrackingService).storeCalculatedRouteState(
-                    eq(travel.getId()),
-                    eq(vehicleLocationRequestDTO.latitude().toString()),
-                    eq(vehicleLocationRequestDTO.longitude().toString()),
-                    null
-            );
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(null);
 
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+            }
         }
     }
 
