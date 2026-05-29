@@ -299,7 +299,7 @@ public class TravelTrackingService {
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new TripNotFound("[getDriverPosition] Viagem não encontrada: " + travelId));
 
-        if (!(travel.getTravelStatus() == TravelStatus.TRAVELLING)) {
+        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("[getDriverPosition] Viagem " + travelId + " não está em andamento.");
         }
 
