@@ -298,6 +298,16 @@ class TravelTrackingServiceTest {
                         Arguments.of((RouteDetailsDTO) null)
                 );
             }
+
+            @Test
+            void throwExceptionWhenDifferentTravelIdsAre() {
+                travel.setId(UUID.randomUUID());
+
+                assertThrows(IllegalStateException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO));
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+
+            }
         }
     }
 
