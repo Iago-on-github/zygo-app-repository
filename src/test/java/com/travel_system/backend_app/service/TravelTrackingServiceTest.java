@@ -123,6 +123,29 @@ class TravelTrackingServiceTest {
         class successScenarios {
 
             @Test
+            @DisplayName("Primeiro contato, ainda não há dados do redis e faz o cálculo inicial")
+            void shouldStoreRouteStateWhenReferenceIsNull() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+
+                when(redisTrackingService.getRouteCalculateReference(any())).thenReturn(null);
+                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
+
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+
+                verify(redisTrackingService, times(1)).storeCurrentLocation(any(), any());
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+                verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+                verify(redisTrackingService, times(1)).getLiveLocation(any());
+                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+            }
+
+            @Test
             void shouldNotRecalculateRouteWhenShouldRecalculateRouteReturnsFalse() {
                 when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
 
@@ -244,6 +267,12 @@ class TravelTrackingServiceTest {
                 verify(travelService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
+        }
+
+        @Nested
+        class failureScenarios {
+
+//            void
         }
     }
 
