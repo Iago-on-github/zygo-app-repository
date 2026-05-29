@@ -1025,6 +1025,35 @@ class TravelServiceTest {
 
                 verifyNoMoreInteractions(travelRepository);
             }
+
+            @Test
+            void throwExceptionWhenTravelIsNotTravelling() {
+                travelEntity.setTravelStatus(TravelStatus.PENDING);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+
+                assertThrows(TravelException.class, () -> travelService.processStudentAwayState(travelId, liveLocationDTO));
+
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
+
+                verifyNoMoreInteractions(travelRepository);
+            }
+
+            @Test
+            @DisplayName("should log warning and ignore student when no matching StudentTravel is found")
+            void shouldIgnoreStudentWhenNoMatchingStudentTravelIsFound() {
+                travelEntity.setStudentTravels(null);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+
+                travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+                verifyNoInteractions(redisTrackingService);
+                verifyNoInteractions(studentTravelRepository);
+
+                verifyNoMoreInteractions(travelRepository);
+            }
         }
 
     }
