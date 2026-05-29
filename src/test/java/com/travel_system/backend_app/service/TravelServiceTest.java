@@ -836,6 +836,7 @@ class TravelServiceTest {
         UUID travelId;
         Travel travelEntity;
         Student studentEntity;
+        StudentTravel studentTravelEntity;
         LiveLocationDTO liveLocationDTO;
         DistanceResponseDTO distanceResponse;
 
@@ -858,19 +859,20 @@ class TravelServiceTest {
             );
 
             // studentTravel
-            StudentTravel studentTravel = new StudentTravel();
-            studentTravel.setId(UUID.randomUUID());
-            studentTravel.setStudent(studentEntity);
-            studentTravel.setPosition(position);
-            studentTravel.setEmbark(true);
-            studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
-            studentTravel.setTravel(travelEntity);
+            studentTravelEntity = new StudentTravel();
+            studentTravelEntity.setId(UUID.randomUUID());
+            studentTravelEntity.setStudent(studentEntity);
+            studentTravelEntity.setPosition(position);
+            studentTravelEntity.setEmbark(true);
+            studentTravelEntity.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
 
             // travel
             travelEntity = new Travel();
             travelEntity.setId(travelId);
-            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravel)));
+            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity)));
             travelEntity.setTravelStatus(TravelStatus.TRAVELLING);
+
+            studentTravel.setTravel(travelEntity);
 
             liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
             distanceResponse = new DistanceResponseDTO(studentEntity.getId(), 300 + 100.0);
@@ -960,6 +962,50 @@ class TravelServiceTest {
             StudentTravel storageValue = stArgCaptor.getValue();
 
             assertEquals(StudentTravelStatus.ACTIVE, storageValue.getStudentTravelStatus());
+        }
+
+        @Test
+        @DisplayName("Should process each student independently when some students match the filter and others do not")
+        void shouldProcessEachStudentIndependentlyWhenSomeMatchFilterAndOthersDoNot() {
+            Student student2 = new Student();
+            student2.setId(UUID.randomUUID());
+            student2.setEmail("student2@email.com");
+
+            GeoPosition position2 = new GeoPosition(
+                    UUID.randomUUID(),
+                    -23.60,
+                    -46.70,
+                    Instant.now(),
+                    null
+            );
+
+            StudentTravel studentTravel2 = new StudentTravel();
+            studentTravel2.setId(UUID.randomUUID());
+            studentTravel2.setStudent(student2);
+            studentTravel2.setPosition(position2);
+            studentTravel2.setEmbark(false);
+            studentTravel2.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+
+            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity, studentTravel2)));
+
+            DistanceResponseDTO distanceResponse2 = new DistanceResponseDTO(student2.getId(), 300 + 100.0);
+            // fim do setUp basico
+
+            // teste
+            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+
+            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO))
+                    .thenReturn(List.of(distanceResponse, distanceResponse2));
+
+            when(redisTrackingService.getStudentAwayTimestamp(eq(travelId), any())).thenReturn(null);
+
+            travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+            assertEquals(StudentTravelStatus.AWAY_FROM_BUS, studentTravelEntity.getStudentTravelStatus());
+            verify(redisTrackingService, times(1)).markStudentAsAway(eq(travelId), eq(distanceResponse));
+
+            assertEquals(StudentTravelStatus.ACTIVE, studentTravel2.getStudentTravelStatus());
+            verify(redisTrackingService, never()).markStudentAsAway(eq(travelId), eq(distanceResponse2));
         }
     }
 
