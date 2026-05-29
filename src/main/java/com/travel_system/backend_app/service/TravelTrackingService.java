@@ -73,10 +73,6 @@ public class TravelTrackingService {
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
     public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
-        if (!travelId.equals(vehicleLocationRequest.travelId())) {
-            throw new IllegalStateException("TravelID da URL diferente do body");
-        }
-
         if (cityId == null || travelId == null) {
             throw new EmptyMandatoryFieldsFound("[markDriverCheckpoint] CityId: " + cityId + " ou TravelId " + travelId + " são obrigatorios.");
         }
@@ -84,6 +80,10 @@ public class TravelTrackingService {
         if (vehicleLocationRequest == null || vehicleLocationRequest.latitude() == null || vehicleLocationRequest.longitude() == null) {
             throw new NoSuchCoordinates("[markDriverCheckpoint] vehicleLocationRequest null ou dados de lat/lng null para a viagem: "
                     + travelId + " . DTO: " + vehicleLocationRequest);
+        }
+
+        if (!travelId.equals(vehicleLocationRequest.travelId())) {
+            throw new IllegalStateException("TravelID da URL diferente do body");
         }
 
         Travel travel = travelRepository.findById(travelId)
@@ -119,6 +119,8 @@ public class TravelTrackingService {
                 throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travel);
             }
 
+            logger.info("[markDriverCheckpoint] - primeiro cálculo da viagem {} realizado com sucesso. Armazenando no redis.", travelId);
+
             redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
         }
         // faz recalculo da rota/ETA se necessário
@@ -130,10 +132,12 @@ public class TravelTrackingService {
                 RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, latitude, longitude));
 
                 if (routeState.geometry() == null || routeDeviation.isOffRoute()) {
-
+                    logger.info("[markDriverCheckpoint] - chamado API para recalculo de rota para a viagem: {} ", travelId);
                     RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
                     if (routeDetailsDTO != null) {
+                        logger.info("[markDriverCheckpoint] - api respondeu com sucesso. Salvando a nova rota calculada para a viagem: {} ", travelId);
+
                         redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
                     }
 
