@@ -316,31 +316,35 @@ class TravelTrackingServiceTest {
             previousStateDTO = new PreviousStateDTO(10.0, 5000.0, FIXED_TIMESTAMP - 1000L);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                    .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+
+            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
+            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
             when(redisTrackingService.getPreviousEta(travel.getId())).thenReturn(previousStateDTO);
+
+            when(routeCalculationService.calculateHaversineDistanceInMeters(
+                    eq(vehicleLocationRequestDTO.latitude()),
+                    eq(vehicleLocationRequestDTO.longitude()),
+                    eq(liveLocationDTO.lastCalcLat()),
+                    eq(liveLocationDTO.lastCalcLng())))
+                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD - 5.0);
 
             when(clock.millis()).thenReturn(FIXED_TIMESTAMP);
 
             travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
             verify(travelRepository, times(1)).findById(any());
-            verify(routeCalculationService, times(1)).isRouteDeviation(any());
 
             verifyNoInteractions(mapboxAPIService);
 
             double expectedEta = 10.0 - 1.0;
 
-            verify(redisTrackingService, times(1)).storeCalculatedRouteState(
-                    eq(travel.getId()),
-                    eq(vehicleLocationRequestDTO.latitude().toString()),
-                    eq(vehicleLocationRequestDTO.longitude().toString()),
-                    new RouteDetailsDTO(null, expectedEta, liveLocationDTO.geometry())
-            );
+            verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any());
 
             verify(redisTrackingService, times(1)).storeTravelMetadata(
                     eq(travel.getId()),
-                    new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()),
+                    eq(new RouteDetailsDTO(expectedEta, travel.getDistance(), travel.getPolylineRoute())),
                     eq(travel.getTravelStatus().toString())
             );
         }
