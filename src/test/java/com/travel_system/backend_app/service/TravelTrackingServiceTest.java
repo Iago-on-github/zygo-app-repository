@@ -328,6 +328,22 @@ class TravelTrackingServiceTest {
                 );
             }
 
+            @ParameterizedTest
+            @MethodSource("nullVehicleLocationParametersProvider")
+            void throwExceptionWhenVehicleLocationRequestPropsIsNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
+                assertThrows(NoSuchCoordinates.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+            }
+
+            public static Stream<Arguments> nullVehicleLocationParametersProvider() {
+                return Stream.of(
+                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, null, 60.0, 180.0)),
+                        Arguments.of((VehicleLocationRequestDTO) null)
+                );
+            }
         }
     }
 
