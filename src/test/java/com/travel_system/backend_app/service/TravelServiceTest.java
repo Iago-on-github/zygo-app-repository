@@ -26,7 +26,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalUnit;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -833,6 +835,7 @@ class TravelServiceTest {
     class processStudentAwayState {
         UUID travelId;
         Travel travelEntity;
+        Student studentEntity;
         LiveLocationDTO liveLocationDTO;
         DistanceResponseDTO distanceResponse;
 
@@ -841,9 +844,9 @@ class TravelServiceTest {
             travelId = UUID.randomUUID();
 
             // student
-            Student student = new Student();
-            student.setId(UUID.randomUUID());
-            student.setEmail("student@email.com");
+            studentEntity = new Student();
+            studentEntity.setId(UUID.randomUUID());
+            studentEntity.setEmail("student@email.com");
 
             // position
             GeoPosition position = new GeoPosition(
@@ -857,18 +860,20 @@ class TravelServiceTest {
             // studentTravel
             StudentTravel studentTravel = new StudentTravel();
             studentTravel.setId(UUID.randomUUID());
-            studentTravel.setStudent(student);
+            studentTravel.setStudent(studentEntity);
             studentTravel.setPosition(position);
             studentTravel.setEmbark(true);
             studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+            studentTravel.setTravel(travelEntity);
 
             // travel
             travelEntity = new Travel();
             travelEntity.setId(travelId);
             travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravel)));
+            travelEntity.setTravelStatus(TravelStatus.TRAVELLING);
 
             liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
-            distanceResponse = new DistanceResponseDTO(student.getId(), 300 + 100.0);
+            distanceResponse = new DistanceResponseDTO(studentEntity.getId(), 300 + 100.0);
         }
 
         @Test
@@ -909,7 +914,33 @@ class TravelServiceTest {
             verify(studentTravelRepository, never()).save(any());
         }
 
-        // falta completar os restantes dos cenários
+        @Test
+        @DisplayName("Should set AUTO_DISCONNECTED status and remove student from travel when elapsed time exceeds auto disconnect threshold")
+        void shouldAutoDisconnectStudentWhenElapsedTimeExceedsAutoDisconnectThreshold() {
+            studentTravel.setStudent(studentEntity);
+
+            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+            when(travelRepository.getReferenceById(travelId)).thenReturn(travelEntity);
+
+            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponse));
+
+            when(studentRepository.findByEmail(any())).thenReturn(Optional.of(studentEntity));
+            when(studentTravelRepository.findByTravelIdAndStudentId(any(), any())).thenReturn(Optional.of(studentTravel));
+
+            long millis = TimeUnit.MINUTES.toMillis(7);
+            when(redisTrackingService.getStudentAwayTimestamp(travelId, distanceResponse)).thenReturn(millis);
+
+            travelService.processStudentAwayState(travelId, liveLocationDTO);
+
+            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+            StudentTravel storageValue = stArgCaptor.getValue();
+
+            assertEquals(StudentTravelStatus.AUTO_DISCONNECTED, storageValue.getStudentTravelStatus());
+
+            verify(redisTrackingService, times(1)).clearStudentAwayState(eq(travelId), eq(distanceResponse));
+        }
     }
 
 }
