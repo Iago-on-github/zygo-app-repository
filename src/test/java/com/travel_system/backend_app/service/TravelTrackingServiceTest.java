@@ -344,6 +344,35 @@ class TravelTrackingServiceTest {
                         Arguments.of((VehicleLocationRequestDTO) null)
                 );
             }
+
+            @Test
+            void throwExceptionWhenTravelNotFound() {
+                when(travelRepository.findById(travelId)).thenReturn(Optional.empty());
+
+                assertThrows(TripNotFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+            }
+
+            @ParameterizedTest
+            @MethodSource("travelStatusProvider")
+            void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
+                travel.setTravelStatus(travelStatus);
+
+                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+
+                assertThrows(TravelException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService);
+
+            }
+
+            public static Stream<Arguments> travelStatusProvider() {
+                return Stream.of(
+                        Arguments.of(TravelStatus.PENDING),
+                        Arguments.of(TravelStatus.FINISH)
+                );
+            }
         }
     }
 
