@@ -458,9 +458,19 @@ class TravelTrackingServiceTest {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
             when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                    .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+
+            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
+            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
+                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
             when(redisTrackingService.getPreviousEta(travel.getId())).thenReturn(previousStateDTO);
+
+            when(routeCalculationService.calculateHaversineDistanceInMeters(
+                    eq(vehicleLocationRequestDTO.latitude()),
+                    eq(vehicleLocationRequestDTO.longitude()),
+                    eq(liveLocationDTO.lastCalcLat()),
+                    eq(liveLocationDTO.lastCalcLng())))
+                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD - 5.0);
 
             assertThrows(EtaDataStatesInvalidException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
