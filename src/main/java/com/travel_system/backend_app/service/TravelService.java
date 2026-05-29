@@ -319,6 +319,10 @@ public class TravelService {
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada."));
 
+        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
+            throw new TravelException("[processStudentAwayState] Viagem " + travelId + " não está em andamento");
+        }
+
         distanceBetweenPositions.forEach(dist -> {
 
             Optional<StudentTravel> studentTravelOptional = travel.getStudentTravels().stream()
@@ -345,6 +349,7 @@ public class TravelService {
             if (dist.distance() >= AUTO_DISCONNECT_DISTANCE_METERS) {
                 log.info("[processStudentAwayState] - distância do estudante maior do que a distância minima permitida");
                 studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+
                 if (studentAwayTimestamp != null) {
                     log.info("[processStudentAwayState] - estudante possui timestamp no redis");
 
