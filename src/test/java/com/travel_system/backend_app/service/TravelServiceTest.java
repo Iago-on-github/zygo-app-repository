@@ -941,6 +941,26 @@ class TravelServiceTest {
 
             verify(redisTrackingService, times(1)).clearStudentAwayState(eq(travelId), eq(distanceResponse));
         }
+
+        @Test
+        @DisplayName("Should set student status to ACTIVE and clear away state when distance is within allowed range")
+        void shouldSetStudentAsActiveWhenDistanceIsWithinAllowedRange() {
+            studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
+            DistanceResponseDTO distanceResponseDTO = new DistanceResponseDTO(studentEntity.getId(), 100.0);
+
+            when(travelRepository.findById(travelId)).thenReturn(Optional.of(travelEntity));
+            when(pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO)).thenReturn(List.of(distanceResponseDTO));
+
+            travelService.processStudentAwayState(travelEntity.getId(), liveLocationDTO);
+
+            verify(redisTrackingService, times(1)).clearStudentAwayState(any(), any());
+
+            ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+            verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+            StudentTravel storageValue = stArgCaptor.getValue();
+
+            assertEquals(StudentTravelStatus.ACTIVE, storageValue.getStudentTravelStatus());
+        }
     }
 
 }
