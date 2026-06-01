@@ -65,7 +65,7 @@ class TravelTrackingServiceTest {
     @Mock
     private RouteCalculationService routeCalculationService;
     @Mock
-    private TravelService travelService;
+    private LocationService locationService;
 
     @Mock
     private StudentTravelRepository studentTravelRepository;
@@ -141,7 +141,7 @@ class TravelTrackingServiceTest {
                 verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
 
@@ -161,7 +161,7 @@ class TravelTrackingServiceTest {
                 verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
 
@@ -184,7 +184,7 @@ class TravelTrackingServiceTest {
                 verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
 
@@ -209,7 +209,7 @@ class TravelTrackingServiceTest {
 
                 verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
 
@@ -236,7 +236,7 @@ class TravelTrackingServiceTest {
                 verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
 
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
 
@@ -264,7 +264,7 @@ class TravelTrackingServiceTest {
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
 
-                verify(travelService, times(1)).processStudentAwayState(any(), any());
+                verify(locationService, times(1)).processStudentAwayState(any(), any());
                 verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
             }
         }
@@ -287,7 +287,7 @@ class TravelTrackingServiceTest {
                 verify(redisTrackingService, times(1)).getRouteCalculateReference(any());
                 verify(redisTrackingService, times(1)).getRouteState(any());
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService);
 
             }
 
@@ -305,7 +305,7 @@ class TravelTrackingServiceTest {
 
                 assertThrows(IllegalStateException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
 
             }
 
@@ -316,7 +316,7 @@ class TravelTrackingServiceTest {
 
                 assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, newVehicleLocRequest));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
 
             }
 
@@ -333,7 +333,7 @@ class TravelTrackingServiceTest {
             void throwExceptionWhenVehicleLocationRequestPropsIsNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
                 assertThrows(NoSuchCoordinates.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
             }
 
             public static Stream<Arguments> nullVehicleLocationParametersProvider() {
@@ -351,7 +351,7 @@ class TravelTrackingServiceTest {
 
                 assertThrows(TripNotFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService, travelRepository);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
             }
 
             @ParameterizedTest
@@ -363,7 +363,7 @@ class TravelTrackingServiceTest {
 
                 assertThrows(TravelException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, travelService, gpsDataIngestorService);
+                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService);
 
             }
 
