@@ -1,6 +1,5 @@
 package com.travel_system.backend_app.integration.controller;
 
-import com.google.api.client.json.Json;
 import com.travel_system.backend_app.config.RabbitMQConfig;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.City;
@@ -33,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -76,9 +76,11 @@ public class GpsDataControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), city);
             driver.setPermissions(List.of(permission));
+
             driverRepository.save(driver);
+            cityRepository.save(city);
 
             travel = new Travel(
                     UUID.randomUUID(), city, TravelStatus.TRAVELLING, driver, Instant.now(),
@@ -88,7 +90,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
                     -12.8000, -38.4000, "Feira de Santana"
             );
 
-//            travelRepository.save(travel);
+            travelRepository.save(travel);
 
             requestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
         }
@@ -100,7 +102,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
             when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(true);
 
-            mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
+            mockMvc.perform(post("/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(requestDTO))
                     .param("city", city.getId().toString())
@@ -123,13 +125,13 @@ public class GpsDataControllerIT extends IntegrationTestBase {
                     .thenReturn(true);
 
             // envia sem nenhuma role de auth
-            mockMvc.perform(post("/api/v1/gps/updateGpsData")
+            mockMvc.perform(post("/v1/gps/updateGpsData")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDTO))
                             .param("city", city.getId().toString())
                             .param("travelId", travel.getId().toString()))
                     .andDo(print())
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
         }
 
         @Test
@@ -140,7 +142,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
             when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(true);
 
-            mockMvc.perform(post("/api/v1/gps/updateGpsData")
+            mockMvc.perform(post("/v1/gps/updateGpsData")
                             .with(user("driver").authorities(new SimpleGrantedAuthority(differentRole)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDTO))
@@ -157,7 +159,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
             when(travelRepository.existsByIdAndTravelStatus(travel.getId(), TravelStatus.TRAVELLING))
                     .thenReturn(false);
 
-            mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
+            mockMvc.perform(post("/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDTO))
                             .param("city", city.getId().toString())
@@ -174,7 +176,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
             when(travelRepository.existsByIdAndTravelStatus(travel.getId(), travelStatus))
                     .thenReturn(false);
 
-            mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
+            mockMvc.perform(post("/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDTO))
                             .param("city", city.getId().toString())
@@ -195,7 +197,7 @@ public class GpsDataControllerIT extends IntegrationTestBase {
         void shouldReturnBadRequestWhenRequireParametersAreNull(String cityId, String travelId, VehicleLocationRequestDTO locationRequestDTO) throws Exception {
             String driverRole = driver.getRoles().getFirst();
 
-            mockMvc.perform(post("/api/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
+            mockMvc.perform(post("/v1/gps/updateGpsData").with(user("driver").authorities(new SimpleGrantedAuthority(driverRole)))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(locationRequestDTO))
                     .param("city", cityId)
