@@ -35,16 +35,18 @@ public class PushNotificationService {
     private final RouteCalculationService routeCalculationService;
     private final RedisNotificationService redisNotificationService;
     private final RedisTrackingService redisTrackingService;
+    private final LocationService locationService;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
 
-    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, ApplicationEventPublisher eventPublisher) {
+    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, LocationService locationService, ApplicationEventPublisher eventPublisher) {
         this.travelService = travelService;
         this.routeCalculationService = routeCalculationService;
         this.redisNotificationService = redisNotificationService;
         this.redisTrackingService = redisTrackingService;
+        this.locationService = locationService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -61,7 +63,7 @@ public class PushNotificationService {
 
         LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null);
         Set<StudentTravelResponseDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
-        List<DistanceResponseDTO> differencePosition = distanceBetweenPositions(travelId, driverPosition);
+        List<DistanceResponseDTO> differencePosition = locationService.distanceBetweenPositions(travelId, driverPosition);
 
         Map<UUID, Double> distances = differencePosition.stream()
                 .collect(Collectors.toMap(DistanceResponseDTO::studentId, DistanceResponseDTO::distance));
@@ -385,34 +387,6 @@ public class PushNotificationService {
                 distance,
                 lastCalcLat,
                 lastCalcLng);
-    }
-
-    // distance between driver and student
-    protected List<DistanceResponseDTO> distanceBetweenPositions(UUID travelId, LiveLocationDTO driverPosition) {
-        Set<StudentTravelResponseDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
-
-        logger.info("Viagem {}: Iniciando cálculo de distância para {} alunos vinculados.", travelId, linkedStudentTravel.size());
-
-        List<DistanceResponseDTO> results = linkedStudentTravel.stream()
-                .filter(student -> {
-                    boolean hasPosition = student.position() != null;
-                    if (!hasPosition) {
-                        logger.warn("Aluno {} ignorado: Posição (GeoPosition) está nula no banco.", student.studentId());
-                    }
-                    return hasPosition;
-                })
-                .map(student -> {
-                    double distance = routeCalculationService.calculateHaversineDistanceInMeters(
-                            driverPosition.latitude(),
-                            driverPosition.longitude(),
-                            student.position().getLatitude(),
-                            student.position().getLongitude()
-                    );
-                    return new DistanceResponseDTO(student.studentId(), distance);
-                })
-                .toList();
-        logger.info("Viagem {}: Cálculo concluído. {} alunos processados com sucesso.", travelId, results.size());
-        return results;
     }
 
     private boolean hasEnoughCooldownForStopped(Instant lastEtaNotify, Instant now, long notificationCooldown) {
