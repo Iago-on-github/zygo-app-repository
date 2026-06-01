@@ -39,14 +39,11 @@ public class TravelService {
     private final TravelReportsRepository travelReportsRepository;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final PolylineService polylineService;
-    private final PushNotificationService pushNotificationService;
+    private final RouteCalculationService routeCalculationService;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
-    private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
-
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, PushNotificationService pushNotificationService) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -56,7 +53,7 @@ public class TravelService {
         this.travelReportsRepository = travelReportsRepository;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.polylineService = polylineService;
-        this.pushNotificationService = pushNotificationService;
+        this.routeCalculationService = routeCalculationService;
     }
 
     @Transactional
@@ -310,83 +307,6 @@ public class TravelService {
         }
 
         return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
-    }
-
-    // verifica se o estudante é compatível para auto-desvinculo
-    public void processStudentAwayState(UUID travelId, LiveLocationDTO liveLocationDTO) {
-        List<DistanceResponseDTO> distanceBetweenPositions = pushNotificationService.distanceBetweenPositions(travelId, liveLocationDTO);
-
-        Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada."));
-
-        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
-            throw new TravelException("[processStudentAwayState] Viagem " + travelId + " não está em andamento");
-        }
-
-        if (travel.getStudentTravels() == null) {
-            log.warn("[processStudentAwayState] - nenhum estudante encontrado na viagem {} ", travelId);
-            return;
-        }
-
-        distanceBetweenPositions.forEach(dist -> {
-
-            Optional<StudentTravel> studentTravelOptional = travel.getStudentTravels().stream()
-                    .filter(st -> st.getStudent() != null
-                            && Objects.equals(st.getStudent().getId(), dist.studentId())
-                            && st.getPosition() != null
-                            && st.isEmbark()
-                            && StudentTravelStatus.AUTO_DISCONNECTED != st.getStudentTravelStatus()
-                            && StudentTravelStatus.LEFT != st.getStudentTravelStatus())
-                    .findFirst();
-
-            if (studentTravelOptional.isEmpty()) {
-                log.warn("[processStudentAwayState] - estudante {} ignorado, não passou na validação para a viagem {} ", dist.studentId(), travelId );
-                return;
-            }
-
-            StudentTravel studentTravel = studentTravelOptional.get();
-
-            String studentEmail = studentTravel.getStudent().getEmail();
-
-            // verifica se ja tem timestamp
-            Long studentAwayTimestamp = redisTrackingService.getStudentAwayTimestamp(travelId, dist);
-
-            if (dist.distance() >= AUTO_DISCONNECT_DISTANCE_METERS) {
-                log.info("[processStudentAwayState] - distância do estudante maior do que a distância minima permitida");
-                studentTravel.setStudentTravelStatus(StudentTravelStatus.AWAY_FROM_BUS);
-
-                if (studentAwayTimestamp != null) {
-                    log.info("[processStudentAwayState] - estudante possui timestamp no redis");
-
-                    long timeNow = Instant.now().toEpochMilli();
-                    long awayTimeMillis = timeNow - studentAwayTimestamp;
-
-                    if (awayTimeMillis >= AUTO_DISCONNECT_TIME){
-                        log.info("[processStudentAwayState] - estudante desembarcou. Começando desvinculação automática dele");
-
-                        studentTravel.setStudentTravelStatus(StudentTravelStatus.AUTO_DISCONNECTED);
-
-                        leaveTravel(travelId, studentEmail, StudentTravelStatus.AUTO_DISCONNECTED);
-
-                        redisTrackingService.clearStudentAwayState(travelId, dist);
-                    }
-
-                } else {
-                    log.info("[processStudentAwayState] - estudante não possui timestamp no redis");
-
-                    redisTrackingService.markStudentAsAway(travelId, dist);
-
-                    studentTravelRepository.save(studentTravel);
-                }
-            } else {
-                log.info("[processStudentAwayState] - estudante não atende mais as regras do auto-desvinculo. Limpando redis");
-
-                studentTravel.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
-                redisTrackingService.clearStudentAwayState(travelId, dist);
-
-                studentTravelRepository.save(studentTravel);
-            }
-        });
     }
 
     // MÉTODOS AUXILIARES
