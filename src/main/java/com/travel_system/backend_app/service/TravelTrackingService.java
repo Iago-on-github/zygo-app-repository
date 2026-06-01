@@ -27,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import javax.xml.stream.Location;
 import java.awt.*;
 import java.time.Clock;
 import java.time.Duration;
@@ -48,6 +49,7 @@ public class TravelTrackingService {
     private final GpsDataIngestorService gpsDataIngestorService;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final TravelService travelService;
+    private final LocationService locationService;
 
     private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
 
@@ -58,7 +60,7 @@ public class TravelTrackingService {
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
@@ -67,6 +69,7 @@ public class TravelTrackingService {
         this.gpsDataIngestorService = gpsDataIngestorService;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.travelService = travelService;
+        this.locationService = locationService;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
@@ -148,7 +151,7 @@ public class TravelTrackingService {
         LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
 
         // algoritmo para verificar status do estudante na viagem - auto disconnect se está muito distante por X tempo
-        travelService.processStudentAwayState(travelId, liveLocationDTO);
+        locationService.processStudentAwayState(travelId, liveLocationDTO);
 
         // dispara evento de domínio
         NewLocationReceivedEvents event = new NewLocationReceivedEvents(
