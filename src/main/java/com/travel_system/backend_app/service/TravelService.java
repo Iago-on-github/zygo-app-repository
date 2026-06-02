@@ -178,7 +178,7 @@ public class TravelService {
         List<Point> pointList = travelRecorded.stream()
                 .filter(t -> t.getLatitude() != null && t.getLongitude() != null)
                 // atentar-se que, no Point, a LONGITUDE sempre será primeiro
-                .map(t -> Point.fromLngLat(t.getLatitude(), t.getLongitude())).toList();
+                .map(t -> Point.fromLngLat(t.getLongitude(), t.getLatitude())).toList();
 
         String polylineEncoded = polylineService.formattedPolylineEncoded(pointList);
 
