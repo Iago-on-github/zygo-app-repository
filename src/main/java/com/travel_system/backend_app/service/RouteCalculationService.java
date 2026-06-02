@@ -103,7 +103,7 @@ public class RouteCalculationService {
         );
     }
 
-    protected Double calculateHaversineDistanceInMeters(double currentLat, double currentLng, double projLat, double projLng) {
+    public Double calculateHaversineDistanceInMeters(double currentLat, double currentLng, double projLat, double projLng) {
         // convete todas as coord. para radius
         double lat1Rad = Math.toRadians(currentLat);
         double lat2Rad = Math.toRadians(projLat);
