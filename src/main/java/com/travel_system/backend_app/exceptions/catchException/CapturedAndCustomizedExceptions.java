@@ -68,7 +68,7 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
-        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
 
     }
 
