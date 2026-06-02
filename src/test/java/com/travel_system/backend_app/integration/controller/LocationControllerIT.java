@@ -1,18 +1,16 @@
 package com.travel_system.backend_app.integration.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
-import com.travel_system.backend_app.service.RouteCalculationService;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,7 +20,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -32,8 +30,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,6 +47,7 @@ public class LocationControllerIT extends IntegrationTestBase {
     private StudentRepository studentRepository;
 
     @Nested
+    @Transactional
     class studentPosition {
         StudentTravel studentTravel;
         LiveCoordinates liveCoordinates;
@@ -81,11 +79,12 @@ public class LocationControllerIT extends IntegrationTestBase {
         @Test
         @DisplayName("when StudentTravel has no position, should create a new position, persist and returns 204")
         void shouldCrateNewGeoPositionWhenStudentTravelHasNoPosition() throws Exception {
-            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(liveCoordinates)))
-                    .andDo(print())
-                    .andExpect(status().isNoContent());
+            mockMvc.perform(post("/v1/location/{studentTravelId}", studentTravel.getId())
+                            .with(user("auth_user"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(liveCoordinates)))
+                        .andDo(print())
+                        .andExpect(status().isNoContent());
 
             List<GeoPosition> geoPositionsList = geoPositionRepository.findAll();
 
@@ -115,7 +114,8 @@ public class LocationControllerIT extends IntegrationTestBase {
 
             LiveCoordinates displacementPos = new LiveCoordinates(-12.99001, -38.70001);
 
-            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+            mockMvc.perform(post("/v1/location/{studentTravelId}", studentTravel.getId())
+                            .with(user("auth_user"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(displacementPos)))
                     .andDo(print())
@@ -149,7 +149,8 @@ public class LocationControllerIT extends IntegrationTestBase {
 
             LiveCoordinates samePosition = new LiveCoordinates(-12.97001, -38.50001);
 
-            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+            mockMvc.perform(post("/v1/location/{studentTravelId}", studentTravel.getId())
+                            .with(user("auth_user"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(samePosition)))
                     .andDo(print())
@@ -164,7 +165,8 @@ public class LocationControllerIT extends IntegrationTestBase {
         @ParameterizedTest
         @MethodSource("nullRequireCoordsProvider")
         void shouldReturnNullSilentlyWhenRequireCoordsDataAreNull(LiveCoordinates coordinates) throws Exception {
-            mockMvc.perform(post("/location/{studentTravelId}", studentTravel.getId())
+            mockMvc.perform(post("/v1/location/{studentTravelId}", studentTravel.getId())
+                            .with(user("auth_user"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(coordinates)))
                     .andDo(print())
@@ -180,7 +182,8 @@ public class LocationControllerIT extends IntegrationTestBase {
 
         @Test
         void throwExceptionWhenStudentTravelEntityNotFound() throws Exception {
-            mockMvc.perform(post("/location/{studentTravelId}", UUID.randomUUID())
+            mockMvc.perform(post("/v1/location/{studentTravelId}", UUID.randomUUID())
+                            .with(user("auth_user"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(liveCoordinates)))
                     .andDo(print())
