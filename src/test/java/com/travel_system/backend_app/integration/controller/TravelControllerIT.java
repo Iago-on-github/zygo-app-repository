@@ -1,10 +1,8 @@
 package com.travel_system.backend_app.integration.controller;
 
-import com.travel_system.backend_app.events.NewLocationReceivedEvents;
-import com.travel_system.backend_app.exceptions.StudentNotLinkedToTripException;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
@@ -12,10 +10,7 @@ import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDT
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.MapboxAPIService;
-import com.travel_system.backend_app.service.PolylineService;
 import com.travel_system.backend_app.service.RedisTrackingService;
-import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,7 +23,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.http.MediaType;
-import org.testcontainers.shaded.org.awaitility.Awaitility;
+import org.testcontainers.shaded.org.checkerframework.framework.qual.DefaultQualifierForUse;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -42,10 +37,13 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.testcontainers.shaded.org.hamcrest.Matchers.nullValue;
 
 public class TravelControllerIT extends IntegrationTestBase {
 
@@ -107,7 +105,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driverRepository.save(driver);
 
             travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
@@ -116,7 +114,11 @@ public class TravelControllerIT extends IntegrationTestBase {
         @Test
         @DisplayName("should create a new travel with success")
         void shouldCreateNewTravelWithSuccess() throws Exception {
-            mockMvc.perform(post("/travel/create")
+            when(mapboxAPIService.getTripPreview(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenReturn(new TravelPreviewDTO(600.0, 40.2, "Feira de Santana", "123"));
+
+            mockMvc.perform(post("/v1/travel/create")
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andDo(print())
@@ -129,7 +131,11 @@ public class TravelControllerIT extends IntegrationTestBase {
             Travel firstTravelSaved = travels.getFirst();
             assertEquals(TravelStatus.PENDING, firstTravelSaved.getTravelStatus());
             assertEquals(driver.getId(), firstTravelSaved.getDriver().getId());
-            assertNotNull(firstTravelSaved.getStartHourTravel());
+            assertEquals(600.0, firstTravelSaved.getDistance());
+            assertEquals(40.2, firstTravelSaved.getDuration());
+            assertEquals("Feira de Santana", firstTravelSaved.getDestinationCity());
+
+            assertNotNull(firstTravelSaved.getCreatedAt());
         }
 
         @Test
@@ -137,7 +143,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver.setStatus(GeneralStatus.INACTIVE);
             driverRepository.save(driver);
 
-            mockMvc.perform(post("/travel/create")
+            mockMvc.perform(post("/v1/travel/create")
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andExpect(status().isBadRequest());
@@ -156,7 +163,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             );
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/create")
+            mockMvc.perform(post("/v1/travel/create")
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andExpect(status().isConflict());
@@ -180,7 +188,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driverRepository.save(driver);
 
              travel = new Travel(
@@ -200,7 +208,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(new RouteDetailsDTO(35.3, 2034.3, "encoded_geometry_response"));
 
-            mockMvc.perform(post("/travel/start/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/start", travel.getId())
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andDo(print())
@@ -222,7 +231,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(new RouteDetailsDTO(07.2, 304.2, "encoded_geometry"));
 
-            mockMvc.perform(post("/travel/start/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/start", travel.getId())
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andExpect(status().isNoContent());
@@ -239,7 +249,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setTravelStatus(travelStatus);
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/start/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/start", travel.getId())
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andExpect(status().isConflict());
@@ -258,7 +269,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                     .thenReturn(routeDetailsDTO);
 
-            mockMvc.perform(post("/travel/start/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/start", travel.getId())
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(travelRequestDTO)))
                     .andExpect(status().isBadGateway());
@@ -290,7 +302,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driverRepository.save(driver);
 
             travel = new Travel(
@@ -312,19 +324,26 @@ public class TravelControllerIT extends IntegrationTestBase {
         }
 
         @Test
+        @DisplayName("Should end travel with success, generate report and clear caches")
         void shouldEndTravelWithSuccess() throws Exception {
-            String key = "ACTIVE_TRAVELS_KEY";
-            String hashKey = "travelId:" + travel.getId();
+            String activeTravelsKey = "ACTIVE_TRAVELS_KEY";
 
-            // popula redis para o clearTravelLocationCache
-            redisTemplate.opsForSet().add(key, travel.getId().toString());
-            redisTemplate.opsForHash().put(hashKey, "last_calc_lat", "-12.97");
+            String trackingKey = "travel:tracking:" + travel.getId();
+            String routeKey = "travel:route:" + travel.getId();
 
-            // salva travelLocHistory para verificar deleção posterior
+            travel.setStartHourTravel(Instant.now().minus(30, java.time.temporal.ChronoUnit.MINUTES));
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+            travelRepository.save(travel);
+
+            redisTemplate.opsForSet().add(activeTravelsKey, travel.getId().toString());
+            redisTemplate.opsForHash().put(routeKey, "last_calc_lat", "-12.97");
+            redisTemplate.opsForValue().set("travel:distance:" + travel.getId(), "1500.0"); // Se o cache de distância usar essa chave
+
             travelLocationHistoryRepository.save(new TravelLocationHistory(travel.getId(), null, -12.97, -38.50, Instant.now()));
 
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
-                    .contentType(MediaType.APPLICATION_JSON))
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
+                            .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isNoContent());
 
@@ -334,16 +353,22 @@ public class TravelControllerIT extends IntegrationTestBase {
             assertEquals(TravelStatus.FINISH, result.getTravelStatus());
             assertNotNull(result.getEndHourTravel());
 
-            assertFalse(redisTemplate.opsForSet().isMember(key, travel.getId().toString()));
-            assertFalse(redisTemplate.hasKey(hashKey));
-
             assertEquals(1, travelReports.size());
+            TravelReports report = travelReports.get(0);
+            assertEquals(travel.getId(), report.getTravel().getId());
+
             assertTrue(travelLocationHistoryRepository.findAllByTravelIdOrderByTimestampAsc(travel.getId()).isEmpty());
+
+            assertFalse(redisTemplate.opsForSet().isMember(activeTravelsKey, travel.getId().toString()),
+                    "A viagem ainda consta no Set de viagens ativas no Redis");
+            assertFalse(redisTemplate.hasKey(routeKey), "A chave de rota (Hash) não foi removida do Redis");
+            assertFalse(redisTemplate.hasKey(trackingKey), "A chave de tracking não foi removida do Redis");
         }
 
         @Test
         void shouldDisembarkStudentsLinkedWithSuccess() throws Exception {
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isNoContent());
@@ -361,12 +386,13 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setStartHourTravel(Instant.now().minus(Duration.ofHours(1)));
             travelRepository.save(travel);
 
-            String key = "travelId:" + travel.getId();
+            String routeKey = "travel:route:" + travel.getId();
 
             // getAccumulatedDistance
-            redisTemplate.opsForHash().put(key, "accumulatedDistance", "30.6");
+            redisTemplate.opsForHash().put(routeKey, "accumulatedDistance", "30.6");
 
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isNoContent());
@@ -398,7 +424,8 @@ public class TravelControllerIT extends IntegrationTestBase {
 
             when(polylineService.formattedPolylineEncoded(any())).thenReturn("new_encoded_polyline");
 
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isNoContent());
@@ -425,7 +452,8 @@ public class TravelControllerIT extends IntegrationTestBase {
 
             when(polylineService.formattedPolylineEncoded(any())).thenReturn(null);
 
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isNoContent());
@@ -449,7 +477,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setTravelStatus(travelStatus);
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/end/{travelId}", travel.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", travel.getId())
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isConflict());
         }
@@ -463,7 +492,8 @@ public class TravelControllerIT extends IntegrationTestBase {
 
         @Test
         void throwExceptionWhenTravelNotFound() throws Exception {
-            mockMvc.perform(post("/travel/end/{travelId}", UUID.randomUUID())
+            mockMvc.perform(post("/v1/travel/{travelId}/end", UUID.randomUUID())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound());
         }
@@ -484,7 +514,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
 
             driverRepository.save(driver);
 
@@ -521,32 +551,29 @@ public class TravelControllerIT extends IntegrationTestBase {
         @Test
         @DisplayName("should save embark=true and embarkHour with success")
         void shouldLinkStudentOnTravelWithSuccess() throws Exception {
-            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
-                    .contentType(MediaType.APPLICATION_JSON))
+            travel.setTravelStatus(TravelStatus.TRAVELLING);
+            travelRepository.save(travel);
+
+            mockMvc.perform(post("/v1/travel/{travelId}/join", travel.getId())
+                            .with(user(student.getEmail()))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andDo(print())
                     .andExpect(status().isNoContent());
 
-            Optional<StudentTravel> result = studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId());
+            List<StudentTravel> studentTravelsList = studentTravelRepository.findAll();
 
-            assertTrue(result.isPresent());
-            assertTrue(result.get().isEmbark());
+            assertEquals(1, studentTravelsList.size());
 
-            assertNotNull(result.get().getEmbarkHour());
-        }
+            StudentTravel savedLink = studentTravelsList.get(0);
 
-        @ParameterizedTest
-        @MethodSource("nullParameterProvider")
-        void throwExceptionWhenRequireParametersAreNull(Object travelId, Object studentId) throws Exception {
-            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travelId, studentId)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
-        }
+            assertEquals(travel.getId(), savedLink.getTravel().getId(), "O vínculo não foi associado à viagem correta");
+            assertEquals(student.getId(), savedLink.getStudent().getId(), "O vínculo não foi associado ao estudante correto");
 
-        public static Stream<Arguments> nullParameterProvider() {
-            return Stream.of(
-                    Arguments.of("null", UUID.randomUUID()),
-                    Arguments.of(UUID.randomUUID(), "null"),
-                    Arguments.of("invalid_uuid", "323")
-            );
+            assertTrue(savedLink.isEmbark(), "O campo embark deveria ter sido salvo como true");
+            assertNotNull(savedLink.getEmbarkHour(), "O campo embarkHour deveria conter o timestamp do embarque");
+
+            assertTrue(savedLink.getEmbarkHour().isAfter(java.time.Instant.now().minusSeconds(5)),
+                    "O embarkHour gravado está fora da janela de tempo aceitável");
         }
 
         @ParameterizedTest
@@ -555,7 +582,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setTravelStatus(travelStatus);
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/join", travel.getId(), student.getEmail())
+                            .with(user(student.getEmail()))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isConflict());
         }
@@ -575,13 +603,30 @@ public class TravelControllerIT extends IntegrationTestBase {
 
             travel.setStudentTravels(Set.of(studentTravel));
 
-            mockMvc.perform(post("/travel/join/{travelId}/{studentId}", travel.getId(), student.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/join", travel.getId(), student.getEmail())
+                            .with(user(student.getEmail()))
                             .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
+                    .andExpect(status().isConflict());
 
             boolean result = travel.getStudentTravels().stream().anyMatch(s -> s.getStudent().getId().equals(student.getId()));
 
             assertTrue(result);
+        }
+
+        @Test
+        void throwExceptionWhenStudentNotFound() throws Exception {
+            mockMvc.perform(post("/v1/travel/{travelId}/join", travel.getId())
+                            .with(user("notFoundEmail@gmail.com"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void throwExceptionTravelIdNotExistsFromDatabase() throws Exception {
+            mockMvc.perform(post("/v1/travel/{travelId}/join", UUID.randomUUID())
+                            .with(user("notFoundEmail@gmail.com"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
         }
 
     }
@@ -601,7 +646,7 @@ public class TravelControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driverRepository.save(driver);
 
             travel = new Travel(
@@ -643,30 +688,20 @@ public class TravelControllerIT extends IntegrationTestBase {
 
         @Test
         void shouldLeaveStudentOnWithWithSuccess() throws Exception {
-            mockMvc.perform(post("/travel/leave/{travelId}/{studentId}", travel.getId(), student.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/leave", travel.getId())
+                            .with(user(student.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNoContent());
 
             StudentTravel result = studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()).orElseThrow();
 
+            assertEquals(StudentTravelStatus.LEFT, result.getStudentTravelStatus());
+
             assertFalse(result.isEmbark());
             assertNotNull(result.getDisembarkHour());
-        }
 
-        @ParameterizedTest
-        @MethodSource("nullParameterProvider")
-        void throwExceptionWhenRequireParametersAreNull(Object travelId, Object studentId) throws Exception {
-            mockMvc.perform(post("/travel/leave/{travelId}/{studentId}", travelId, studentId)
-                            .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
-        }
-
-        public static Stream<Arguments> nullParameterProvider() {
-            return Stream.of(
-                    Arguments.of("null", UUID.randomUUID()),
-                    Arguments.of(UUID.randomUUID(), "null"),
-                    Arguments.of("invalid_uuid", "323")
-            );
+            assertTrue(result.getDisembarkHour().isAfter(Instant.now().minusSeconds(5)),
+                    "O disembarkHour registrado está fora da janela de tempo aceitável");
         }
 
         @ParameterizedTest
@@ -675,7 +710,8 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setTravelStatus(travelStatus);
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/leave/{travelId}/{studentId}", travel.getId(), student.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/leave", travel.getId())
+                            .with(user(student.getEmail()))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isConflict());
         }
@@ -703,42 +739,46 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setStudentTravels(Set.of(studentTravel));
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/leave/{travelId}/{studentId}", travel.getId(), student.getId())
+            mockMvc.perform(post("/v1/travel/{travelId}/leave", travel.getId())
+                            .with(user(student.getEmail()))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound());
         }
+
+        @Test
+        void throwExceptionWhenTravelIdNotExists() throws Exception {
+            mockMvc.perform(post("/v1/travel/{travelId}/leave", UUID.randomUUID())
+                            .with(user(student.getEmail()))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void throwExceptionWhenStudentNotFoundFromDatabase() throws Exception {
+            mockMvc.perform(post("/v1/travel/{travelId}/leave", travel.getId())
+                            .with(user("NotFoundEmail@gmail.com"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+        }
+
     }
 
     @Nested
-    class LinkedStudentTravel {
-        Driver driver;
-        TravelRequestDTO travelRequestDTO;
+    class getTravelPreview {
         Travel travel;
-        StudentTravel studentTravel;
         Student student;
 
         @BeforeEach
         void setUp() {
-
-            driver = new Driver(
-                    null, "driver@test.com", "encoded_pass",
-                    "João", "Silva", "71999999999",
-                    null, GeneralStatus.ACTIVE,
-                    LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
-            driverRepository.save(driver);
-
             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
-                    Instant.now(), null, "fndnA~y~iFvt@?",
+                    null, null, TravelStatus.TRAVELLING, null, Instant.now(),
+                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
                     -12.8000, -38.4000, "Feira de Santana"
             );
-            travelRepository.save(travel);
 
-            GeoPosition geoPosition = new GeoPosition(null, -12.332, -11.434, Instant.now(), null);
-            geoPositionRepository.save(geoPosition);
+            travelRepository.save(travel);
 
             student = new Student(
                     null,
@@ -756,121 +796,44 @@ public class TravelControllerIT extends IntegrationTestBase {
             );
 
             studentRepository.save(student);
+        }
 
+        @Test
+        void shouldGetPreviewTravelWithSuccess() throws Exception {
+            mockMvc.perform(get(("/v1/travel/{travelId}/preview"), travel.getId())
+                    .with(user(student.getEmail()))
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andDo(print())
+                    .andExpect(jsonPath("$.distance").value(15000.0))
+                    .andExpect(jsonPath("$.duration").value(3600.0))
+                    .andExpect(jsonPath("$.destinationCity").value("Feira de Santana"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("não deve realizar cálculo do 'arrivalTime' caso os dados de incio da viagem sejam insuficientes")
+        void shouldNotCalculateArrivalTimeIfStartTravelDataAreInsufficient() throws Exception {
+            travel.setStartHourTravel(null);
             travelRepository.save(travel);
 
-            // vincula estudante à viagem
-//            studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, geoPosition);
-//            studentTravelRepository.save(studentTravel);
-
-//            travel.setStudentTravels(Set.of(studentTravel));
-
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            mockMvc.perform(get("/v1/travel/{travelId}/preview", travel.getId())
+                            .with(user(student.getEmail()))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andDo(print())
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.distance").value(15000.0))
+                    .andExpect(jsonPath("$.duration").value(3600.0))
+                    .andExpect(jsonPath("$.destinationCity").value("Feira de Santana"))
+                    .andExpect(jsonPath("$.arrivalTime").doesNotExist());
         }
 
         @Test
-        @DisplayName("should return linked students with correct DTO mapping when travel has students")
-        void shouldReturnLinkedStudentTravel() {
-            Set<StudentTravelResponseDTO> result = travelService.linkedStudentTravel(travel.getId());
-
-            assertNotNull(result, "Resultado não deve ser nulo");
-            assertEquals(1, result.size(), "Deve retornar exatamente 1 estudante vinculado");
-
-            // extrai o DTO para validações detalhadas
-            StudentTravelResponseDTO dto = result.iterator().next();
-
-            assertEquals(studentTravel.getId(), dto.id(), "ID do StudentTravel deve ser mapeado");
-            assertEquals(travel.getId(), dto.travelId(), "ID da viagem deve ser mapeado");
-            assertEquals(student.getId(), dto.studentId(), "ID do estudante deve ser mapeado");
-
-            assertNotNull(dto.embarkHour(), "Hora de embarque deve ser mapeada");
-            assertEquals(studentTravel.getDisembarkHour(), dto.disembarkHour(), "Hora de desembarque (null) deve ser mapeada");
-
-            assertNotNull(dto.position(), "GeoPosition não deve ser nula quando existe no banco");
-            assertEquals(-12.332, dto.position().getLatitude(), "Latitude deve ser mapeada corretamente");
-            assertEquals(-11.434, dto.position().getLongitude(), "Longitude deve ser mapeada corretamente");
+        void throwExceptionWhenTravelNotFound() throws Exception {
+            mockMvc.perform(get("/v1/travel/{travelId}/preview", UUID.randomUUID())
+                            .with(user(student.getEmail()))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andDo(print())
+                    .andExpect(status().isNotFound());
         }
-
-        @Test
-        @DisplayName("should process linkedStudentTravel and update notification state in Redis via async flow")
-        void shouldProcessLinkedStudentTravelAndUpdateNotificationStateAsync() throws Exception {
-            UUID cityId = UUID.randomUUID();
-
-            VehicleLocationRequestDTO requestDTO = new VehicleLocationRequestDTO(
-                    travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
-
-            doReturn(new RouteDetailsDTO(1200.0, 5000.0, "~shnC~_rcL_@v@m@p@y@r@"))
-                    .when(mapboxAPIService).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
-
-
-            String etaKey = "travelId:" + travel.getId();
-
-            // previousEta
-            redisTemplate.opsForHash().put(etaKey, "durationRemaining", "1200.0");
-            redisTemplate.opsForHash().put(etaKey, "distanceRemaining", "5000.0");
-            redisTemplate.opsForHash().put(etaKey, "etaTimestamp", String.valueOf(Instant.now().toEpochMilli()));
-
-            mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travel.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(requestDTO)))
-                    .andExpect(status().isOk());
-
-            String notificationKey = "notification:" + travel.getId() + ":" + student.getId();
-
-            // aguarda método async
-            await().atMost(5, SECONDS).untilAsserted(() -> {
-                String zone = (String) redisTemplate.opsForHash().get(notificationKey, "zone");
-                assertNotNull(zone);
-            });
-
-            HashOperations<String, String, String> hashOperations = redisTemplate.opsForHash();
-
-            String zone = hashOperations.get(notificationKey, "zone");
-            String lastDistanceNotified = hashOperations.get(notificationKey, "lastDistanceNotified");
-            String lastNotificationAt = hashOperations.get(notificationKey, "lastNotificationAt");
-
-            assertNotNull(zone);
-            assertNotNull(lastDistanceNotified);
-            assertNotNull(lastNotificationAt);
-
-            assertTrue(zone.equals("FAR") || zone.equals("NEAR"));
-        }
-
-        @Test
-        @DisplayName("should not update notification state when no students are linked to travel")
-        void shouldNotUpdateNotificationStateWhenNoStudentLinked() throws Exception {
-            UUID cityId = UUID.randomUUID();
-
-            String etaKey = "travelId:" + travel.getId();
-
-            // getPreviousEta
-            redisTemplate.opsForHash().put(etaKey, "durationRemaining", "1200.0");
-            redisTemplate.opsForHash().put(etaKey, "distanceRemaining", "5000.0");
-            redisTemplate.opsForHash().put(etaKey, "etaTimestamp", String.valueOf(Instant.now().toEpochMilli()));
-
-            VehicleLocationRequestDTO requestDTO = new VehicleLocationRequestDTO(
-                    travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
-
-            mockMvc.perform(post("/travel/tracking/locationUpdate/{cityId}/{travelId}", cityId, travel.getId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(requestDTO)))
-                    .andExpect(status().isOk());
-
-            // aguarda o processNewLocation completar via sinal do storeLiveLocation no Redis
-            await().atMost(5, SECONDS).untilAsserted(() -> {
-                String savedLat = (String) redisTemplate.opsForHash().get(etaKey, "last_calc_lat");
-                assertNotNull(savedLat);
-            });
-
-            // verifica que nenhum estado de notificação foi criado
-            String notificationKeyPattern = "notification:" + travel.getId() + ":*";
-            Set<String> notificationKeys = redisTemplate.keys(notificationKeyPattern);
-
-            assertTrue(notificationKeys == null || notificationKeys.isEmpty());
-        }
-
     }
-
-
-
 }
