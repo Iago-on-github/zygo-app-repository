@@ -71,7 +71,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         @Test
         @DisplayName("using rabbitmq's credentials, should authorized own backend on the system")
         void shouldAuthenticateTheOwnBackendUsingRightCredentials() throws Exception {
-            mockMvc.perform(post("/api/messaging/auth/user")
+            mockMvc.perform(post("/v1/messaging/auth/user")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                     .param("user", rabbitmq_user)
                     .param("password", rabbitmq_password))
@@ -85,7 +85,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldNeverAuthenticateWhenTokenIsInvalid() throws Exception {
             when(tokenConfig.validateToken("invalid-token")).thenReturn(false);
 
-            mockMvc.perform(post("/api/messaging/auth/user")
+            mockMvc.perform(post("/v1/messaging/auth/user")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", rabbitmq_user)
                             .param("password", "invalid-token"))
@@ -105,7 +105,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
             when(tokenConfig.getSubjectFromToken(validToken)).thenReturn(email);
             when(userRepository.existsByEmailAndIdAndStatus(email, id, GeneralStatus.ACTIVE)).thenReturn(false);
 
-            mockMvc.perform(post("/api/messaging/auth/user")
+            mockMvc.perform(post("/v1/messaging/auth/user")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                     .param("user", id.toString())
                     .param("password", validToken))
@@ -125,7 +125,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
             when(tokenConfig.getSubjectFromToken(validToken)).thenReturn(email);
             when(userRepository.existsByEmailAndIdAndStatus(email, id, GeneralStatus.ACTIVE)).thenReturn(true);
 
-            mockMvc.perform(post("/api/messaging/auth/user")
+            mockMvc.perform(post("/v1/messaging/auth/user")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", id.toString())
                             .param("password", validToken))
@@ -139,7 +139,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
             UUID id = UUID.randomUUID();
             when(tokenConfig.validateToken("invalid_token")).thenThrow(new RuntimeException());
 
-            mockMvc.perform(post("/api/messaging/auth/user")
+            mockMvc.perform(post("/v1/messaging/auth/user")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", id.toString())
                             .param("password", "invalid_token"))
@@ -156,7 +156,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldAuthenticateVHostWithSuccess() throws Exception {
             String validVHost = "/";
 
-            mockMvc.perform(post("/api/messaging/auth/vhost")
+            mockMvc.perform(post("/v1/messaging/auth/vhost")
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                     .param("user", rabbitmq_user)
                     .param("vhost", validVHost)
@@ -169,7 +169,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldNeverAuthenticateVHostWhenIsInvalidVHost() throws Exception {
             String validVHost = "invalid_vhost";
 
-            mockMvc.perform(post("/api/messaging/auth/vhost")
+            mockMvc.perform(post("/v1/messaging/auth/vhost")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", rabbitmq_user)
                             .param("vhost", validVHost)
@@ -185,7 +185,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         @ParameterizedTest
         @MethodSource("permissionProvider")
         void shouldAllowReadOrWriteActionsInPublicExchangesWithSuccess(String permission) throws Exception {
-            mockMvc.perform(post("/api/messaging/auth/resource")
+            mockMvc.perform(post("/v1/messaging/auth/resource")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", rabbitmq_user)
                             .param("vhost", "/")
@@ -208,7 +208,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldNeverAllowCreateOrDeleteServerStructures() throws Exception {
             String permission = "configure";
 
-            mockMvc.perform(post("/api/messaging/auth/resource")
+            mockMvc.perform(post("/v1/messaging/auth/resource")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", rabbitmq_user)
                             .param("vhost", "/")
@@ -224,7 +224,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldNeverAllowWhenPermissionIsDivergeToDefaultConfigurations() throws Exception {
             String permission = "diverge_permission";
 
-            mockMvc.perform(post("/api/messaging/auth/resource")
+            mockMvc.perform(post("/v1/messaging/auth/resource")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                             .param("user", rabbitmq_user)
                             .param("vhost", "/")
@@ -250,7 +250,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driverRepository.save(driver);
 
             travel = new Travel(
@@ -292,9 +292,9 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
 
             when(travelService.isDriverLogged(String.valueOf(driver.getId()), travel.getId())).thenReturn(true);
 
-            mockMvc.perform(post("/api/messaging/auth/topic")
+            mockMvc.perform(post("/v1/messaging/auth/topic")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                            .param("user", String.valueOf(driver.getId()))
+                            .param("authenticatedUserId", String.valueOf(driver.getId()))
                             .param("routing_key", routingKey)
                             .param("permission", permission))
                     .andExpect(content().string("allow"))
@@ -309,9 +309,9 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
 
             when(travelService.isStudentLogged(student.getId(), travel.getId())).thenReturn(true);
 
-            mockMvc.perform(post("/api/messaging/auth/topic")
+            mockMvc.perform(post("/v1/messaging/auth/topic")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                            .param("user", String.valueOf(student.getId()))
+                            .param("authenticatedUserId", String.valueOf(student.getId()))
                             .param("routing_key", routingKey)
                             .param("permission", permission))
                     .andExpect(content().string("allow"))
@@ -329,9 +329,9 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
 
             when(travelService.isStudentLogged(student.getId(), travel.getId())).thenThrow(new RuntimeException());
 
-            mockMvc.perform(post("/api/messaging/auth/topic")
+            mockMvc.perform(post("/v1/messaging/auth/topic")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                            .param("user", String.valueOf(student.getId()))
+                            .param("authenticatedUserId", String.valueOf(student.getId()))
                             .param("routing_key", routingKey)
                             .param("permission", permission))
                     .andExpect(content().string("deny"))
@@ -343,9 +343,9 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
         void shouldDenyUnknownPermission() throws Exception {
             String permission = "configure"; // exemplo de permission inválida aqui
 
-            mockMvc.perform(post("/api/messaging/auth/topic")
+            mockMvc.perform(post("/v1/messaging/auth/topic")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                            .param("user", UUID.randomUUID().toString())
+                            .param("authenticatedUserId", UUID.randomUUID().toString())
                             .param("routing_key", UUID.randomUUID().toString())
                             .param("permission", permission))
                     .andExpect(content().string("deny"))
