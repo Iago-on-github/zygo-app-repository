@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.TravelRepository;
@@ -37,7 +38,7 @@ public class GpsController {
             return ResponseEntity.notFound().build();
         }
 
-        gpsDataIngestorService.sendVehicleGps(city, travelId, vehicleLocation);
+        gpsDataIngestorService.sendVehicleGps(new VehicleGpsMessageDTO(city, travelId, vehicleLocation));
 
         log.info("Viagem mapeada com sucesso, enviando os dados ao rabbitmq... {} ", travelId);
         return ResponseEntity.accepted().build();
