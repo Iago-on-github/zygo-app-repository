@@ -4,6 +4,7 @@ import com.google.api.Http;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
@@ -90,6 +91,16 @@ public class CapturedAndCustomizedExceptions {
     @ExceptionHandler(InactiveAccountModificationException.class)
     public final ResponseEntity<StandardError> InactiveAccountModificationException (InactiveAccountModificationException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public final ResponseEntity<StandardError> IllegalStateException (IllegalStateException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public final ResponseEntity<StandardError> RedisConnectionFailureException (RedisConnectionFailureException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
