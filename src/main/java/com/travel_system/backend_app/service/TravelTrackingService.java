@@ -76,10 +76,6 @@ public class TravelTrackingService {
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
     public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
-        if (cityId == null || travelId == null) {
-            throw new EmptyMandatoryFieldsFound("[markDriverCheckpoint] CityId: " + cityId + " ou TravelId " + travelId + " são obrigatorios.");
-        }
-
         if (!travelId.equals(vehicleLocationRequest.travelId())) {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
