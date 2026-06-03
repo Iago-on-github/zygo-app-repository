@@ -2,6 +2,7 @@ package com.travel_system.backend_app.integration.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mapbox.geojson.Point;
+import com.travel_system.backend_app.events.NewLocationReceivedEvents;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
@@ -16,6 +17,7 @@ import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.GpsDataIngestorService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.RouteCalculationService;
+import com.travel_system.backend_app.service.TravelTrackingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -77,10 +80,13 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
     @Autowired
     private TravelLocationHistoryRepository travelLocationHistoryRepository;
     @Autowired
-    private RedisTrackingService redisTrackingService;
+    private GeoPositionRepository geoPositionRepository;
 
     @MockitoBean
     private RouteCalculationService routeCalculationService;
+
+    @MockitoSpyBean
+    private TravelTrackingService travelTrackingService;
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
@@ -105,6 +111,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         UUID travelId;
         VehicleLocationRequestDTO requestDTO;
         Travel travel;
+        RouteDetailsDTO routeDetailsDTO;
+        RouteDeviationDTO routeDeviationDTO;
 
         @BeforeEach
         void setUp() {
@@ -136,6 +144,10 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             travelId = travel.getId();
 
             requestDTO = new VehicleLocationRequestDTO(travelId, -12.9750, -38.5020, 60.0, 180.0);
+            routeDetailsDTO = new RouteDetailsDTO(3100.0, 14500.0, "recalculated_polyline");
+            routeDeviationDTO = new RouteDeviationDTO(325.0, true, -12.9708, -38.4986);
+
+
         }
 
         @Nested
@@ -210,7 +222,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("Recalculo de rota requisitado pela distância")
             void shouldRecalculateRouteWhenDistanceThresholdIsReached() throws Exception {
-                String routeKey    = ROUTE_KEY_PREFIX    + travelId;
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
                 String trackingKey = TRACKING_KEY_PREFIX + travelId;
 
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
@@ -293,6 +305,283 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                             verify(pushNotificationService, atLeastOnce())
                                     .processVehicleMovement(any(VehicleLocationRequestDTO.class));
                         });
+            }
+
+            @Test
+            @DisplayName("Deve processar a localização sem realizar recalculo de rota")
+            void shouldProcessLocationWithoutRouteRecalculationWhenDriverIsWithinThreshold() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                // sem desvio de rota
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016
+                        )).thenReturn(40.5);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                // route
+                Map<String, String> routeData = hashOps.entries(routeKey);
+
+                assertFalse(routeData.isEmpty());
+
+                assertEquals(String.valueOf(-12.9714), routeData.get("last_calc_lat"));
+                assertEquals(String.valueOf(-38.5016), routeData.get("last_calc_lng"));
+                assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
+                assertEquals("encoded_polyline_initial", routeData.get("geometry"));
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> {
+                            verify(pushNotificationService, atLeastOnce())
+                                    .checkProximityAlerts(any(VehicleLocationRequestDTO.class));
+
+                            verify(pushNotificationService, atLeastOnce())
+                                    .processVehicleMovement(any(VehicleLocationRequestDTO.class));
+                        });
+
+                verify(routeCalculationService, times(2)).calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016);
+
+                verify(mapboxAPIService, never()).recalculateETA(any(), any(), any(), any());
+                verify(routeCalculationService, never()).isRouteDeviation(any());
+            }
+
+            @Test
+            @DisplayName("Motorista está além do limiar permitido, mas sem desvio de rota")
+            void shouldSkipMapboxRecalculationWhenDriverIsOnRouteAndGeometryExists() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                // assert na população do redis
+                assertTrue(redisTemplate.hasKey(routeKey), "O hash de rota deve existir antes do request");
+                assertEquals("-12.9714", hashOps.get(routeKey, "last_calc_lat"));
+                assertEquals("-38.5016", hashOps.get(routeKey, "last_calc_lng"));
+
+                RouteDeviationDTO newRouteDeviation = new RouteDeviationDTO(325.0, false, -12.9708, -38.4986);
+
+                // com desvio de rota
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016
+                )).thenReturn(55.5);
+
+                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, requestDTO.latitude(), requestDTO.longitude())))
+                        .thenReturn(newRouteDeviation);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                // route
+                Map<String, String> routeData = hashOps.entries(routeKey);
+
+                assertFalse(routeData.isEmpty());
+
+                assertEquals(String.valueOf(-12.9714), routeData.get("last_calc_lat"));
+                assertEquals(String.valueOf(-38.5016), routeData.get("last_calc_lng"));
+                assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
+                assertEquals("encoded_polyline_initial", routeData.get("geometry"));
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> {
+                            verify(pushNotificationService, atLeastOnce())
+                                    .checkProximityAlerts(any(VehicleLocationRequestDTO.class));
+
+                            verify(pushNotificationService, atLeastOnce())
+                                    .processVehicleMovement(any(VehicleLocationRequestDTO.class));
+                        });
+
+                verify(routeCalculationService, times(2)).calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016);
+
+                verify(routeCalculationService, times(2)).isRouteDeviation(
+                        new RouteDeviationRequestDTO(
+                                travelId,
+                                requestDTO.latitude(),
+                                requestDTO.longitude()));
+
+                verify(mapboxAPIService, never()).recalculateETA(any(), any(), any(), any());
+            }
+
+            @Test
+            @DisplayName("Evento Async deve ser processado normalmente quando os dados são válidos")
+            void shouldProcessLocationEventSuccessfullyWhenValidEventIsReceived() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                hashOps.put(routeKey, "last_calc_lat",     "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng",     "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry",          "encoded_polyline_initial");
+
+                long nowMillis = Instant.now().toEpochMilli();
+                hashOps.put(routeKey, "durationRemaining", "3000.0");
+                hashOps.put(routeKey, "etaTimestamp",      String.valueOf(nowMillis));
+
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016))
+                        .thenReturn(40.5);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> {
+                            // os três métodos devem ter sido chamados
+                            verify(travelTrackingService, atLeastOnce())
+                                    .processNewLocation(any(VehicleLocationRequestDTO.class));
+
+                            verify(pushNotificationService, atLeastOnce())
+                                    .checkProximityAlerts(any(VehicleLocationRequestDTO.class));
+
+                            verify(pushNotificationService, atLeastOnce())
+                                    .processVehicleMovement(any(VehicleLocationRequestDTO.class));
+                        });
+
+                verify(travelTrackingService, times(1)).processNewLocation(
+                        new VehicleLocationRequestDTO(
+                                travelId,
+                                requestDTO.latitude(),
+                                requestDTO.longitude(),
+                                requestDTO.speed(),
+                                requestDTO.heading()));
+
+                Map<String, String> routeData = hashOps.entries(routeKey);
+
+                assertFalse(routeData.isEmpty());
+
+                assertNotNull(routeData.get("durationRemaining"));
+
+                assertNotNull(routeData.get("metadataUpdatedAt"));
+
+                assertEquals(TravelStatus.TRAVELLING.toString(), routeData.get("status"));
+
+                verify(mapboxAPIService, never()).recalculateETA(any(), any(), any(), any());
+                verify(routeCalculationService, never()).isRouteDeviation(any());
+            }
+
+            @Test
+            @DisplayName("Estudante dentro da área esperada, não deve haver auto-disconnect")
+            void shouldNotMarkStudentAsAwayWhenStudentIsWithinExpectedArea() throws Exception {
+                Student student = new Student(null, "student@gmail.com", "senhaSegura123", "Student", "Teste", "75999999999", "teste_img", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), InstitutionType.UNIVERSITY, "Ciência da Computação");
+                studentRepository.save(student);
+
+                GeoPosition geoPosition = new GeoPosition(null, 12.9750, -38.5020, Instant.now(), null);
+                geoPositionRepository.save(geoPosition);
+
+                StudentTravel studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, geoPosition, StudentTravelStatus.ACTIVE);
+                studentTravelRepository.save(studentTravel);
+
+                travel.setStudentTravels(Set.of(studentTravel));
+                travelRepository.save(travel);
+
+
+                String routeKey    = ROUTE_KEY_PREFIX    + travelId;
+                String trackingKey = TRACKING_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                hashOps.put(routeKey, "last_calc_lat",     "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng",     "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry",          "encoded_polyline_initial");
+
+                // storeCurrentLocation — lido por extractLiveCoordinates dentro do markDriverCheckpoint
+                hashOps.put(trackingKey, "current_lat", String.valueOf(requestDTO.latitude()));
+                hashOps.put(trackingKey, "current_lng", String.valueOf(requestDTO.longitude()));
+
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016))
+                        .thenReturn(40.5);
+
+                // distância driver → estudante (abaixo do AUTO_DISCONNECT_DISTANCE_METERS=350)
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        eq(requestDTO.latitude()),
+                        eq(requestDTO.longitude()),
+                        eq(studentTravel.getPosition().getLatitude()),
+                        eq(studentTravel.getPosition().getLongitude())))
+                        .thenReturn(70.0);
+
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                StudentTravel studentTravelAfter = studentTravelRepository.findById(studentTravel.getId())
+                        .orElseThrow();
+
+                assertEquals(StudentTravelStatus.ACTIVE, studentTravelAfter.getStudentTravelStatus());
+
+                String studentTravelKey = "travel:student:" + student.getId() + ":" + travelId;
+
+                assertNull(redisTemplate.opsForHash().get(studentTravelKey, "studentAwayTimestamp"));
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> {
+                            verify(pushNotificationService, atLeastOnce())
+                                    .checkProximityAlerts(any(VehicleLocationRequestDTO.class));
+
+                            verify(pushNotificationService, atLeastOnce())
+                                    .processVehicleMovement(any(VehicleLocationRequestDTO.class));
+                        });
+
+                verify(mapboxAPIService, never()).recalculateETA(any(), any(), any(), any());
+
             }
         }
 
