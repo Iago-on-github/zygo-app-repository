@@ -80,11 +80,6 @@ public class TravelTrackingService {
             throw new EmptyMandatoryFieldsFound("[markDriverCheckpoint] CityId: " + cityId + " ou TravelId " + travelId + " são obrigatorios.");
         }
 
-        if (vehicleLocationRequest == null || vehicleLocationRequest.latitude() == null || vehicleLocationRequest.longitude() == null) {
-            throw new NoSuchCoordinates("[markDriverCheckpoint] vehicleLocationRequest null ou dados de lat/lng null para a viagem: "
-                    + travelId + " . DTO: " + vehicleLocationRequest);
-        }
-
         if (!travelId.equals(vehicleLocationRequest.travelId())) {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
