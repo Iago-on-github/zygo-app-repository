@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
+import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.StudentTravel;
@@ -129,12 +130,13 @@ public class TravelTrackingService {
                     logger.info("[markDriverCheckpoint] - chamado API para recalculo de rota para a viagem: {} ", travelId);
                     RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
-                    if (routeDetailsDTO != null) {
-                        logger.info("[markDriverCheckpoint] - api respondeu com sucesso. Salvando a nova rota calculada para a viagem: {} ", travelId);
-
-                        redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
+                    if (routeDetailsDTO == null || routeDetailsDTO.distance() == null || routeDetailsDTO.geometry() == null) {
+                        throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travel);
                     }
 
+                    logger.info("[markDriverCheckpoint] - api respondeu com sucesso. Salvando a nova rota calculada para a viagem: {} ", travelId);
+
+                    redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
                 }
             }
         }
@@ -156,7 +158,10 @@ public class TravelTrackingService {
 
         eventPublisher.publishEvent(event);
 
-        gpsDataIngestorService.sendVehicleGps(cityId.toString(), travelId.toString(), new VehicleLocationRequestDTO(travelId, latitude, longitude, speed, heading));
+        eventPublisher.publishEvent(new VehicleGpsMessageDTO(
+                cityId.toString(),
+                travelId.toString(),
+                new VehicleLocationRequestDTO(travelId, latitude, longitude, speed, heading)));
     }
 
     // Orquestra o sistema de tracking em tempo real, verificando desvios de rota,
