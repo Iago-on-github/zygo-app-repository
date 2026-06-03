@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,7 +25,7 @@ public class TravelTrackingController {
     }
 
     @PostMapping("/travels/{travelId}/locations/{cityId}")
-    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
+    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @Valid @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
         return ResponseEntity.ok().build();
     }
