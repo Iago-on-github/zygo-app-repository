@@ -3,6 +3,7 @@ package com.travel_system.backend_app.integration.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
+import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
@@ -32,11 +33,14 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.web.client.HttpServerErrorException;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import java.time.Instant;
@@ -84,6 +88,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
     @MockitoBean
     private RouteCalculationService routeCalculationService;
+    @MockitoBean
+    private RedisTrackingService redisTrackingService;
 
     @MockitoSpyBean
     private TravelTrackingService travelTrackingService;
@@ -588,6 +594,204 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         @Nested
         class failureTestScenarios {
 
+            @Test
+            @DisplayName("Deve lançar exception quando o ID da URL for direfere do ID do DTO recebido no body")
+            void throwExceptionWhenPathTravelIdDiffersFromRequestBodyTravelId() throws Exception {
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", UUID.randomUUID(), cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isBadRequest());
+            }
+
+            @Test
+            void throwExceptionWhenTripNotFound() throws Exception {
+                UUID newTravelId = UUID.randomUUID();
+
+                VehicleLocationRequestDTO newDto = new VehicleLocationRequestDTO(newTravelId, -12.9750, -38.5020, 60.0, 180.0);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", newTravelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(newDto)))
+                        .andDo(print())
+                        .andExpect(status().isNotFound());
+            }
+
+            @ParameterizedTest
+            @MethodSource("statusProvider")
+            void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) throws Exception {
+                travel.setTravelStatus(travelStatus);
+                travelRepository.save(travel);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isConflict());
+            }
+
+            public static Stream<Arguments> statusProvider() {
+                return Stream.of(
+                        Arguments.of(TravelStatus.PENDING),
+                        Arguments.of(TravelStatus.FINISH)
+                );
+            }
+
+            @ParameterizedTest
+            @DisplayName("deve lançar exception quando a chamada da API retornar dados null ou inválidos")
+            @MethodSource("nullRouteDetailsFieldsProvider")
+            void throwExceptionWhenRecalculateEtaReturnsNullOrInvalidData(RouteDetailsDTO routeDetailsDTO) throws Exception {
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isBadGateway());
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                // não deve ter salvo nada no redis
+                assertNull(hashOps.get(routeKey, "last_calc_lat"));
+                assertNull(hashOps.get(routeKey, "last_calc_lng"));
+                assertNull(hashOps.get(routeKey, "geometry"));
+                assertNull(hashOps.get(routeKey, "distanceRemaining"));
+            }
+
+            public static Stream<Arguments> nullRouteDetailsFieldsProvider() {
+                return Stream.of(
+                        Arguments.of(new RouteDetailsDTO(300.3, null, "encoded_geometry")),
+                        Arguments.of(new RouteDetailsDTO(300.3, 4030.0, null)),
+                        Arguments.of((RouteDetailsDTO) null)
+                );
+            }
+
+            @Test
+            void throwException500ServerErrorWhenWithoutConnectionRedis() throws Exception {
+                when(redisTrackingService.getRouteCalculateReference(travelId))
+                        .thenThrow(new RedisConnectionFailureException("without connection with redis"));
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isInternalServerError());
+            }
+
+            @Test
+            @DisplayName("falha em processamento async não deve afetar o http 200OK ja retornado")
+            void shouldStopAsyncProcessingWhenProcessNewLocationThrowsException() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                // sem desvio de rota
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016
+                )).thenReturn(40.5);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                // route
+                Map<String, String> routeData = hashOps.entries(routeKey);
+
+                assertFalse(routeData.isEmpty());
+
+                assertEquals(String.valueOf(-12.9714), routeData.get("last_calc_lat"));
+                assertEquals(String.valueOf(-38.5016), routeData.get("last_calc_lng"));
+                assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
+                assertEquals("encoded_polyline_initial", routeData.get("geometry"));
+
+                // lança exception nos métodos async
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> doThrow(new RuntimeException()).when(pushNotificationService)
+                                .processVehicleMovement(any(VehicleLocationRequestDTO.class)));
+            }
+
+            @Test
+            void shouldStopAsyncProcessingWhenCheckProximityAlertsThrowsException() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                // sem desvio de rota
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016
+                )).thenReturn(40.5);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                // route
+                Map<String, String> routeData = hashOps.entries(routeKey);
+
+                assertFalse(routeData.isEmpty());
+
+                assertEquals(String.valueOf(-12.9714), routeData.get("last_calc_lat"));
+                assertEquals(String.valueOf(-38.5016), routeData.get("last_calc_lng"));
+                assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
+                assertEquals("encoded_polyline_initial", routeData.get("geometry"));
+
+                // lança exception no método async
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .pollInterval(100, TimeUnit.MILLISECONDS)
+                        .untilAsserted(() -> doThrow(new RuntimeException()).when(pushNotificationService)
+                                .checkProximityAlerts(any(VehicleLocationRequestDTO.class)));
+            }
+
+            // fazer as validações necessárias antes de continuar com qualquer teste
         }
     }
 
