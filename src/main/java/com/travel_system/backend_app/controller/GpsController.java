@@ -40,7 +40,6 @@ public class GpsController {
 
         gpsDataIngestorService.sendVehicleGps(new VehicleGpsMessageDTO(city, travelId, vehicleLocation));
 
-        log.info("Viagem mapeada com sucesso, enviando os dados ao rabbitmq... {} ", travelId);
         return ResponseEntity.accepted().build();
     }
 }
