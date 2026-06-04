@@ -12,6 +12,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
@@ -791,7 +792,78 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                                 .checkProximityAlerts(any(VehicleLocationRequestDTO.class)));
             }
 
-            // fazer as validações necessárias antes de continuar com qualquer teste
+            @Test
+            @DisplayName("Deve desconectar o estudante pelo algoritmo de auto-disconnect")
+            void shouldAutoDisconnectStudentWhenStudentRemainsFarAwayForExtendedPeriod() throws Exception {
+                Student student = new Student(null, "student@gmail.com", "senhaSegura123", "Student", "Teste", "75999999999", "teste_img", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), InstitutionType.UNIVERSITY, "Ciência da Computação");
+                studentRepository.save(student);
+
+                GeoPosition geoPosition = new GeoPosition(null, 21.9750, -58.5020, Instant.now(), null);
+                geoPositionRepository.save(geoPosition);
+
+                StudentTravel studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, geoPosition, StudentTravelStatus.ACTIVE);
+                studentTravelRepository.save(studentTravel);
+
+                travel.setStudentTravels(Set.of(studentTravel));
+                travelRepository.save(travel);
+
+                String routeKey    = ROUTE_KEY_PREFIX    + travelId;
+                String trackingKey = TRACKING_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                hashOps.put(routeKey, "last_calc_lat",     "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng",     "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry",          "encoded_polyline_initial");
+
+                // storeCurrentLocation — lido por extractLiveCoordinates dentro do markDriverCheckpoint
+                hashOps.put(trackingKey, "current_lat", String.valueOf(requestDTO.latitude()));
+                hashOps.put(trackingKey, "current_lng", String.valueOf(requestDTO.longitude()));
+
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016))
+                        .thenReturn(40.5);
+
+                long oldTimestamp = Instant.now()
+                        .minusMillis(TimeUnit.MINUTES.toMillis(5) + 1000)
+                        .toEpochMilli();
+
+                when(redisTrackingService.getStudentAwayTimestamp(
+                        eq(travelId),
+                        any(DistanceResponseDTO.class)))
+                        .thenReturn(oldTimestamp);
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                // distância driver -> estudante (maior do que AUTO_DISCONNECT_DISTANCE_METERS=350)
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(400.0);
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                StudentTravel studentTravelAfter = studentTravelRepository.findById(studentTravel.getId())
+                        .orElseThrow();
+
+                assertEquals(
+                        StudentTravelStatus.AUTO_DISCONNECTED,
+                        studentTravelAfter.getStudentTravelStatus());
+
+            }
         }
     }
 
