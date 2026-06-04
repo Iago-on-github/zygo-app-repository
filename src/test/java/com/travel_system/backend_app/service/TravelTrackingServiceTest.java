@@ -142,7 +142,7 @@ class TravelTrackingServiceTest {
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
 
             @Test
@@ -162,7 +162,7 @@ class TravelTrackingServiceTest {
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
 
             @Test
@@ -185,7 +185,7 @@ class TravelTrackingServiceTest {
 
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
 
             @Test
@@ -210,7 +210,7 @@ class TravelTrackingServiceTest {
                 verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
 
             @Test
@@ -237,7 +237,7 @@ class TravelTrackingServiceTest {
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
 
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
 
             @Test
@@ -265,7 +265,7 @@ class TravelTrackingServiceTest {
                 verify(redisTrackingService, times(1)).getLiveLocation(any());
 
                 verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any(), any(), any());
+                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
             }
         }
 
