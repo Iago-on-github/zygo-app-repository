@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.RabbitMQConfig;
+import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import org.junit.jupiter.api.DisplayName;
@@ -65,7 +66,7 @@ class GpsDataIngestorServiceTest {
             );
 
             // act
-            gpsDataIngestorService.sendVehicleGps(city.toString(), travelId.toString(), vehicleRequest);
+            gpsDataIngestorService.sendVehicleGps(new VehicleGpsMessageDTO(city.toString(), travelId.toString(), vehicleRequest));
 
             // assert - captura os argumentos enviados ao rabbitmq
             verify(rabbitTemplate, times(1)).convertAndSend(
@@ -99,7 +100,7 @@ class GpsDataIngestorServiceTest {
                     180.0
             );
 
-            gpsDataIngestorService.sendVehicleGps(city.toString(), travelId.toString(), vehicleRequest);
+            gpsDataIngestorService.sendVehicleGps(new VehicleGpsMessageDTO(city.toString(), travelId.toString(), vehicleRequest));
 
             verify(rabbitTemplate).convertAndSend(any(), any(), any(), messagePostProcessorCaptor.capture());
 
@@ -128,7 +129,7 @@ class GpsDataIngestorServiceTest {
             );
 
             // act & assert
-            assertThrows(IllegalArgumentException.class, () -> gpsDataIngestorService.sendVehicleGps(invalidCity, travelId, vehicleRequest));
+            assertThrows(IllegalArgumentException.class, () -> gpsDataIngestorService.sendVehicleGps(new VehicleGpsMessageDTO(invalidCity, travelId, vehicleRequest)));
 
             verifyNoInteractions(rabbitTemplate);
         }
