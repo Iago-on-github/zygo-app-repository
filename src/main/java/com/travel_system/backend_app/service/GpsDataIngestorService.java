@@ -32,7 +32,7 @@ public class GpsDataIngestorService {
 
         // registra listener de construção de estado
         this.circuitBreaker.getEventPublisher()
-                .onStateTransition(event -> logger.warn("[CircuitBreaker] Estado alterado: {} → {}",
+                .onStateTransition(event -> logger.warn("[CircuitBreaker - gpsIngestor] Estado alterado: {} → {}",
                                 event.getStateTransition().getToState(),
                                 event.getStateTransition().getFromState()));
     }
@@ -76,4 +76,3 @@ public class GpsDataIngestorService {
     }
 }
 
-// documentar tudo isso ainda
