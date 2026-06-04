@@ -3,10 +3,13 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.TravelRepository;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -16,45 +19,91 @@ import java.util.UUID;
 
 @Service
 public class SystemMetricsService {
-    private final ThreadPoolTaskExecutor threadPoolExecutor;
+    private final ThreadPoolTaskExecutor notificationExecutor;
+    private final ThreadPoolTaskExecutor vehicleGpsExecutor;
+
     private final RedisTrackingService redisTrackingService;
     private final TravelRepository travelRepository;
+    private final CircuitBreaker gpsCircuitBreaker;
 
     private static final Logger logger = LoggerFactory.getLogger(SystemMetricsService.class);
 
-    public SystemMetricsService(ThreadPoolTaskExecutor threadPoolExecutor, RedisTrackingService redisTrackingService, TravelRepository travelRepository) {
-        this.threadPoolExecutor = threadPoolExecutor;
+    public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
+                                @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor, RedisTrackingService redisTrackingService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
+        this.notificationExecutor = notificationExecutor;
+        this.vehicleGpsExecutor = vehicleGpsExecutor;
         this.redisTrackingService = redisTrackingService;
         this.travelRepository = travelRepository;
+        this.gpsCircuitBreaker = registry.circuitBreaker("gpsIngestor");
     }
 
     @Scheduled(fixedRate = 60000)
     public void getExecutorMetrics() {
-        // original values
-        int MAXIMUM_QUEUE_CAPACITY = 100;
+        int MAXIMUM_QUEUE_CAPACITY_NOTIFICATION = 100;
+        int MAXIMUM_QUEUE_CAPACITY_GPS = 200;
         int CORE_POOL_SIZE = 5;
 
-        int activeCount = threadPoolExecutor.getActiveCount();
-        int queueSize = threadPoolExecutor.getQueueSize();
-        int poolSize = threadPoolExecutor.getPoolSize();
+        // Executor de Notificações (FCM-Notification)
+        int notifActiveCount = notificationExecutor.getActiveCount();
+        int notifQueueSize   = notificationExecutor.getQueueSize();
+        int notifPoolSize    = notificationExecutor.getPoolSize();
 
-        int maxQueueEightyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 80);
-        int maxQueueFiftyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 50);
+        int notifEightyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY_NOTIFICATION, 80);
+        int notifFiftyPercent  = percentCalc(MAXIMUM_QUEUE_CAPACITY_NOTIFICATION, 50);
 
-        // verficações de sobrecarga
-        if (queueSize >= maxQueueEightyPercent) {
-            logger.warn("RED ALERT: A fila ultrapassou 80% das tarefas. Prestes a ativar a CallerRunsPolicy");
-        } else if (queueSize >= maxQueueFiftyPercent) {
-            logger.warn("YELLOW ALERT: A fila ultrapassou 50% das tarefas. Firebase lento ou volume de ônibus cresceu muito");
-        } else {
-            logger.info("Status: OK.");
+        logger.info("[Executor: FCM-Notification] active: {} | queue: {} | pool: {}",
+                notifActiveCount, notifQueueSize, notifPoolSize);
+
+        if (notifQueueSize >= notifEightyPercent) {
+            logger.warn("[Executor: FCM-Notification] RED ALERT: fila ultrapassou 80%");
+        } else if (notifQueueSize >= notifFiftyPercent) {
+            logger.warn("[Executor: FCM-Notification] YELLOW ALERT: fila ultrapassou 50%");
         }
 
-        // verificações de elasticidade
-        if (poolSize > CORE_POOL_SIZE) {
-            logger.warn("poolSize maior que o core. A fila encheu e o Spring precisou criar novas Threads extras.");
-        } else {
-            logger.info("Status: OK.");
+        if (notifPoolSize > CORE_POOL_SIZE) {
+            logger.warn("[Executor: FCM-Notification] poolSize maior que o core. Threads extras criadas.");
+        }
+
+        // Executor do RabbitMQ GPS (RBMQ-VehicleGps)
+        int gpsActiveCount = vehicleGpsExecutor.getActiveCount();
+        int gpsQueueSize   = vehicleGpsExecutor.getQueueSize();
+        int gpsPoolSize    = vehicleGpsExecutor.getPoolSize();
+
+        int gpsEightyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY_GPS, 80);
+        int gpsFiftyPercent  = percentCalc(MAXIMUM_QUEUE_CAPACITY_GPS, 50);
+
+        logger.info("[Executor: RBMQ-VehicleGps] active: {} | queue: {} | pool: {}",
+                gpsActiveCount, gpsQueueSize, gpsPoolSize);
+
+        if (gpsQueueSize >= gpsEightyPercent) {
+            logger.warn("[Executor: RBMQ-VehicleGps] RED ALERT: fila ultrapassou 80%");
+        } else if (gpsQueueSize >= gpsFiftyPercent) {
+            logger.warn("[Executor: RBMQ-VehicleGps] YELLOW ALERT: fila ultrapassou 50%");
+        }
+
+        if (gpsPoolSize > 2) { // CORE_POOL_SIZE do vehicleGpsTaskExecutor é 2
+            logger.warn("[Executor: RBMQ-VehicleGps] poolSize maior que o core. Threads extras criadas.");
+        }
+
+        // CIRCUIT BREAKER METRICS
+        CircuitBreaker.Metrics metrics = gpsCircuitBreaker.getMetrics();
+
+        float failureRate = metrics.getFailureRate();
+        int bufferedCalls = metrics.getNumberOfBufferedCalls();
+        int failedCalls = metrics.getNumberOfFailedCalls();
+        int successfulCalls = metrics.getNumberOfSuccessfulCalls();
+        CircuitBreaker.State state = gpsCircuitBreaker.getState();
+
+        logger.info("[CircuitBreaker metrics] gpsIngestor | estado: {} | taxa de falha: {}% | chamadas: {} (ok: {}, falha: {})",
+                state,
+                failureRate == -1.0f ? "insuficiente" : String.format("%.1f", failureRate),
+                bufferedCalls,
+                successfulCalls,
+                failedCalls);
+
+        if (failureRate >= 30.0f && failureRate < 50.0f) {
+            logger.warn("[CircuitBreaker] gpsIngestor | ALERTA: taxa de falha em {}% — aproximando do limiar de abertura (50%)",
+                    String.format("%.1f", failureRate));
         }
     }
 
