@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class ThreadPoolExecutorConfig {
 
-    @Bean
+    @Bean(name = "notificationTaskExecutor")
     public ThreadPoolTaskExecutor notificationTaskExecutor() {
         int MAXIMUM_QUEUE_CAPACITY = 100;
         int KEEP_ALIVE_TIME_SECONDS = 1;
