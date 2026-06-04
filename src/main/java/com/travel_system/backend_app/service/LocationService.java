@@ -151,12 +151,14 @@ public class LocationService {
                     return hasPosition;
                 })
                 .map(student -> {
+
                     double distance = routeCalculationService.calculateHaversineDistanceInMeters(
                             driverPosition.latitude(),
                             driverPosition.longitude(),
                             student.position().getLatitude(),
                             student.position().getLongitude()
                     );
+
                     return new DistanceResponseDTO(student.studentId(), distance);
                 })
                 .toList();
