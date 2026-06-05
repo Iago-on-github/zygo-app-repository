@@ -1074,6 +1074,37 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
         }
 
+        @Test
+        void shouldNotThrowExceptionWhenGeometryIsNullFromRedis() throws Exception {
+            String routeKey = ROUTE_KEY_PREFIX + travelId;
+            String trackingKey = TRACKING_KEY_PREFIX + travelId;
+
+            HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+            hashOps.put(trackingKey, "current_lng", "-46.633309");
+            hashOps.put(trackingKey, "current_lat", "-23.550520");
+
+            // geometry não inserido para simular dado retornando null do redis
+//            hashOps.put(routeKey, "geometry", "encoded_geometry_teste");
+            hashOps.put(routeKey, "distanceRemaining", "1284.7");
+            hashOps.put(routeKey, "last_calc_lat", "-23.545000");
+            hashOps.put(routeKey, "last_calc_lng", "-46.629000");
+
+            mockMvc.perform(get("/v1/tracking/travels/{travelId}/location", travelId)
+                            .with(user("authenticated_user"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+
+            assertEquals("-46.633309", hashOps.get(trackingKey, "current_lng"));
+            assertEquals("-23.550520", hashOps.get(trackingKey, "current_lat"));
+
+            // deve ser null
+            assertNull(hashOps.get(routeKey, "geometry"));
+
+            assertEquals("1284.7", hashOps.get(routeKey, "distanceRemaining"));
+            assertEquals("-23.545000", hashOps.get(routeKey, "last_calc_lat"));
+            assertEquals("-46.629000", hashOps.get(routeKey, "last_calc_lng"));
+        }
     }
 
     @Nested
