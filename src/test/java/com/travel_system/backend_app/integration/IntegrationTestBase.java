@@ -2,7 +2,6 @@ package com.travel_system.backend_app.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.config.FirebaseConfig;
-
 import com.travel_system.backend_app.service.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
