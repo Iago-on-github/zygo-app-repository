@@ -3,6 +3,7 @@ package com.travel_system.backend_app.config;
 import com.travel_system.backend_app.service.AsyncNotificationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class ThreadPoolExecutorConfig {
 
+    @Primary
     @Bean(name = "notificationTaskExecutor")
     public ThreadPoolTaskExecutor notificationTaskExecutor() {
         int MAXIMUM_QUEUE_CAPACITY = 100;
