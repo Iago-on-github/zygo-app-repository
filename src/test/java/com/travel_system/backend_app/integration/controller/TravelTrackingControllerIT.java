@@ -1050,6 +1050,29 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             );
         }
 
+        @Test
+        void throwExceptionWhenRedisReturnsInsufficientData() throws Exception {
+            String routeKey = ROUTE_KEY_PREFIX + travelId;
+            String trackingKey = TRACKING_KEY_PREFIX + travelId;
+
+            HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+            hashOps.put(trackingKey, "current_lng", "-46.633309");
+            hashOps.put(trackingKey, "current_lat", "-23.550520");
+
+            hashOps.put(routeKey, "geometry", "encoded_geometry_teste");
+            hashOps.put(routeKey, "distanceRemaining", "1284.7");
+
+            // comentados para forçar retorno de dados insuficientes
+//            hashOps.put(routeKey, "last_calc_lat", "-23.545000");
+//            hashOps.put(routeKey, "last_calc_lng", "-46.629000");
+
+            mockMvc.perform(get("/v1/tracking/travels/{travelId}/location", travelId)
+                            .with(user("authenticated_user"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound());
+
+        }
 
     }
 
