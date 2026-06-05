@@ -1031,6 +1031,26 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             assertEquals("-46.629000", hashOps.get(routeKey, "last_calc_lng"));
         }
 
+        @ParameterizedTest
+        @MethodSource("travelStatusProvider")
+        void throwExceptionWhenDTravelIsNotTravelling(TravelStatus travelStatus) throws Exception {
+            travel.setTravelStatus(travelStatus);
+            travelRepository.save(travel);
+
+            mockMvc.perform(get("/v1/tracking/travels/{travelId}/location", travelId)
+                            .with(user("authenticated_user"))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isConflict());
+        }
+
+        public static Stream<Arguments> travelStatusProvider() {
+            return Stream.of(
+                    Arguments.of(TravelStatus.FINISH),
+                    Arguments.of(TravelStatus.PENDING)
+            );
+        }
+
+
     }
 
     @Nested
