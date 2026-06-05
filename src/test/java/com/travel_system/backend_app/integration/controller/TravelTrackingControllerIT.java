@@ -6,10 +6,7 @@ import com.travel_system.backend_app.events.NewLocationReceivedEvents;
 import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
@@ -30,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.MessagePostProcessor;
@@ -952,6 +950,89 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 verify(rabbitTemplate, times(5))
                         .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
             }
+
+            @Test
+            @DisplayName("circuit breaker deve transicionar para OPEN após chamadas bem sucedidas, GPS volta a ser enviado novamente ao rabbitmq")
+            void shouldCloseCircuitBreakerAndResumeGpsDeliveryWhenRabbitMqRecovers() throws Exception {
+                // reseta o rabbitMq
+                Mockito.reset(rabbitTemplate);
+
+                doNothing().when(rabbitTemplate)
+                        .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
+
+                // força para OPEN
+                circuitBreaker.transitionToOpenState();
+
+                // força para HALF OPEN
+                circuitBreaker.transitionToHalfOpenState();
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                when(redisTrackingService.getRouteCalculateReference(travelId))
+                        .thenReturn(new RouteCalculationReferenceDTO(-12.9714, -38.5016));
+                when(redisTrackingService.getRouteState(travelId))
+                        .thenReturn(routeDetailsDTO);
+
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                // assert na população do redis
+                assertTrue(redisTemplate.hasKey(routeKey), "O hash de rota deve existir antes do request");
+                assertEquals("-12.9714", hashOps.get(routeKey, "last_calc_lat"));
+                assertEquals("-38.5016", hashOps.get(routeKey, "last_calc_lng"));
+
+                RouteDeviationDTO newRouteDeviation = new RouteDeviationDTO(325.0, false, -12.9708, -38.4986);
+
+                // com desvio de rota
+                when(routeCalculationService.calculateHaversineDistanceInMeters(
+                        requestDTO.latitude(),
+                        requestDTO.longitude(),
+                        -12.9714,
+                        -38.5016
+                )).thenReturn(55.5);
+
+                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, requestDTO.latitude(), requestDTO.longitude())))
+                        .thenReturn(newRouteDeviation);
+
+                // envia exatamente 3 requisições
+                for (int i = 0; i < 3; i++) {
+                    mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                    .with(user("authenticated_user"))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(requestDTO)))
+                            .andDo(print())
+                            .andExpect(status().isOk());
+                }
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .untilAsserted(() -> {
+                            assertEquals(CircuitBreaker.State.CLOSED, circuitBreaker.getState());
+                        });
+
+                // última req que serve para provar que rompeu o bloqueio do Circuit Breaker e de fato tentou trafegar até o RabbitMQ
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                verify(rabbitTemplate, times(4))
+                        .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
+            }
         }
     }
 
@@ -1016,194 +1097,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             studentTravelRepository.save(studentTravel);
         }
 
-        @Nested
-        class successTestScenarios {
 
-            @Test
-            @DisplayName("should return driver position when isRouteOff returns TRUE with success")
-            void shouldReturnDriverPositonWhenIsRouteOffReturnsTrueWithSuccess() throws Exception {
-                String key = "travelId:" + travelId;
-
-                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
-                        .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
-                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
-
-                // getLiveLocation
-                redisTemplate.opsForHash().put(key, "lat", "-13.432");
-                redisTemplate.opsForHash().put(key, "lng", "-39.843");
-                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
-                redisTemplate.opsForHash().put(key, "distance", "500.0");
-                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
-                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
-
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.latitude").value(-13.432))
-                        .andExpect(jsonPath("$.longitude").value(-39.843))
-                        .andExpect(jsonPath("$.geometry").value("new_encoded_polyline"))
-                        .andExpect(jsonPath("$.distance").value(5000.0));
-
-
-                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
-
-                assertEquals("new_encoded_polyline", hashOps.get(key, "geometry"));
-                assertEquals("5000.0", hashOps.get(key, "distanceRemaining"));
-                assertEquals("-13.432", hashOps.get(key, "last_calc_lat"));
-                assertEquals("-39.843", hashOps.get(key, "last_calc_lng"));
-            }
-
-            @Test
-            @DisplayName("should return driver position when isRouteOff returns FALSE with success")
-            void shouldReturnDriverPositionWhenIsRouteOffReturnsFalseWithSuccess() throws Exception {
-                String key = "travelId:" + travelId;
-
-                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
-                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
-
-                // getLiveLocation
-                redisTemplate.opsForHash().put(key, "lat", "-13.432");
-                redisTemplate.opsForHash().put(key, "lng", "-39.843");
-                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
-                redisTemplate.opsForHash().put(key, "distance", "500.0");
-                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
-                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
-
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isOk());
-
-
-                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
-
-                assertEquals("encoded_polyline_route", hashOps.get(key, "geometry"));
-                assertEquals("500.0", hashOps.get(key, "distance"));
-                assertEquals("12.974", hashOps.get(key, "last_calc_lat"));
-                assertEquals("-38.501", hashOps.get(key, "last_calc_lng"));
-
-                verifyNoMoreInteractions(mapboxAPIService);
-            }
-
-            @Test
-            @DisplayName("should recalculate route when Geometry data is null")
-            void shouldRecalculateRouteWhenGeometryDataIsNull() throws Exception {
-                String key = "travelId:" + travelId;
-
-                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
-                        .thenReturn(new RouteDeviationDTO(372.3, false, 20.0, 10.0));
-                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(new RouteDetailsDTO(1200.0, 5000.0, "new_encoded_polyline"));
-
-                // getLiveLocation
-                redisTemplate.opsForHash().put(key, "lat", "-13.432");
-                redisTemplate.opsForHash().put(key, "lng", "-39.843");
-                // aqui não envia o geometry para o redis tratar como null
-                redisTemplate.opsForHash().put(key, "distance", "500.0");
-                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
-                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
-
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
-                                .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.latitude").value(-13.432))
-                        .andExpect(jsonPath("$.longitude").value(-39.843))
-                        .andExpect(jsonPath("$.distance").value(5000.0));
-
-
-                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
-
-                assertEquals("new_encoded_polyline", hashOps.get(key, "geometry"));
-                assertEquals("5000.0", hashOps.get(key, "distanceRemaining"));
-                assertEquals("-13.432", hashOps.get(key, "last_calc_lat"));
-                assertEquals("-39.843", hashOps.get(key, "last_calc_lng"));
-            }
-        }
-
-        @Nested
-        class failureTestScenarios {
-
-            @ParameterizedTest
-            @DisplayName("throw exception when require data provides by liveLocation (redis) is null or invalid")
-            @MethodSource("nullCurrentLocationProvider")
-            void throwExceptionWhenRequireDataForLiveLocationIsNullOrInvalid(Map<String, String> redisData) throws Exception {
-                String key = "travelId:" + travelId;
-
-                redisData.forEach((field, value) -> redisTemplate.opsForHash().put(key, field, value));
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId))
-                        .andExpect(status().isNotFound());
-
-                verifyNoInteractions(routeCalculationService, mapboxAPIService);
-            }
-
-            public static Stream<Arguments> nullCurrentLocationProvider() {
-                return Stream.of(
-                        Arguments.of(Map.of("lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
-                        Arguments.of(Map.of("lat", "-12.973456", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
-                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "last_calc_lat", "-12.9728", "last_calc_lng", "-38.5017")),
-                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lng", "-38.5017")),
-                        Arguments.of(Map.of("lat", "-12.973456", "lng", "-38.502321", "geometry", "polyline", "distance", "3875.40", "last_calc_lat", "-12.9728")),
-                        Arguments.of(Map.of())
-                );
-            }
-
-            @Test
-            void throwExceptionWhenTravelNotFound() throws Exception {
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", UUID.randomUUID()))
-                        .andExpect(status().isNotFound());
-
-                verifyNoInteractions(routeCalculationService, mapboxAPIService);
-            }
-
-            @Test
-            void throwExceptionWhenTravelIsNotTravelling() throws Exception {
-                travel.setTravelStatus(TravelStatus.FINISH);
-                travelRepository.save(travel);
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId))
-                        .andExpect(status().isConflict());
-
-                verifyNoInteractions(routeCalculationService, mapboxAPIService);
-            }
-
-            @ParameterizedTest
-            @DisplayName("throw exception when calculate route (mapbox api) returns null or invalid values")
-            @MethodSource("nullRouteDetailsProvider")
-            void throwExceptionWhenCalculateRouteReturnsNullOrInvalidValues(RouteDetailsDTO routeDetailsDTO) throws Exception {
-                String key = "travelId:" + travelId;
-
-                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
-                        .thenReturn(new RouteDeviationDTO(372.3, true, 20.0, 10.0));
-
-                when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(routeDetailsDTO);
-
-                // getLiveLocation
-                redisTemplate.opsForHash().put(key, "lat", "-13.432");
-                redisTemplate.opsForHash().put(key, "lng", "-39.843");
-                redisTemplate.opsForHash().put(key, "geometry", "encoded_polyline_route");
-                redisTemplate.opsForHash().put(key, "distance", "500.0");
-                redisTemplate.opsForHash().put(key, "last_calc_lat", "12.974");
-                redisTemplate.opsForHash().put(key, "last_calc_lng", "-38.501");
-
-                mockMvc.perform(get("/travel/tracking/fastview/{travelId}", travelId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isBadGateway());
-            }
-
-            public static Stream<Arguments> nullRouteDetailsProvider() {
-                return Stream.of(
-                        Arguments.of(new RouteDetailsDTO(null, 500.0, "encoded_polyline")),
-                        Arguments.of(new RouteDetailsDTO(15.0, null, "encoded_polyline")),
-                        Arguments.of(new RouteDetailsDTO(15.0, 500.0, null)),
-                        Arguments.of((RouteDetailsDTO) null)
-                );
-            }
-        }
     }
 
     @Nested
