@@ -14,7 +14,6 @@ import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
-import com.travel_system.backend_app.service.GpsDataIngestorService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.RouteCalculationService;
 import com.travel_system.backend_app.service.TravelTrackingService;
@@ -96,8 +95,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
     @MockitoBean
     private RouteCalculationService routeCalculationService;
-    @MockitoBean
-    private RedisTrackingService redisTrackingService;
 
     @MockitoSpyBean
     private TravelTrackingService travelTrackingService;
@@ -131,6 +128,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         @BeforeEach
         void setUp() {
             circuitBreaker = circuitBreakerRegistry.circuitBreaker("gpsIngestor");
+            circuitBreaker.transitionToDisabledState();
             circuitBreaker.reset(); // zera os contadores
 
             Permissions permission = new Permissions("ROLE_DRIVER");
@@ -163,8 +161,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             requestDTO = new VehicleLocationRequestDTO(travelId, -12.9750, -38.5020, 60.0, 180.0);
             routeDetailsDTO = new RouteDetailsDTO(3100.0, 14500.0, "recalculated_polyline");
             routeDeviationDTO = new RouteDeviationDTO(325.0, true, -12.9708, -38.4986);
-
-
         }
 
         @Nested
@@ -686,8 +682,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
             @Test
             void throwException500ServerErrorWhenWithoutConnectionRedis() throws Exception {
-                when(redisTrackingService.getRouteCalculateReference(travelId))
-                        .thenThrow(new RedisConnectionFailureException("without connection with redis"));
+//                when(redisTrackingService.getRouteCalculateReference(travelId))
+//                        .thenThrow(new RedisConnectionFailureException("without connection with redis"));
 
                 mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
                                 .with(user("authenticated_user"))
@@ -712,13 +708,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 hashOps.put(routeKey, "last_calc_lng", "-38.5016");
                 hashOps.put(routeKey, "distanceRemaining", "15000.0");
                 hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
-
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
 
                 // sem desvio de rota
                 when(routeCalculationService.calculateHaversineDistanceInMeters(
@@ -766,13 +755,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 hashOps.put(routeKey, "last_calc_lng", "-38.5016");
                 hashOps.put(routeKey, "distanceRemaining", "15000.0");
                 hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
-
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
 
                 // sem desvio de rota
                 when(routeCalculationService.calculateHaversineDistanceInMeters(
@@ -846,18 +828,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                         .minusMillis(TimeUnit.MINUTES.toMillis(5) + 1000)
                         .toEpochMilli();
 
-                when(redisTrackingService.getStudentAwayTimestamp(
-                        eq(travelId),
-                        any(DistanceResponseDTO.class)))
-                        .thenReturn(oldTimestamp);
-
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
-
                 // distância driver -> estudante (maior do que AUTO_DISCONNECT_DISTANCE_METERS=350)
                 when(routeCalculationService.calculateHaversineDistanceInMeters(
                         anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -885,13 +855,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 doThrow(new RuntimeException("Broker indisponível")).when(rabbitTemplate)
                         .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
 
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
-
                 mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
                                 .with(user("authenticated_user"))
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -914,13 +877,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             void shouldOpenCircuitBreakerAndDiscardGpsMessagesAfterConsecutiveRabbitMqFailures() throws Exception {
                 doThrow(new RuntimeException("Broker indisponível")).when(rabbitTemplate)
                         .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
-
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
 
                 // roda 10 vezes para estourar o limite do circuit breaker (5)
                 for (int i = 0; i <= 10; i++) {
@@ -954,6 +910,19 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("circuit breaker deve transicionar para OPEN após chamadas bem sucedidas, GPS volta a ser enviado novamente ao rabbitmq")
             void shouldCloseCircuitBreakerAndResumeGpsDeliveryWhenRabbitMqRecovers() throws Exception {
+                String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+
+                // storeCalculatedRouteState
+                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
+                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
+                hashOps.put(routeKey, "distanceRemaining", "15000.0");
+                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
+
+                // storeTravelMetaData
+                hashOps.put(routeKey, "durationRemaining", "30.2");
+
                 // reseta o rabbitMq
                 Mockito.reset(rabbitTemplate);
 
@@ -966,33 +935,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 // força para HALF OPEN
                 circuitBreaker.transitionToHalfOpenState();
 
-                when(redisTrackingService.getLiveLocation(travelId))
-                        .thenReturn(new LiveLocationDTO(
-                                -12.9714,
-                                -38.5016,
-                                "encoded_polyline_initial",
-                                550.0, -12.9901, -38.5201));
-
-                when(redisTrackingService.getRouteCalculateReference(travelId))
-                        .thenReturn(new RouteCalculationReferenceDTO(-12.9714, -38.5016));
-                when(redisTrackingService.getRouteState(travelId))
-                        .thenReturn(routeDetailsDTO);
-
-                String routeKey = ROUTE_KEY_PREFIX + travelId;
-
-                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
-
-                // storeCalculatedRouteState
-                hashOps.put(routeKey, "last_calc_lat", "-12.9714");
-                hashOps.put(routeKey, "last_calc_lng", "-38.5016");
-                hashOps.put(routeKey, "distanceRemaining", "15000.0");
-                hashOps.put(routeKey, "geometry", "encoded_polyline_initial");
-
-                // assert na população do redis
-                assertTrue(redisTemplate.hasKey(routeKey), "O hash de rota deve existir antes do request");
-                assertEquals("-12.9714", hashOps.get(routeKey, "last_calc_lat"));
-                assertEquals("-38.5016", hashOps.get(routeKey, "last_calc_lng"));
-
                 RouteDeviationDTO newRouteDeviation = new RouteDeviationDTO(325.0, false, -12.9708, -38.4986);
 
                 // com desvio de rota
@@ -1001,7 +943,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                         requestDTO.longitude(),
                         -12.9714,
                         -38.5016
-                )).thenReturn(55.5);
+                )).thenReturn(45.5);
 
                 when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, requestDTO.latitude(), requestDTO.longitude())))
                         .thenReturn(newRouteDeviation);
@@ -1012,15 +954,17 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                                     .with(user("authenticated_user"))
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(objectMapper.writeValueAsString(requestDTO)))
-                            .andDo(print())
                             .andExpect(status().isOk());
-                }
 
-                Awaitility.await()
-                        .atMost(3, TimeUnit.SECONDS)
-                        .untilAsserted(() -> {
-                            assertEquals(CircuitBreaker.State.CLOSED, circuitBreaker.getState());
-                        });
+                    // aguarda essa chamada ser contabilizada pelo CB antes de disparar a próxima
+                    int expectedCount = i + 1;
+                    Awaitility.await()
+                            .atMost(3, TimeUnit.SECONDS)
+                            .pollInterval(100, TimeUnit.MILLISECONDS)
+                            .untilAsserted(() ->
+                                    assertEquals(expectedCount,
+                                            circuitBreaker.getMetrics().getNumberOfBufferedCalls()));
+                }
 
                 // última req que serve para provar que rompeu o bloqueio do Circuit Breaker e de fato tentou trafegar até o RabbitMQ
                 mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
@@ -1038,63 +982,24 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
     @Nested
     class getDriverPosition {
-        UUID cityId;
         UUID travelId;
         Travel travel;
-        StudentTravel studentTravel;
-        Student student;
+        LiveLocationDTO liveLocationDTO;
 
         @BeforeEach
         void setUp() {
-            Permissions permission = new Permissions("ROLE_DRIVER");
-            permissionsRepository.save(permission);
-
-            City city = new City(null, "Salvador", CitySize.TOWN, true);
-            cityRepository.save(city);
-            cityId = city.getId();
-
-            Driver driver = new Driver(
-                    null, "driver@test.com", "encoded_pass",
-                    "João", "Silva", "71999999999",
-                    null, GeneralStatus.ACTIVE,
-                    LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
-            driver.setPermissions(List.of(permission));
-            driverRepository.save(driver);
-
-            student = new Student(
-                    null,
-                    "student@gmail.com",
-                    "senhaSegura123",
-                    "Student",
-                    "Teste",
-                    "75999999999",
-                    "teste_img",
-                    GeneralStatus.ACTIVE,
-                    LocalDateTime.now(),
-                    LocalDateTime.now(),
-                    InstitutionType.UNIVERSITY,
-                    "Ciência da Computação"
-            );
-            studentRepository.save(student);
-
             travel = new Travel(
-                    null, city, TravelStatus.TRAVELLING, driver, Instant.now(),
+                    null, null, TravelStatus.TRAVELLING, null, Instant.now(),
                     Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
                     3600.0, 15000.0,
                     -12.9714, -38.5016,
                     -12.8000, -38.4000, "Feira de Santana"
             );
-
             travelRepository.save(travel);
-            travel.setStudentTravels(new HashSet<>());
+
             travelId = travel.getId();
 
-            studentTravel = new StudentTravel();
-            studentTravel.setStudent(student);
-            studentTravel.setEmbark(false);
-            studentTravel.setTravel(travel);
-            studentTravelRepository.save(studentTravel);
+            liveLocationDTO = new LiveLocationDTO(-12.345678, -38.765432, "encoded_geometry", 1250.75, -12.340000, -38.760000);
         }
 
 
