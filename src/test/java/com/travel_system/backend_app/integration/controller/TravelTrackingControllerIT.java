@@ -13,6 +13,7 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
+import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
@@ -20,6 +21,8 @@ import com.travel_system.backend_app.service.GpsDataIngestorService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.RouteCalculationService;
 import com.travel_system.backend_app.service.TravelTrackingService;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,6 +32,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -87,6 +91,11 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
     @Autowired
     private GeoPositionRepository geoPositionRepository;
 
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
+
+    private CircuitBreaker circuitBreaker;
+
     @MockitoBean
     private RouteCalculationService routeCalculationService;
     @MockitoBean
@@ -123,6 +132,9 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
         @BeforeEach
         void setUp() {
+            circuitBreaker = circuitBreakerRegistry.circuitBreaker("gpsIngestor");
+            circuitBreaker.reset(); // zera os contadores
+
             Permissions permission = new Permissions("ROLE_DRIVER");
             permissionsRepository.save(permission);
 
@@ -690,6 +702,9 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("falha em processamento async não deve afetar o http 200OK ja retornado")
             void shouldStopAsyncProcessingWhenProcessNewLocationThrowsException() throws Exception {
+                doThrow(new RuntimeException("falha no checkProximityAlerts")).when(pushNotificationService)
+                        .processVehicleMovement(any(VehicleLocationRequestDTO.class));
+
                 String routeKey = ROUTE_KEY_PREFIX + travelId;
 
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
@@ -732,16 +747,18 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
                 assertEquals("encoded_polyline_initial", routeData.get("geometry"));
 
-                // lança exception nos métodos async
                 Awaitility.await()
                         .atMost(3, TimeUnit.SECONDS)
-                        .pollInterval(100, TimeUnit.MILLISECONDS)
-                        .untilAsserted(() -> doThrow(new RuntimeException()).when(pushNotificationService)
-                                .processVehicleMovement(any(VehicleLocationRequestDTO.class)));
+                        .untilAsserted(() ->
+                                verify(pushNotificationService, never())
+                                        .processVehicleMovement(any(VehicleLocationRequestDTO.class)));
             }
 
             @Test
             void shouldStopAsyncProcessingWhenCheckProximityAlertsThrowsException() throws Exception {
+                doThrow(new RuntimeException("falha no checkProximityAlerts")).when(pushNotificationService)
+                        .checkProximityAlerts(any(VehicleLocationRequestDTO.class));
+
                 String routeKey = ROUTE_KEY_PREFIX + travelId;
 
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
@@ -784,12 +801,11 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
                 assertEquals("encoded_polyline_initial", routeData.get("geometry"));
 
-                // lança exception no método async
                 Awaitility.await()
                         .atMost(3, TimeUnit.SECONDS)
-                        .pollInterval(100, TimeUnit.MILLISECONDS)
-                        .untilAsserted(() -> doThrow(new RuntimeException()).when(pushNotificationService)
-                                .checkProximityAlerts(any(VehicleLocationRequestDTO.class)));
+                        .untilAsserted(() -> {
+                            verify(pushNotificationService, never()).checkProximityAlerts(any());
+                        });
             }
 
             @Test
@@ -863,6 +879,36 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                         StudentTravelStatus.AUTO_DISCONNECTED,
                         studentTravelAfter.getStudentTravelStatus());
 
+            }
+
+            @Test
+            @DisplayName("Rabbitmq deve lançar exception quando broker indisponível e circuito ainda fechado com menos de 5 chamadas falhadas")
+            void shouldHandleRabbitMqFailureGracefullyWhenCircuitBreakerIsStillClosed() throws Exception {
+                doThrow(new RuntimeException("Broker indisponível")).when(rabbitTemplate)
+                        .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .untilAsserted(() -> {
+                            CircuitBreaker.Metrics metrics = circuitBreaker.getMetrics();
+                            assertTrue(metrics.getNumberOfFailedCalls() >= 1);
+                        });
+
+                assertEquals(CircuitBreaker.State.CLOSED, circuitBreaker.getState());
             }
         }
     }
