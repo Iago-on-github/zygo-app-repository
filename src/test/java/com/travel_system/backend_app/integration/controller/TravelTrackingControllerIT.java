@@ -910,6 +910,48 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
                 assertEquals(CircuitBreaker.State.CLOSED, circuitBreaker.getState());
             }
+
+            @Test
+            @DisplayName("Deve abrir o circuito e descartar GPS message depois de repetidas falhas do rabbitmq")
+            void shouldOpenCircuitBreakerAndDiscardGpsMessagesAfterConsecutiveRabbitMqFailures() throws Exception {
+                doThrow(new RuntimeException("Broker indisponível")).when(rabbitTemplate)
+                        .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
+
+                when(redisTrackingService.getLiveLocation(travelId))
+                        .thenReturn(new LiveLocationDTO(
+                                -12.9714,
+                                -38.5016,
+                                "encoded_polyline_initial",
+                                550.0, -12.9901, -38.5201));
+
+                // roda 10 vezes para estourar o limite do circuit breaker (5)
+                for (int i = 0; i <= 10; i++) {
+                    mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                    .with(user("authenticated_user"))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(requestDTO)))
+                            .andDo(print())
+                            .andExpect(status().isOk());
+                }
+
+                Awaitility.await()
+                        .atMost(3, TimeUnit.SECONDS)
+                        .untilAsserted(() -> {
+                            assertEquals(CircuitBreaker.State.OPEN, circuitBreaker.getState());
+                        });
+
+                // Envia uma última requisição explicitamente após a confirmação de circuito OPEN
+                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
+                                .with(user("authenticated_user"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDTO)))
+                        .andDo(print())
+                        .andExpect(status().isOk());
+
+                // tdas as outras chamadas assíncronas subsequentes foram descartadas pelo curto-circuito antes de tocar no RabbitMQ.
+                verify(rabbitTemplate, times(5))
+                        .convertAndSend(anyString(), anyString(), any(GpsPayload.class), any(MessagePostProcessor.class));
+            }
         }
     }
 
