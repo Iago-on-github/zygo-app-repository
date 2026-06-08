@@ -109,6 +109,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
         @BeforeEach
         void setUp() {
+            Mockito.reset(pushNotificationService);
+
             circuitBreaker = circuitBreakerRegistry.circuitBreaker("gpsIngestor");
             circuitBreaker.transitionToDisabledState();
             circuitBreaker.reset(); // zera os contadores
@@ -719,7 +721,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 Awaitility.await()
                         .atMost(3, TimeUnit.SECONDS)
                         .untilAsserted(() ->
-                                verify(pushNotificationService, never())
+                                verify(pushNotificationService, atLeastOnce())
                                         .processVehicleMovement(any(VehicleLocationRequestDTO.class)));
             }
 
@@ -806,13 +808,17 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                         -38.5016))
                         .thenReturn(40.5);
 
+                when(routeCalculationService.isRouteDeviation(any())).thenReturn(routeDeviationDTO);
+
                 long oldTimestamp = Instant.now()
                         .minusMillis(TimeUnit.MINUTES.toMillis(5) + 1000)
                         .toEpochMilli();
 
+                String studentAwayKey = "student:travel:" + student.getId() + ":" + travelId;
+                hashOps.put(studentAwayKey, "studentAwayTimestamp", String.valueOf(oldTimestamp));
+
                 // distância driver -> estudante (maior do que AUTO_DISCONNECT_DISTANCE_METERS=350)
-                when(routeCalculationService.calculateHaversineDistanceInMeters(
-                        anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                         .thenReturn(400.0);
 
                 mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
@@ -825,10 +831,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 StudentTravel studentTravelAfter = studentTravelRepository.findById(studentTravel.getId())
                         .orElseThrow();
 
-                assertEquals(
-                        StudentTravelStatus.AUTO_DISCONNECTED,
-                        studentTravelAfter.getStudentTravelStatus());
-
+                assertEquals(StudentTravelStatus.AUTO_DISCONNECTED, studentTravelAfter.getStudentTravelStatus());
             }
 
             @Test
