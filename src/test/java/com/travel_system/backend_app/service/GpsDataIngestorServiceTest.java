@@ -42,6 +42,7 @@ class GpsDataIngestorServiceTest {
 
     VehicleGpsMessageDTO vehicleGpsMessageDTO;
     String routingKey;
+
     @BeforeEach
     void setUp() {
         when(circuitBreakerRegistry.circuitBreaker("gpsIngestor")).thenReturn(circuitBreaker);
@@ -49,8 +50,6 @@ class GpsDataIngestorServiceTest {
         when(circuitBreaker.getEventPublisher()).thenReturn(eventPublisher);
 
         gpsDataIngestorService = new GpsDataIngestorService(rabbitTemplate, circuitBreakerRegistry);
-
-//        when(circuitBreaker.getEventPublisher()).thenReturn(eventPublisher);
 
         UUID travelId = UUID.randomUUID();
 
@@ -60,9 +59,7 @@ class GpsDataIngestorServiceTest {
                                 -11.231,
                                 -38.232,
                                 70.3,
-                                null
-                        )
-                );
+                                null));
 
         routingKey = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
     }
@@ -71,6 +68,7 @@ class GpsDataIngestorServiceTest {
     class sendVehicleGps {
 
         @Test
+        @DisplayName("Deve enviar o gps do rabbitmq com sucesso, usando o circuit breaker encapsulado pelo método running")
         void shouldSendGpsWithSuccess() {
             doAnswer(invocation -> {
                 Runnable runnable = invocation.getArgument(0);
@@ -124,6 +122,30 @@ class GpsDataIngestorServiceTest {
             gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
 
             verify(rabbitTemplate, never()).convertAndSend(any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    class doSend {
+
+        @Test
+        @DisplayName("Deve criar a routing key e enviar para a exchange correta com sucesso ")
+        void shouldBuildRoutingKeyAndSendToCorrectExchange() {
+            doAnswer(invocation -> {
+                Runnable runnable = invocation.getArgument(0);
+                runnable.run();
+                return null;
+            }).when(circuitBreaker).executeRunnable(any(Runnable.class));
+
+            String buildRoutingKey = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
+
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, times(1)).convertAndSend(
+                            eq(RabbitMQConfig.EXCHANGE_GPS_NAME),
+                            eq(buildRoutingKey),
+                            any(),
+                            any(MessagePostProcessor.class));
         }
     }
 }
