@@ -1,11 +1,18 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +33,21 @@ public class AdministratorController {
         this.administratorService = administratorService;
     }
 
+    @Operation(
+            summary = "Listar todos os Administradores",
+            description = "Retorna uma List com todos os administradores cadastrados no Sistema. " +
+                    "Requer, obrigatoriamente, autenticação com perfil de 'ADMIN'. ",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List contento os Administradores retornada com sucesso.",
+            content = @Content(schema = @Schema(implementation = Administrator.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ADMIN'. ",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/all")
     public ResponseEntity<List<AdministratorResponseDTO>> getAllAdmins() {
         return ResponseEntity.ok().body(administratorService.getAllAdministrators());
