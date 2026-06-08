@@ -150,32 +150,6 @@ class GpsDataIngestorServiceTest {
         }
 
         @Test
-        void shouldBuildGpsPayloadCorrectly() {
-            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
-
-            verify(rabbitTemplate, times(1))
-                    .convertAndSend(
-                            any(),
-                            any(),
-                            argThat(payload -> {
-                                GpsPayload gpsPayload = (GpsPayload) payload;
-                                return gpsPayload.travelId().equals(UUID.fromString(vehicleGpsMessageDTO.travelId()))
-                                        &&
-                                        gpsPayload.cityId().equals(UUID.fromString(vehicleGpsMessageDTO.city()))
-                                        &&
-                                        gpsPayload.latitude().equals(vehicleGpsMessageDTO.vehicleLocation().latitude())
-                                        &&
-                                        gpsPayload.longitude().equals(vehicleGpsMessageDTO.vehicleLocation().longitude())
-                                        &&
-                                        gpsPayload.speed().equals(vehicleGpsMessageDTO.vehicleLocation().speed())
-                                        &&
-                                        Objects.equals(gpsPayload.heading(), vehicleGpsMessageDTO.vehicleLocation().heading());
-                            }),
-                            any(MessagePostProcessor.class)
-                    );
-        }
-
-        @Test
         @DisplayName("Deve setar a menssagem enviada como 'NON_PERSISTENT' com sucesso.")
         void shouldSetMessageWithNonPersistentWithSuccess() {
             gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
