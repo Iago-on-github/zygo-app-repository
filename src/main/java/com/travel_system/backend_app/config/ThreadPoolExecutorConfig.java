@@ -67,5 +67,28 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
+    @Bean(name = "studentAwayTaskExecutor")
+    public ThreadPoolTaskExecutor studentAwayStateExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 500;
+        int KEEP_ALIVE_TIME_SECONDS = 50;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
 
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        // nomeia a thread para identificação das threads principais do servidor
+        executor.setThreadNamePrefix("Travel-Tracking-");
+
+        // params configuráveis
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        // define a política de rejeição - o que acontence quando a queue enche
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+
+        return executor;
+    }
 }
