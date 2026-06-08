@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
+import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
 import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.GeoPosition;
@@ -143,8 +144,8 @@ public class TravelTrackingService {
 
         LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
 
-        // algoritmo para verificar status do estudante na viagem - auto disconnect se está muito distante por X tempo
-        locationService.processStudentAwayState(travelId, liveLocationDTO);
+        // algoritmo rodando async para verificar status do estudante na viagem - auto disconnect se está muito distante por X tempo
+        eventPublisher.publishEvent(new StudentAwayStateCheckEvent(travelId, liveLocationDTO));
 
         // dispara evento de domínio
         NewLocationReceivedEvents event = new NewLocationReceivedEvents(
