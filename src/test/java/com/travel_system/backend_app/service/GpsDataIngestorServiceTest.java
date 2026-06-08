@@ -4,6 +4,9 @@ import com.travel_system.backend_app.config.RabbitMQConfig;
 import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,38 +15,92 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessagePostProcessor;
-import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.testcontainers.shaded.org.checkerframework.checker.guieffect.qual.UI;
 
-import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class GpsDataIngestorServiceTest {
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT)
-     */
-
-    @InjectMocks
-    private GpsDataIngestorService gpsDataIngestorService;
-
     @Mock
     private RabbitTemplate rabbitTemplate;
+    @Mock
+    private CircuitBreakerRegistry circuitBreakerRegistry;
+    @Mock
+    private CircuitBreaker circuitBreaker;
+    @Mock
+    private CircuitBreaker.EventPublisher eventPublisher;
+
+    private GpsDataIngestorService gpsDataIngestorService;
 
     private ArgumentCaptor<MessagePostProcessor> messagePostProcessorCaptor = ArgumentCaptor.forClass(MessagePostProcessor.class);
 
+    VehicleGpsMessageDTO vehicleGpsMessageDTO;
+    String routingKey;
+    @BeforeEach
+    void setUp() {
+        when(circuitBreakerRegistry.circuitBreaker("gpsIngestor")).thenReturn(circuitBreaker);
 
+        when(circuitBreaker.getEventPublisher()).thenReturn(eventPublisher);
+
+        gpsDataIngestorService = new GpsDataIngestorService(rabbitTemplate, circuitBreakerRegistry);
+
+//        when(circuitBreaker.getEventPublisher()).thenReturn(eventPublisher);
+
+        UUID travelId = UUID.randomUUID();
+
+        vehicleGpsMessageDTO = new VehicleGpsMessageDTO(UUID.randomUUID().toString(), travelId.toString(),
+                        new VehicleLocationRequestDTO(
+                                travelId,
+                                -11.231,
+                                -38.232,
+                                70.3,
+                                null
+                        )
+                );
+
+        routingKey = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
+    }
+
+    @Nested
+    class sendVehicleGps {
+
+        @Test
+        void shouldSendGpsWithSuccess() {
+            doAnswer(invocation -> {
+                Runnable runnable = invocation.getArgument(0);
+                runnable.run();
+                return null;
+            }).when(circuitBreaker).executeRunnable(any(Runnable.class));
+
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, times(1))
+                    .convertAndSend(
+                            eq(RabbitMQConfig.EXCHANGE_GPS_NAME),
+                            eq(routingKey),
+                            argThat(payload -> {
+                                GpsPayload gpsPayload = (GpsPayload) payload;
+                                return gpsPayload.travelId().equals(UUID.fromString(vehicleGpsMessageDTO.travelId()))
+                                        &&
+                                        gpsPayload.cityId().equals(UUID.fromString(vehicleGpsMessageDTO.city()))
+                                        &&
+                                        gpsPayload.latitude().equals(vehicleGpsMessageDTO.vehicleLocation().latitude())
+                                        &&
+                                        gpsPayload.longitude().equals(vehicleGpsMessageDTO.vehicleLocation().longitude())
+                                        &&
+                                        gpsPayload.speed().equals(vehicleGpsMessageDTO.vehicleLocation().speed())
+                                        &&
+                                        Objects.equals(gpsPayload.heading(), vehicleGpsMessageDTO.vehicleLocation().heading());
+                            }),
+                            any(MessagePostProcessor.class)
+                    );
+
+            verify(circuitBreaker, times(1)).executeRunnable(any(Runnable.class));
+        }
+    }
 }
