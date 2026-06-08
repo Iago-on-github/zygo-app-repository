@@ -53,6 +53,11 @@ public class GpsDataIngestorService {
     }
 
     private void doSend(VehicleGpsMessageDTO vehicleGpsMessageDTO) {
+        if (vehicleGpsMessageDTO.city() == null || vehicleGpsMessageDTO.travelId() == null) {
+            logger.warn("[doSend] - dados de parâmetros cityId ou travelId estão null.");
+            return;
+        }
+
         final String ROUTING_KEY = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
 
         Instant now = Instant.now();
