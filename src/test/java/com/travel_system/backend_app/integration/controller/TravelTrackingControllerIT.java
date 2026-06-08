@@ -1199,7 +1199,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driver.setPermissions(List.of(permission));
             driverRepository.save(driver);
 
@@ -1247,7 +1247,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
             travelLocationHistoryRepository.save(history);
 
-            mockMvc.perform(get("/travel/tracking/{travelId}/historyPoints", travelId)
+            mockMvc.perform(get("/v1/tracking/travels/{travelId}/history", travelId)
+                            .with(user("authenticated_user"))
                     .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andDo(print())
@@ -1259,7 +1260,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
 
         @Test
         void shouldReturnAnEmptyPageWhenHistoricAreNull() throws Exception {
-            mockMvc.perform(get("/travel/tracking/{travelId}/historyPoints", travelId)
+            mockMvc.perform(get("/v1/tracking/travels/{travelId}/history", travelId)
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray())
