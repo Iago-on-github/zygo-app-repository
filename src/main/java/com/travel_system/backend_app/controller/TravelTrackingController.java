@@ -31,8 +31,8 @@ public class TravelTrackingController {
     }
 
     @PostMapping("/travels/{travelId}/students/{studentId}/embark")
-    public ResponseEntity<Void> confirmStudentEmbark(@PathVariable UUID studentId, @PathVariable UUID travelId) {
-        travelTrackingService.confirmEmbarkOnTravel(studentId, travelId);
+    public ResponseEntity<Void> confirmStudentEmbark( @PathVariable UUID travelId, @PathVariable UUID studentId) {
+        travelTrackingService.confirmEmbarkOnTravel(travelId, studentId);
         return ResponseEntity.ok().build();
     }
 

@@ -274,7 +274,7 @@ public class TravelTrackingService {
     }
 
     // haverá um popup no front que perguntará se o estudante irá participar da viagem
-    public void confirmEmbarkOnTravel(UUID studentId, UUID travelId) {
+    public void confirmEmbarkOnTravel(UUID travelId, UUID studentId) {
         if (studentId == null || travelId == null) {
             throw new EmptyMandatoryFieldsFound("[confirmEmbarkOnTravel] parâmetros obrigatórios null ou inválidos para a viagem: " + travelId);
         }
