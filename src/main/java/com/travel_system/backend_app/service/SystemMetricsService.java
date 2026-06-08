@@ -21,6 +21,7 @@ import java.util.UUID;
 public class SystemMetricsService {
     private final ThreadPoolTaskExecutor notificationExecutor;
     private final ThreadPoolTaskExecutor vehicleGpsExecutor;
+    private final ThreadPoolTaskExecutor studentAwayStateExecutor;
 
     private final RedisTrackingService redisTrackingService;
     private final TravelRepository travelRepository;
@@ -28,10 +29,12 @@ public class SystemMetricsService {
 
     private static final Logger logger = LoggerFactory.getLogger(SystemMetricsService.class);
 
-    public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
-                                @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor, RedisTrackingService redisTrackingService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
+    public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor,
+                                @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
+                                @Qualifier("studentAwayTaskExecutor") ThreadPoolTaskExecutor studentAwayStateExecutor, RedisTrackingService redisTrackingService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
         this.notificationExecutor = notificationExecutor;
         this.vehicleGpsExecutor = vehicleGpsExecutor;
+        this.studentAwayStateExecutor = studentAwayStateExecutor;
         this.redisTrackingService = redisTrackingService;
         this.travelRepository = travelRepository;
         this.gpsCircuitBreaker = registry.circuitBreaker("gpsIngestor");
@@ -104,6 +107,37 @@ public class SystemMetricsService {
         if (failureRate >= 30.0f && failureRate < 50.0f) {
             logger.warn("[CircuitBreaker] gpsIngestor | ALERTA: taxa de falha em {}% — aproximando do limiar de abertura (50%)",
                     String.format("%.1f", failureRate));
+        }
+
+        // Executor de Métricas Travel-Tracking
+        studentAwatStateMetrics();
+    }
+
+    private void studentAwatStateMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY = 500;
+
+        int studentAwayStateActiveCount = studentAwayStateExecutor.getActiveCount();
+        int studentAwayStateQueueSize   = studentAwayStateExecutor.getQueueSize();
+        int studentAwayStatePoolSize    = studentAwayStateExecutor.getPoolSize();
+
+        int queueEightyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 80);
+        int queueFiftyPercent  = percentCalc(MAXIMUM_QUEUE_CAPACITY, 50);
+
+        logger.info("[Executor: Travel-Presence] active: {} | queue: {} | pool: {} / {}",
+                studentAwayStateActiveCount, studentAwayStateQueueSize, studentAwayStatePoolSize, studentAwayStateExecutor.getMaxPoolSize());
+
+        if (studentAwayStateActiveCount >= studentAwayStatePoolSize) {
+            logger.warn("[Executor: Travel-Presence] todas as threads estão ocupadas.");
+        }
+
+        if (studentAwayStateQueueSize >= queueEightyPercent) {
+            logger.warn("[Executor: Travel-Tracking] RED ALERT: fila ultrapassou 80%");
+        } else if (studentAwayStateQueueSize >= queueFiftyPercent) {
+            logger.warn("[Executor: Travel-Tracking] YELLOW ALERT: fila ultrapassou 50%");
+        }
+
+        if (studentAwayStatePoolSize > 5) {
+            logger.warn("[Executor: Travel-Tracking] poolSize maior que o core. Threads extras criadas.");
         }
     }
 
