@@ -33,6 +33,7 @@ public class RedisTrackingService {
     private final String TRACKING_KEY_PREFIX = "travel:tracking:";
     private final String ROUTE_KEY_PREFIX = "travel:route:";
     private final String STUDENT_TRAVEL_KEY_PREFIX = "student:travel:";
+    private final String STUDENT_AWAY_STATE_LOCK = "travel:student-away-lock:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;
@@ -568,6 +569,24 @@ public class RedisTrackingService {
         String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
 
         hashOperations.delete(studentTravelKey, "studentAwayTimestamp");
+    }
+
+    // evita múltiplo processamento do mesmo dado em threads diferentes com base na key
+    public boolean tryAcquireStudentAwayStateLock(UUID travelId) {
+        String lockKey = STUDENT_AWAY_STATE_LOCK + travelId;
+
+        // tenta criar a chave SOMENTE se ela ainda não existir
+        Boolean acquired  = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", Duration.ofSeconds(30));
+
+        // usa wrapper para evitar problemas com dados null
+        return Boolean.TRUE.equals(acquired);
+    }
+
+    // deleta a key de LOCK do studentAwayState
+    public void releaseStudentAwayStateLock(UUID travelId) {
+        String lockKey = STUDENT_AWAY_STATE_LOCK + travelId;
+
+        redisTemplate.delete(lockKey);
     }
 
     private void velocityAnalysisHelper(String key, String movementState, Map<String, String> data, String stateStartedAt, String lastNotificationSendAt, String lastEtaNotificationAt) {
