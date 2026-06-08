@@ -195,16 +195,28 @@ class GpsDataIngestorServiceTest {
 
         @ParameterizedTest
         @MethodSource("nullParamsProvider")
-        void shouldReturnWhenCityIdOrTravelIdIsNull() {
+        void shouldNotSendMessageWhenCityIdOrTravelIdIsNull(UUID travelId, UUID cityId) {
+            VehicleGpsMessageDTO vehicleGpsMessageDTO = new VehicleGpsMessageDTO(
+                    cityId != null ? cityId.toString() : null,
+                    travelId != null ? travelId.toString() : null,
+                    new VehicleLocationRequestDTO(
+                            travelId,
+                            -11.231,
+                            -38.232,
+                            70.3,
+                            null)
+            );
+
             gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
 
-            verify(rabbitTemplate, times(1)).convertAndSend(any(), any(), any(), any(MessagePostProcessor.class));
+            verify(rabbitTemplate, never()).convertAndSend(any(), any(), any(), any(MessagePostProcessor.class));
         }
 
-        public static Stream<Arguments> nullParamsProvider() {
+        static Stream<Arguments> nullParamsProvider() {
             return Stream.of(
                     Arguments.of(UUID.randomUUID(), null),
-                    Arguments.of(null, UUID.randomUUID())
+                    Arguments.of(null, UUID.randomUUID()),
+                    Arguments.of(null, null)
             );
         }
     }
