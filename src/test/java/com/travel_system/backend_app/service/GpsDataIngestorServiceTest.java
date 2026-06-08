@@ -12,6 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,6 +26,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -187,6 +191,21 @@ class GpsDataIngestorServiceTest {
             Message processed = messagePostProcessorCaptor.getValue().postProcessMessage(message);
 
             assertEquals(MessageDeliveryMode.NON_PERSISTENT, processed.getMessageProperties().getDeliveryMode());
+        }
+
+        @ParameterizedTest
+        @MethodSource("nullParamsProvider")
+        void shouldReturnWhenCityIdOrTravelIdIsNull() {
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, times(1)).convertAndSend(any(), any(), any(), any(MessagePostProcessor.class));
+        }
+
+        public static Stream<Arguments> nullParamsProvider() {
+            return Stream.of(
+                    Arguments.of(UUID.randomUUID(), null),
+                    Arguments.of(null, UUID.randomUUID())
+            );
         }
     }
 }
