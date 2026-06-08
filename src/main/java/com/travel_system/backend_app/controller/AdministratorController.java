@@ -8,6 +8,8 @@ import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDT
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,14 +37,15 @@ public class AdministratorController {
 
     @Operation(
             summary = "Listar todos os Administradores",
-            description = "Retorna uma List com todos os administradores cadastrados no Sistema. " +
+            description = "Retorna uma List com todos os administradores cadastrados no sistema. " +
                     "Requer, obrigatoriamente, autenticação com perfil de 'ADMIN'. ",
             tags = {"Administrators"},
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "List contento os Administradores retornada com sucesso.",
-            content = @Content(schema = @Schema(implementation = Administrator.class))),
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class)))),
             @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
                     content = @Content(schema = @Schema(hidden = true))),
             @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ADMIN'. ",
@@ -53,8 +56,38 @@ public class AdministratorController {
         return ResponseEntity.ok().body(administratorService.getAllAdministrators());
     }
 
+    @Operation(
+            summary = "Listar administradores por status",
+            description = "Retorna uma lista de administradores filtrada pelo status fornecido. " +
+                    "**Importante:** Se nenhum status for enviado na requisição, o sistema assumirá por padrão o status ATIVO. " +
+                    "Requer autenticação com o perfil de ADMIN.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Lista filtrada por status retornada com sucesso.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class))
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true))
+            )
+    })
     @GetMapping
-    public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(@RequestParam(required = false) GeneralStatus status) {
+    public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(
+            @RequestParam(required = false) GeneralStatus status
+    ) {
         return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status));
     }
 
