@@ -13,16 +13,18 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessagePostProcessor;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.testcontainers.shaded.org.checkerframework.checker.guieffect.qual.UI;
 
 import java.util.Objects;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -141,6 +143,50 @@ class GpsDataIngestorServiceTest {
                             eq(buildRoutingKey),
                             any(),
                             any(MessagePostProcessor.class));
+        }
+
+        @Test
+        void shouldBuildGpsPayloadCorrectly() {
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, times(1))
+                    .convertAndSend(
+                            any(),
+                            any(),
+                            argThat(payload -> {
+                                GpsPayload gpsPayload = (GpsPayload) payload;
+                                return gpsPayload.travelId().equals(UUID.fromString(vehicleGpsMessageDTO.travelId()))
+                                        &&
+                                        gpsPayload.cityId().equals(UUID.fromString(vehicleGpsMessageDTO.city()))
+                                        &&
+                                        gpsPayload.latitude().equals(vehicleGpsMessageDTO.vehicleLocation().latitude())
+                                        &&
+                                        gpsPayload.longitude().equals(vehicleGpsMessageDTO.vehicleLocation().longitude())
+                                        &&
+                                        gpsPayload.speed().equals(vehicleGpsMessageDTO.vehicleLocation().speed())
+                                        &&
+                                        Objects.equals(gpsPayload.heading(), vehicleGpsMessageDTO.vehicleLocation().heading());
+                            }),
+                            any(MessagePostProcessor.class)
+                    );
+        }
+
+        @Test
+        @DisplayName("Deve setar a menssagem enviada como 'NON_PERSISTENT' com sucesso.")
+        void shouldSetMessageWithNonPersistentWithSuccess() {
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate).convertAndSend(
+                    any(),
+                    any(),
+                    any(),
+                    messagePostProcessorCaptor.capture());
+
+            Message message = new Message(new byte[0], new MessageProperties());
+
+            Message processed = messagePostProcessorCaptor.getValue().postProcessMessage(message);
+
+            assertEquals(MessageDeliveryMode.NON_PERSISTENT, processed.getMessageProperties().getDeliveryMode());
         }
     }
 }
