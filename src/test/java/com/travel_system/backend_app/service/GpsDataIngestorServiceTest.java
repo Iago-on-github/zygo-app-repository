@@ -4,6 +4,7 @@ import com.travel_system.backend_app.config.RabbitMQConfig;
 import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,6 +102,16 @@ class GpsDataIngestorServiceTest {
                     );
 
             verify(circuitBreaker, times(1)).executeRunnable(any(Runnable.class));
+        }
+
+        @Test
+        @DisplayName("deve descatar a mensagem quando o circuit breaker estiver 'OPEN' ")
+        void shouldDiscardGpsMessageWhenCircuitBreakerIsOpen() {
+            doThrow(CallNotPermittedException.class).when(circuitBreaker).executeRunnable(any());
+
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, never()).convertAndSend(any(), any(), any(), any(), any());
         }
     }
 }
