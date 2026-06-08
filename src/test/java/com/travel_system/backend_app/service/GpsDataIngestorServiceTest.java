@@ -51,6 +51,13 @@ class GpsDataIngestorServiceTest {
 
         gpsDataIngestorService = new GpsDataIngestorService(rabbitTemplate, circuitBreakerRegistry);
 
+        // instancia o runner do circuit breaker
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(circuitBreaker).executeRunnable(any(Runnable.class));
+
         UUID travelId = UUID.randomUUID();
 
         vehicleGpsMessageDTO = new VehicleGpsMessageDTO(UUID.randomUUID().toString(), travelId.toString(),
@@ -70,12 +77,6 @@ class GpsDataIngestorServiceTest {
         @Test
         @DisplayName("Deve enviar o gps do rabbitmq com sucesso, usando o circuit breaker encapsulado pelo método running")
         void shouldSendGpsWithSuccess() {
-            doAnswer(invocation -> {
-                Runnable runnable = invocation.getArgument(0);
-                runnable.run();
-                return null;
-            }).when(circuitBreaker).executeRunnable(any(Runnable.class));
-
             gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
 
             verify(rabbitTemplate, times(1))
@@ -131,12 +132,6 @@ class GpsDataIngestorServiceTest {
         @Test
         @DisplayName("Deve criar a routing key e enviar para a exchange correta com sucesso ")
         void shouldBuildRoutingKeyAndSendToCorrectExchange() {
-            doAnswer(invocation -> {
-                Runnable runnable = invocation.getArgument(0);
-                runnable.run();
-                return null;
-            }).when(circuitBreaker).executeRunnable(any(Runnable.class));
-
             String buildRoutingKey = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
 
             gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
