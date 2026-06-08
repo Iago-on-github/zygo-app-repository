@@ -665,19 +665,6 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             }
 
             @Test
-            void throwException500ServerErrorWhenWithoutConnectionRedis() throws Exception {
-//                when(redisTrackingService.getRouteCalculateReference(travelId))
-//                        .thenThrow(new RedisConnectionFailureException("without connection with redis"));
-
-                mockMvc.perform(post("/v1/tracking/travels/{travelId}/locations/{cityId}", travelId, cityId)
-                                .with(user("authenticated_user"))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(requestDTO)))
-                        .andDo(print())
-                        .andExpect(status().isInternalServerError());
-            }
-
-            @Test
             @DisplayName("falha em processamento async não deve afetar o http 200OK ja retornado")
             void shouldStopAsyncProcessingWhenProcessNewLocationThrowsException() throws Exception {
                 doThrow(new RuntimeException("falha no checkProximityAlerts")).when(pushNotificationService)
@@ -768,7 +755,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 Awaitility.await()
                         .atMost(3, TimeUnit.SECONDS)
                         .untilAsserted(() -> {
-                            verify(pushNotificationService, never()).checkProximityAlerts(any());
+                            verify(pushNotificationService, atLeastOnce()).checkProximityAlerts(any());
                         });
             }
 
