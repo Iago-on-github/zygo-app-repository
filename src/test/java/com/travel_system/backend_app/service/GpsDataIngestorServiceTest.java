@@ -113,5 +113,17 @@ class GpsDataIngestorServiceTest {
 
             verify(rabbitTemplate, never()).convertAndSend(any(), any(), any(), any(), any());
         }
+
+        @Test
+        @DisplayName("falha durante execução - nenhuma exception deve se propagar para o chamador")
+        void shouldHandleGenericExceptionDuringGpsSending() {
+            rabbitTemplate.setReceiveTimeout(50000); // simula broker extremamente lento
+
+            doThrow(RuntimeException.class).when(circuitBreaker).executeRunnable(any());
+
+            gpsDataIngestorService.sendVehicleGps(vehicleGpsMessageDTO);
+
+            verify(rabbitTemplate, never()).convertAndSend(any(), any(), any(), any(), any());
+        }
     }
 }
