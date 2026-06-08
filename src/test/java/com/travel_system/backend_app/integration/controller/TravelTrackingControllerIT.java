@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDT
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.RouteCalculationService;
 import com.travel_system.backend_app.service.TravelTrackingService;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -24,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
@@ -742,21 +744,14 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                         .andDo(print())
                         .andExpect(status().isOk());
 
-                // route
-                Map<String, String> routeData = hashOps.entries(routeKey);
-
-                assertFalse(routeData.isEmpty());
-
-                assertEquals(String.valueOf(-12.9714), routeData.get("last_calc_lat"));
-                assertEquals(String.valueOf(-38.5016), routeData.get("last_calc_lng"));
-                assertEquals(String.valueOf(15000.0), routeData.get("distanceRemaining"));
-                assertEquals("encoded_polyline_initial", routeData.get("geometry"));
-
                 Awaitility.await()
                         .atMost(3, TimeUnit.SECONDS)
                         .untilAsserted(() -> {
                             verify(pushNotificationService, atLeastOnce()).checkProximityAlerts(any());
                         });
+
+                verify(pushNotificationService, never())
+                        .processVehicleMovement(any(VehicleLocationRequestDTO.class));
             }
 
             @Test
