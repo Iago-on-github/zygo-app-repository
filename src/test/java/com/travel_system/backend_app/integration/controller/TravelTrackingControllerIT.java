@@ -1096,7 +1096,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                     "João", "Silva", "71999999999",
                     null, GeneralStatus.ACTIVE,
                     LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), new City());
+                    "Salvador", 0, new ArrayList<>(), null);
             driver.setPermissions(List.of(permission));
             driverRepository.save(driver);
 
@@ -1140,7 +1140,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             travel.setStudentTravels(Set.of(studentTravel));
             travelRepository.save(travel);
 
-            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+            mockMvc.perform(post("/v1/tracking/travels/{travelId}/students/{studentId}/embark", travelId, student.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk());
 
@@ -1154,7 +1155,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             studentTravel.setTravel(null);
             studentTravelRepository.save(studentTravel);
 
-            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+            mockMvc.perform(post("/v1/tracking/travels/{travelId}/students/{studentId}/embark", travelId, student.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound());
 
@@ -1167,7 +1169,8 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             studentTravel.setEmbark(true);
             studentTravelRepository.save(studentTravel);
 
-            mockMvc.perform(post("/travel/tracking/confirmEmbark/{studentId}/{travelId}", student.getId(), travelId)
+            mockMvc.perform(post("/v1/tracking/travels/{travelId}/students/{studentId}/embark", travelId, student.getId())
+                            .with(user("authenticated_user"))
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
 
