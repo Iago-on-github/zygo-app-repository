@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
 import com.travel_system.backend_app.exceptions.TravelException;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.StudentTravel;
@@ -60,7 +61,10 @@ public class LocationService {
     }
     
     // verifica se o estudante é compatível para auto-desvinculo
-    public void processStudentAwayState(UUID travelId, LiveLocationDTO liveLocationDTO) {
+    public void processStudentAwayState(StudentAwayStateCheckEvent studentAwayStateCheckEvent) {
+        UUID travelId = studentAwayStateCheckEvent.travelId();
+        LiveLocationDTO liveLocationDTO = studentAwayStateCheckEvent.liveLocationDTO();
+
         List<DistanceResponseDTO> distanceBetweenPositions = distanceBetweenPositions(travelId, liveLocationDTO);
 
         Travel travel = travelRepository.findById(travelId)
