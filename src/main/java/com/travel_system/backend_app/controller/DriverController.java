@@ -6,6 +6,13 @@ import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.DriverService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +33,19 @@ public class DriverController {
         this.driverService = driverService;
     }
 
+    @Operation(
+            summary = "Listar todos os Motoristas.",
+            description = "Retorna uma List com todos os Motoristas cadastrados no sistema.",
+            tags = {"Drivers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List contendo todos os Drivers retornada com sucesso.",
+                content = @Content(mediaType = "application/json",
+                        array = @ArraySchema(schema = @Schema(implementation = DriverResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
     @GetMapping("/all")
     public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
         return ResponseEntity.ok().body(driverService.getAllDrivers());
