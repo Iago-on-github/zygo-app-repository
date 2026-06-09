@@ -9,6 +9,7 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.DriverService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -102,6 +103,27 @@ public class DriverController {
         return ResponseEntity.ok().body(loggedDriver);
     }
 
+    @Operation(
+            summary = "Criar um novo motorista",
+            description = "Cadastra um novo motorista no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_DRIVER'.",
+            tags = {"Drivers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Driver criado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = DriverResponseDTO.class)),
+            headers = @Header(name = "Location", description = "URI do driver criado (ex: /v1/drivers/{id})", schema = @Schema(type = "string"))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                    "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
+                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
+                    "- **Permissão 'ROLE_DRIVER'** não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'DRIVER'.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping
     public ResponseEntity<DriverResponseDTO> createDriver(@Valid @RequestBody DriverRequestDTO driverRequestDTO, UriComponentsBuilder componentsBuilder) {
         DriverResponseDTO newDriver = driverService.createDriver(driverRequestDTO);
