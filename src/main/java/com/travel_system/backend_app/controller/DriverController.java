@@ -164,6 +164,25 @@ public class DriverController {
         return ResponseEntity.ok().body(loggedDriver);
     }
 
+    @Operation(
+            summary = "Atualiza o status do Motorista",
+            description = "Deve atualizar o status do Motorista, que controla a sua atividade/inatividade. Requer, obrigatoriamente, autenticação com perfil de DRIVER.",
+            tags = {"Drivers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Status do Motorista modificado com sucesso. Nenhuma resposta é retornada no body.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Motorista já possui esse status",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão DRIVER.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Motorista não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<Void> updateDriver(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO entityStatusDTO) {
         driverService.updateDriver(id, entityStatusDTO);
