@@ -157,6 +157,25 @@ public class AdministratorController {
         return ResponseEntity.created(uri).body(newAdm);
     }
 
+    @Operation(
+            summary = "Atualiza o status do Administrador",
+            description = "Deve atualizar o status do Administrador, que controla a sua atividade/inatividade. Requer, obrigatoriamente, autenticação com perfil de ADMIN.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Status do Administrador modificado com sucesso. Nenhuma resposta é retornada no body.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Administrador já possui esse status",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Administrador não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO administratorStatusDTO) {
         administratorService.updateAdministrator(id, administratorStatusDTO.status());
