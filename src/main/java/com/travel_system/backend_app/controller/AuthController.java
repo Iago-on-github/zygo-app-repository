@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.dtos.response.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO;
 import com.travel_system.backend_app.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -52,8 +53,23 @@ public class AuthController {
         return ResponseEntity.ok().body(token);
     }
 
+    @Operation(
+            summary = "Renovar token de acesso (Refresh Token)",
+            description = "Recebe um Refresh Token válido no cabeçalho da requisição e gera um novo par de tokens (Access Token e Refresh Token) sem a necessidade de o usuário reinserir suas credenciais. " +
+                    "**Rota pública (não requer o Bearer Token no cabeçalho, apenas o X-Refresh-Token).**",
+            tags = {"Authentication"}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Tokens renovados com sucesso.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = RefreshTokenResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. O Refresh Token fornecido é inválido, foi violado ou já expirou.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado. O e-mail vinculado ao Refresh Token não existe mais na base de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshTokenResponseDTO> refreshToken(@RequestHeader("X-Refresh-Token") String refreshToken) {
+    public ResponseEntity<RefreshTokenResponseDTO> refreshToken(@Parameter(description = "RefreshToken enviado no cabeçalho da requisição.", required = true)
+                                                                    @RequestHeader("X-Refresh-Token") String refreshToken) {
         String email = tokenConfig.getSubjectFromToken(refreshToken);
 
         var token = authService.refreshToken(email, refreshToken);
