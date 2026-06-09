@@ -77,8 +77,34 @@ public class RabbitMQAuthController {
         return verifyVHostAccess ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
     }
 
+    @Operation(
+            summary = "[RabbitMQ] Autorização de Operações em Recursos",
+            description = "### ATENÇÃO: Rota utilizada exclusivamente pelo servidor RabbitMQ ###\n\n" +
+                    "Este endpoint **não deve ser chamado diretamente pelo cliente (front-end)**. Ele é invocado internamente pelo broker RabbitMQ para verificar se o usuário tem permissão para executar uma ação específica (ler, escrever ou configurar) em um recurso (Exchange ou Fila) do servidor.\n\n" +
+                    "#### Regras de Negócio:\n" +
+                    "- **Bloqueio de Configuração (`configure`):** É terminantemente proibido que clientes móveis/front-end criem, alterem ou deletem estruturas (filas/exchanges) no servidor. Qualquer tentativa gera `deny`.\n" +
+                    "- **Acesso a Tópicos (`read` / `write`):** Operações de leitura (consumir) e escrita (publicar) só são estritamente autorizadas se o tipo do recurso físico em questão for do tipo **`topic`**.",
+            tags = {"RabbitMQ Internal Auth"}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                    description = "O RabbitMQ interpretará o corpo textual da resposta para decidir o acesso:\n" +
+                            "- `allow`: A operação de leitura/escrita é em um recurso do tipo 'topic'. Acesso permitido.\n" +
+                            "- `deny`: Tentativa de ação do tipo 'configure' ou operação em recursos que não são do tipo 'topic'. Acesso recusado.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "allow")))
+    })
     @PostMapping(value = "/resource", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateResource(@RequestParam("user") String username, @RequestParam("vhost") String vhost, @RequestParam("resource") String resource, @RequestParam("name") String name, @RequestParam("permission") String permission) {
+    public ResponseEntity<String> authenticateResource(
+            @Parameter(description = "ID do usuário (UUID) executando a ação")
+            @RequestParam("user") String username,
+            @Parameter(description = "Virtual Host onde o recurso está localizado", example = "/")
+            @RequestParam("vhost") String vhost,
+            @Parameter(description = "O tipo do recurso do RabbitMQ (ex: 'topic', 'queue')", example = "topic")
+            @RequestParam("resource") String resource,
+            @Parameter(description = "O nome específico da Exchange ou Fila alvo", example = "amq.topic")
+            @RequestParam("name") String name,
+            @Parameter(description = "O tipo de operação sendo realizada ('configure', 'write', 'read')", example = "write")
+            @RequestParam("permission") String permission) {
         boolean verifyResourcePermissions = rabbitMQAuthService.authenticateResource(username, vhost, resource, name, permission);
 
         return verifyResourcePermissions ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
