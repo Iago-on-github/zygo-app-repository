@@ -3,10 +3,12 @@ package com.travel_system.backend_app.controller;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.DriverService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -51,11 +53,46 @@ public class DriverController {
         return ResponseEntity.ok().body(driverService.getAllDrivers());
     }
 
+    @Operation(
+            summary = "Listar todos os Motoristas por Status.",
+            description = "Retorna uma lista de motoristas cadastrados filtrada pelo status fornecido. " +
+                    "**Nota importante:** Se nenhum status for enviado na requisição, o sistema assumirá por padrão o status 'ACTIVE'. " +
+                    "Requer autenticação com o perfil de **DRIVER**.",
+            tags = {"Drivers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List contendo todos os Drivers retornada com sucesso.",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = DriverResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão necessária para listar motoristas.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping()
-    public ResponseEntity<List<DriverResponseDTO>> getDriversByStatus(@RequestParam(required = false) GeneralStatus status) {
+    public ResponseEntity<List<DriverResponseDTO>> getDriversByStatus(@Parameter(description = "Status para filtragem dos motoristas. Se omitido, o padrão é 'ACTIVE'.", example = "ACTIVE")
+                                                                          @RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(driverService.getDriversByStatus(status));
     }
 
+    @Operation(
+            summary = "Obter o Motorista Logado",
+            description = "Retorna o atual Motorista logado. Requer autenticação com o perfil de DRIVER.",
+            tags = {"Drivers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Driver logado retornado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = DriverResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão DRIVER.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Entidade do Motorista não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/me")
     public ResponseEntity<DriverResponseDTO> getCurrentDriver(Authentication auth) {
         String email = auth.getName();
