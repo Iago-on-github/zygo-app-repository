@@ -1,6 +1,5 @@
 package com.travel_system.backend_app.controller;
 
-import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
@@ -8,7 +7,6 @@ import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDT
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -57,7 +55,7 @@ public class AdministratorController {
     }
 
     @Operation(
-            summary = "Listar administradores por status",
+            summary = "Listar Administradores por status",
             description = "Retorna uma lista de administradores filtrada pelo status fornecido. " +
                     "**Importante:** Se nenhum status for enviado na requisição, o sistema assumirá por padrão o status ATIVO. " +
                     "Requer autenticação com o perfil de ADMIN.",
@@ -65,24 +63,13 @@ public class AdministratorController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Lista filtrada por status retornada com sucesso.",
-                    content = @Content(
-                            mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class))
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
-                    content = @Content(schema = @Schema(hidden = true))
-            )
+            @ApiResponse(responseCode = "200", description = "Lista filtrada por status retornada com sucesso.",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
     public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(
@@ -91,6 +78,21 @@ public class AdministratorController {
         return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status));
     }
 
+    @Operation(
+            summary = "Obter o Administrator Logado",
+            description = "Retorna o atual Administrador logado. Requer autenticaão com o perfil de ADMIN.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Administrador logado retornado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = AdministratorResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/me")
     public ResponseEntity<AdministratorResponseDTO> getCurrentAdministrator(Authentication auth) {
         String authEmail = auth.getName();
