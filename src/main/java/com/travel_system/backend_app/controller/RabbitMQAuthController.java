@@ -110,8 +110,33 @@ public class RabbitMQAuthController {
         return verifyResourcePermissions ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
     }
 
+    @Operation(
+            summary = "[RabbitMQ] Segurança Cirúrgica de Canais (Topic)",
+            description = "### ATENÇÃO: Rota utilizada exclusivamente pelo servidor RabbitMQ ###\n\n" +
+                    "Este endpoint **não deve ser chamado diretamente pelo cliente (front-end)**. Ele é invocado internamente pelo broker RabbitMQ para validar se o usuário logado possui direito de publicar ou assinar um tópico específico, baseado na estrutura da **Routing Key**.\n\n" +
+                    "#### Como a Segurança Viva Funciona:\n" +
+                    "O backend intercepta a Chave de Roteamento (ex: `v1.gps.cidadeId.viagemId`), extrai o ID da viagem (último segmento) e aplica as seguintes travas:\n" +
+                    "- **Publicação (`publish`):** Geralmente realizada pelo app do Motorista. O sistema valida se o ID do usuário conectado é de fato o **motorista escalado** para aquela viagem específica.\n" +
+                    "- **Inscrição (`subscribe`):** Geralmente realizada pelo app do Estudante. O sistema valida se o ID do usuário conectado é de um **estudante vinculado** a essa viagem.\n\n" +
+                    "#### Nota para o Front-end (Formato da Chave):\n" +
+                    "Qualquer divergência na montagem da chave ou tentativa de se inscrever/publicar em viagens de terceiros resultará em bloqueio imediato (`deny`) pelo Broker.",
+            tags = {"RabbitMQ Internal Auth"}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                    description = "O RabbitMQ interpretará o corpo textual da resposta para decidir o acesso:\n" +
+                            "- `allow`: O usuário possui o vínculo correto com a viagem informada na chave.\n" +
+                            "- `deny`: Usuário não vinculado à viagem, operação inválida ou falha na estrutura da chave.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "allow")))
+    })
     @PostMapping(value = "/topic", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateTopic(@RequestParam("authenticatedUserId") String usernameId, @RequestParam("routing_key") String routingKey, @RequestParam("permission") String permission) {
+    public ResponseEntity<String> authenticateTopic(
+            @Parameter(description = "ID do usuário autenticado (UUID) que está interagindo com o tópico")
+            @RequestParam("authenticatedUserId") String usernameId,
+            @Parameter(description = "A chave de roteamento do canal de tempo real (ex: v1.gps.cityId.travelId)", example = "v1.gps.789012-xyz.123e4567-e89b-12d3-a456-426614174000")
+            @RequestParam("routing_key") String routingKey,
+            @Parameter(description = "O tipo de operação no canal ('publish' para enviar ou 'subscribe' para escutar)", example = "subscribe")
+            @RequestParam("permission") String permission) {
         boolean isTopicAuth = rabbitMQAuthService.authenticateTopic(usernameId, routingKey, permission);
 
         return isTopicAuth ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
