@@ -79,7 +79,7 @@ public class AdministratorController {
 
     @Operation(
             summary = "Obter o Administrator Logado",
-            description = "Retorna o atual Administrador logado. Requer autenticaão com o perfil de ADMIN.",
+            description = "Retorna o atual Administrador logado. Requer autenticação com o perfil de ADMIN.",
             tags = {"Administrators"},
             security = @SecurityRequirement(name = "bearerAuth")
     )
@@ -99,6 +99,27 @@ public class AdministratorController {
         return ResponseEntity.ok().body(administratorService.getCurrentAdministrator(authEmail));
     }
 
+    @Operation(
+            summary = "Atualiza o Administrador logado",
+            description = "Atualiza os campos do atual Administrador logado. Requer autenticação com o perfil de ADMIN.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Administrador logado retornado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = AdministratorResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                    "- **Entidade não encontrada** Administrador não encontrado no banco de dados;\n" +
+                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Administrador não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/me")
     public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
         String authEmail = auth.getName();
