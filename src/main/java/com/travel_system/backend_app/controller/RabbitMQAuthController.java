@@ -35,16 +35,10 @@ public class RabbitMQAuthController {
             tags = {"RabbitMQ Internal Auth"}
     )
     @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "O RabbitMQ interpretará o corpo textual da resposta para decidir o acesso:\n" +
+            @ApiResponse(responseCode = "200", description = "O RabbitMQ interpretará o corpo textual da resposta para decidir o acesso:\n" +
                             "- `allow`: Credenciais válidas. Conexão autorizada.\n" +
                             "- `deny`: Token inválido, expirado, ID divergente ou usuário inativo. Conexão recusada.",
-                    content = @Content(
-                            mediaType = "text/plain",
-                            schema = @Schema(type = "string", example = "allow")
-                    )
-            )
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "allow")))
     })
     @PostMapping(value = "/user", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public ResponseEntity<String> authenticateMessaging(
@@ -55,8 +49,29 @@ public class RabbitMQAuthController {
         return isAuthorized ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
     }
 
+    @Operation(
+            summary = "[RabbitMQ] Autorização de Acesso ao Virtual Host",
+            description = "### ATENÇÃO: Rota utilizada exclusivamente pelo servidor RabbitMQ ###\n\n" +
+                    "Este endpoint **não deve ser chamado diretamente pelo cliente (front-end)**. Ele é invocado internamente pelo broker RabbitMQ logo após a autenticação do usuário para validar se ele possui permissão de entrada no Virtual Host (vHost) solicitado.\n\n" +
+                    "#### Regra de Negócio:\n" +
+                    "- O sistema está travado para aceitar **apenas o vHost padrão (`/`)**.\n" +
+                    "- Qualquer tentativa de conexão utilizando um vHost customizado ou diferente será barrada imediatamente pelo Broker (resposta `deny`).\n" +
+                    "- **Nota para o Front-end:** Certifique-se de que a biblioteca de WebSocket/MQTT do cliente esteja configurada para apontar para o vHost padrão `/`.",
+            tags = {"RabbitMQ Internal Auth"}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                    description = "O RabbitMQ interpretará o corpo textual da resposta para decidir o acesso:\n" +
+                            "- `allow`: O vHost solicitado é o padrão (`/`). Acesso permitido.\n" +
+                            "- `deny`: Tentativa de acesso a um vHost inválido ou inexistente. Acesso recusado.",
+                    content = @Content(mediaType = "text/plain", schema = @Schema(type = "string", example = "allow")
+                    )
+            )
+    })
     @PostMapping(value = "/vhost", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public ResponseEntity<String> authenticateVHost(@RequestParam("user") String usernameId, @RequestParam("vhost") String vhost, @RequestParam("ip") String ip) {
+    public ResponseEntity<String> authenticateVHost(@Parameter(description = "ID do usuário (UUID) que está tentando a conexão") @RequestParam("user") String usernameId,
+                                                    @Parameter(description = "O Virtual Host alvo da conexão (Esperado: '/')") @RequestParam("vhost") String vhost,
+                                                    @Parameter(description = "Endereço IP de origem do cliente que está se conectando") @RequestParam("ip") String ip) {
         boolean verifyVHostAccess = rabbitMQAuthService.authenticateVHost(usernameId, vhost, ip);
 
         return verifyVHostAccess ? ResponseEntity.ok("allow") : ResponseEntity.ok("deny");
