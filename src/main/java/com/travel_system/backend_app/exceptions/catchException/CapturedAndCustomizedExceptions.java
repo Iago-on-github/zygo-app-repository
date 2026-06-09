@@ -98,6 +98,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(PermissionNotFoundException.class)
+    public final ResponseEntity<StandardError> PermissionNotFoundException (PermissionNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(RedisConnectionFailureException.class)
     public final ResponseEntity<StandardError> RedisConnectionFailureException (RedisConnectionFailureException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
