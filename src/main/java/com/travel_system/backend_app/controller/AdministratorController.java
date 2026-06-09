@@ -7,6 +7,7 @@ import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDT
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.AdministratorService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -72,9 +73,7 @@ public class AdministratorController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
-    public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(
-            @RequestParam(required = false) GeneralStatus status
-    ) {
+    public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(@RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status));
     }
 
@@ -100,6 +99,34 @@ public class AdministratorController {
         return ResponseEntity.ok().body(administratorService.getCurrentAdministrator(authEmail));
     }
 
+    @PatchMapping("/me")
+    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
+        String authEmail = auth.getName();
+
+        return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(authEmail, administratorUpdateDto));
+    }
+
+    @Operation(
+            summary = "Criar um novo administrador",
+            description = "Cadastra um novo administrador no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_ADMIN'. " +
+                    "Requer autenticação com o perfil de 'ADMIN'.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Administrador criado com sucesso.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdministratorResponseDTO.class)),
+                    headers = @Header(name = "Location", description = "URI do administrador criado (ex: /v1/admins/{id})", schema = @Schema(type = "string"))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                            "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
+                            "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
+                            "- **Permissão 'ROLE_ADMIN'** não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping
     public ResponseEntity<AdministratorResponseDTO> createAdministrator(@Valid @RequestBody AdministratorRequestDTO admRequestDTO, UriComponentsBuilder componentsBuilder) {
         AdministratorResponseDTO newAdm = administratorService.createAdministrator(admRequestDTO);
@@ -107,13 +134,6 @@ public class AdministratorController {
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(newAdm.id()).toUri();
 
         return ResponseEntity.created(uri).body(newAdm);
-    }
-
-    @PatchMapping("/me")
-    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
-        String authEmail = auth.getName();
-
-        return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(authEmail, administratorUpdateDto));
     }
 
     @PatchMapping("/{id}")
