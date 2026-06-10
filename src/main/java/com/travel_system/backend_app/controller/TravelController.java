@@ -97,6 +97,32 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Realiza a ação de encerrar a viagem",
+            description = "Faz a transição de estado da viagem para `FINISH`, desvinculando todos os estudantes e persistindo toda a telemetria em um relatório final. \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Estado da viagem**: Validando a existência da viagem, é verificado o seu STATUS: se for `TRAVELLING` o processamento continua. Em casos de viagens `PENDING` ou `FINISH` o backend lança exception. \n" +
+                    "- **Desembarque**: Atua sob o Set de estudantes embarcados na viagem e, para cada um, realiza a ação de desvinculo, registrando as métricas de desembarque. \n" +
+                    "- **Consolidação de Trajeto (Polyline):** Compila o histórico de coordenadas coletadas pelo GPS, converte os pontos geográficos e gera uma String de Polyline codificada para o relatório final.\n" +
+                    "- **Cálculo de Telemetria e Métricas:** Resgata do Redis a distância real acumulada da viagem, calcula a duração exata, a quantidade total de passageiros e o percentual de eficiência de lotação, persistindo tudo na tabela de relatórios.\n" +
+                    "- **Limpeza de Cache e Histórico:** Remove os registros temporários de localização do banco relacional e limpa o cache de tracking do Redis para otimização de memória.\n" +
+                    "> ### IMPORTANTE:\n" +
+                    "> Com o retorno de sucesso (204) deste endpoint, o aplicativo do celular do motorista **deve interromper imediatamente** o envio de pings de GPS para o servidor.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Viagem finalizada com sucesso. Nenhum body retornado.",
+                content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_DRIVER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Viagem não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "A viagem não está registrada como em andamento (`TRAVELLING)`.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/{travelId}/end")
     public ResponseEntity<Void> endTravel(@PathVariable UUID travelId) {
         travelService.endTravel(travelId);
