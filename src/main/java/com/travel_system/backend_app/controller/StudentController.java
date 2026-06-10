@@ -61,7 +61,7 @@ public class StudentController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "List contendo todos os estudantes retornada com sucesso.",
                     content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = DriverResponseDTO.class)))),
+                            array = @ArraySchema(schema = @Schema(implementation = StudentResponseDTO.class)))),
             @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
                     content = @Content(schema = @Schema(hidden = true)))
     })
@@ -70,6 +70,21 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getStudentsByStatus(status));
     }
 
+    @Operation(
+            summary = "Obter o Estudante logado",
+            description = "Retorna o atual estudante logado",
+            tags = {"Students"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Estudante logado retornado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = StudentResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Entidade do estudante não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/me")
     public ResponseEntity<StudentResponseDTO> getCurrentStudent(Authentication auth) {
         String email = auth.getName();
