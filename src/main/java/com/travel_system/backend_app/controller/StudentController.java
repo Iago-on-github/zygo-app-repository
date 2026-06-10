@@ -121,6 +121,28 @@ public class StudentController {
         return ResponseEntity.created(uri).body(student);
     }
 
+    @Operation(
+            summary = "Atualizar dados do estudante logado",
+            description = "Permite que o estudante atualmente autenticado atualize suas próprias informações de perfil (como e-mail, telefone, senha, etc.). " +
+                    "O sistema valida se os novos dados já estão em uso por outros usuários e impede modificações se a conta estiver inativa. ",
+            tags = {"Students"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Perfil atualizado com sucesso. Retorna os dados atualizados do estudante.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = StudentResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Os dados enviados violam as regras de validação do formato (Bean Validation).",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Acesso negado. Possíveis causas:\n" +
+                    "- **Conta Inativa**: Não é permitido modificar dados de uma conta com status INACTIVE.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Estudante não encontrado através do e-mail extraído do token de autenticação.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "Conflito de dados. O e-mail ou o telefone já está sendo utilizado por outro usuário no sistema.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/me")
     public ResponseEntity<StudentResponseDTO> updateCurrentStudent(Authentication auth, @Valid @RequestBody StudentUpdateDTO studentUpdateDTO) {
         String email = auth.getName();
