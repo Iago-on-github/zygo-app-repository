@@ -204,6 +204,27 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Obter dados de preview e previsão da viagem",
+            description = "Retorna os dados, de forma resumida, de distância, tempo e destino da viagem. Será usado para apresentar um breve preview da viagem. \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Busca pela viagem**: Realiza uma busca pela viagem no banco, se não existir lança exception. \n" +
+                    "### Cálculo dinâmico: O sistema calcula o dado de 'arrivalTime' de duas formas: \n" +
+                    "1. **Viagem criada**: O sistema utiliza da métrica de 'createdAt' da viagem que acabou de ser `criada` para fazer a exibição. \n" +
+                    "2. **Viagem iniciada**: O sistema utiliza da métrica de 'startHourTravel' da viagem que acabou de ser `inicializada` para fazer a exibição. \n" +
+                    " ### Por que essa diferenciação? \n" +
+                    "As viagens serão criadas antes do trajeto em si começar. Geralmente, os motoristas chegam de 5-10m antes de do horário de saída para aguardar os estudantes.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "ados de preview obtidos com sucesso. Retorna a estrutura com o cálculo do horário estimado de chegada.",
+                    content = @Content(schema = @Schema(implementation = TravelPreviewDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Viagem não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
     @GetMapping("/{travelId}/preview")
     public ResponseEntity<TravelPreviewDTO> getTravelPreview(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelService.getTravelPreview(travelId));
