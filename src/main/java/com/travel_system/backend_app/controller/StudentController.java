@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -92,6 +93,25 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getCurrentStudent(email));
     }
 
+    @Operation(
+            summary = "Criar um novo estudante",
+            description = "Cadastra um novo estudante no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_USER'.",
+            tags = {"Students"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Estudante criado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = StudentResponseDTO.class)),
+                    headers = @Header(name = "Location", description = "URI do estudante criado (ex: /v1/students/{id})", schema = @Schema(type = "string"))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                    "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
+                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
+                    "- **Permissão 'ROLE_USER'** não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
     @PostMapping
     public ResponseEntity<StudentResponseDTO> createStudent(@Valid @RequestBody StudentRequestDTO studentRequestDTO, UriComponentsBuilder componentsBuilder) {
         StudentResponseDTO student = studentService.createStudent(studentRequestDTO);
