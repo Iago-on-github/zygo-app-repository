@@ -297,10 +297,6 @@ public class TravelTrackingService {
 
     // endpoint de fastview - provê a loc do driver
     public LiveLocationDTO getDriverPosition(UUID travelId) {
-        if (travelId == null) {
-            throw new EmptyMandatoryFieldsFound("[getDriverPosition] dados de parâmetro inválidos ou null");
-        }
-
         Travel travel = travelRepository.findById(travelId)
                 .orElseThrow(() -> new TripNotFound("[getDriverPosition] Viagem não encontrada: " + travelId));
 
