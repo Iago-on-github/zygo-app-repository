@@ -64,7 +64,30 @@ public class TravelTrackingController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(
+            summary = "Provê a localização calculada do motorista",
+            description = "Provê a visualização instantânea de rastreamento (fast-view) para o mobile saber exatamente onde está o veículo no mapa. \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Estado da viagem**: O monitoramento só aceita pings se a viagem estiver atualmente em andamento `TRAVELLING`. \n" +
+                    "- **Performance**: O sistema extrai as coordenadas, distância restante, ponto de referência e a geometria diretamente do Redis ao invés de um banco relacional. " +
+                    "Se o cache estiver vazio ou corrompido, lança exception. \n",
+            tags = {"Tracking"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Dados de localização retornados com sucesso.",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = LiveLocationDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Redis retornou dados insuficentes ou nulos.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_DRIVER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "A viagem não está registrada como em andamento (`TRAVELLING)`",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
     @GetMapping("/travels/{travelId}/location")
+    @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
