@@ -150,6 +150,23 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.updateCurrentStudent(email, studentUpdateDTO));
     }
 
+    @Operation(
+            summary = "Atualiza o status do estudante",
+            description = "Deve atualizar o status do estudante, que controla a sua atividade/inatividade.",
+            tags = {"Students"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Status do estudante modificado com sucesso. Nenhuma resposta é retornada no body.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Estudante já possui esse status",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Estudante não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/{studentId}")
     public ResponseEntity<Void> updateStudentStatus(@PathVariable UUID studentId, @Valid @RequestBody UpdateEntityStatusDTO newStudentStatus) {
         studentService.updateStudentStatus(studentId, newStudentStatus.status());
