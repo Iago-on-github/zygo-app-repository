@@ -64,12 +64,6 @@ public class TravelTrackingController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/travels/{travelId}/students/{studentId}/embark")
-    public ResponseEntity<Void> confirmStudentEmbark( @PathVariable UUID travelId, @PathVariable UUID studentId) {
-        travelTrackingService.confirmEmbarkOnTravel(travelId, studentId);
-        return ResponseEntity.ok().build();
-    }
-
     @GetMapping("/travels/{travelId}/location")
     public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
