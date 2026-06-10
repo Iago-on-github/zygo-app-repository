@@ -51,6 +51,20 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getAllStudents());
     }
 
+    @Operation(
+            summary = "Listar todos os Estudantes por Status.",
+            description = "Retorna uma lista de estudantes cadastrados filtrada pelo status fornecido. " +
+                    "**Nota importante:** Se nenhum status for enviado na requisição, o sistema assumirá por padrão o status ACTIVE.",
+            tags = {"Students"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List contendo todos os estudantes retornada com sucesso.",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = DriverResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping
     public ResponseEntity<List<StudentResponseDTO>> getStudentsByStatus(@RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(studentService.getStudentsByStatus(status));
