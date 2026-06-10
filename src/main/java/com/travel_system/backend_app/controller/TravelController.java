@@ -32,7 +32,7 @@ public class TravelController {
 
     @Operation(
             summary = "Criação de nova viagem.",
-            description = "Registra uma nova viagem no sistema para o motorista informado, consumindo a API do Mapbox para gerar o preview estático de distância, tempo estimado e cidade de destino.\n\n" +
+            description = "Registra uma nova viagem no sistema para o motorista informado, consumindo a API do Mapbox para gerar o preview estático de distância, tempo estimado e cidade de destino.\n" +
                     "### Regras de Negócio:\n" +
                     "- **Validação de Estado:** O motorista deve estar ativamente cadastrado no sistema (`ACTIVE`).\n" +
                     "- **Trava de Simultaneidade:** O motorista **não pode** possuir nenhuma outra viagem em andamento ou agendada (status `PENDING` ou `TRAVELLING`). Caso possua, a criação será bloqueada.",
@@ -67,6 +67,30 @@ public class TravelController {
         return ResponseEntity.created(uri).body(responseDTO);
     }
 
+    @Operation(
+            summary = "Realiza a ação de iniciar a viagem",
+            description = "Faz a transição de estado da viagem para execução real, calculando a geometria oficial utilizada para o trajeto (polyline) que o mapa irá usar. \n " +
+                    "### Regras de Negócio: \n" +
+                    "- **Estado da viagem**: Validando a existência da viagem, é verificado o seu STATUS: se for `PENDING` o processamento continua. Em casos de viagens `TRAVELLING` ou `FINISH` o backend lança exception. \n" +
+                    "- **Integração externa**: Chama o mapbox para recalcular a rota exata. Caso a API externa falhe ou retorne dados insuficientes/incompletos, o sistema não inicializa a viagem lançando exception. \n" +
+                    "- **Uso de cache**: o backend salva o ID da viagem atualmente ativa no redis para iniciar métricas de monitoramento e  prepara o cluster para receber os pings contínuos de GPS.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Viagem iniciada com sucesso. Sem body retornado.",
+                content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_DRIVER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Viagem não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "A viagem já está em andamento (`TRAVELLING`) ou finalizada (`FINISH`) no sistema.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "502", description = "MapboxAPI retornou dados insuficientes, inválidos ou falhou na requisição.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/{travelId}/start")
     public ResponseEntity<Void> startTravel(@PathVariable UUID travelId) {
         travelService.startTravel(travelId);
