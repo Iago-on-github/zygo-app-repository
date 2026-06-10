@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -31,7 +32,7 @@ public class TravelController {
     }
 
     @Operation(
-            summary = "Criação de nova viagem.",
+            summary = "Realiza a ação de criar nova viagem.",
             description = "Registra uma nova viagem no sistema para o motorista informado, consumindo a API do Mapbox para gerar o preview estático de distância, tempo estimado e cidade de destino.\n" +
                     "### Regras de Negócio:\n" +
                     "- **Validação de Estado:** O motorista deve estar ativamente cadastrado no sistema (`ACTIVE`).\n" +
@@ -129,7 +130,37 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Realiza a ação de vincular o estudante",
+            description = "Realiza a ação de vincular o estudante na viagem em tempo real. \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Estudante**: Utiliza o Email do estudante autenticado extraído do próprio contexto de Autenticação. \n" +
+                    "- **Estado da viagem**: Validando a existência da viagem, é verificado o seu STATUS: se for `TRAVELLING` o processamento continua. Em casos de viagens `PENDING` ou `FINISH` o backend lança exception. \n" +
+                    "- **Duplicidade**: Backend realiza uma validação de segurança para verificar se o estudante já não está vinculado a essa viagem. \n" +
+                    "- **Vínculo**: Cria entidade StudentTravel, definindo o status de embarque como ativo e registrando a hora exata da entrada.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Estudante vinculado com sucesso. Nenhum body retornado.",
+                content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_USER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404",
+                    description = "Recurso não encontrado. Possíveis causas:\n" +
+                            "- **Viagem não encontrada**: A viagem informada na URL não existe no sistema;\n" +
+                            "- **Estudante não localizado**: O estudante dono do token JWT não foi localizado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409",
+                    description = "Conflito na viagem. Possíveis causas: \n" +
+                            "- **Estado da viagem**: A viagem não está registrada como em andamento (`TRAVELLING)`. \n" +
+                            "- **Duplicidade de vínculo**: Estudante já está conectado a esta viagem.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/{travelId}/join")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
@@ -138,6 +169,7 @@ public class TravelController {
     }
 
     @PostMapping("/{travelId}/leave")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> leaveTravel (@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
