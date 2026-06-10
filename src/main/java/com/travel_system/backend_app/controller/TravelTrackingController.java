@@ -92,6 +92,29 @@ public class TravelTrackingController {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
 
+    @Operation(
+            summary = "Obter histórico de coordenadas do trajeto",
+            description = "Fornece a coleção cronológica de todos os pontos geográficos (latitude e longitude) por onde o veículo passou desde o início da viagem. Útil para auditoria ou para desenhar o rastro (linha pontilhada) do caminho percorrido pelo motorista até o momento atual.\n\n" +
+                    "### Regras de Negócio e Paginação:\n" +
+                    "- **Ordenação Cronológica:** Os pontos geográficos são retornados estritamente em ordem crescente de tempo (`Timestamp Asc`), garantindo que o rastro do mapa seja desenhado na sequência correta em que a viagem aconteceu.\n" +
+                    "- **Estrutura Paginada de Segurança:** O retorno é envelopado em um objeto de paginação do Spring (`Page`), configurado internamente com um limite seguro de 100 registros por página para mitigar estouros de memória ou payloads excessivamente pesados.\n" +
+                    "- **Validação de Entrada:** O ID da viagem informado na URL deve ser válido e obrigatório.",
+            tags = {"Tracking"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200", description = "Histórico de coordenadas recuperado com sucesso. Retorna um objeto paginado do Spring Data contendo a lista de pontos.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Page.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Os dados de parâmetros informados na URL estão malformados ou ausentes.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui o perfil exigido para consultar o histórico da viagem.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Viagem não encontrada no sistema através do ID fornecido.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/travels/{travelId}/history")
     public ResponseEntity<Page<LocationPointDTO>> getTravelHistory(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getTravelHistory(travelId));
