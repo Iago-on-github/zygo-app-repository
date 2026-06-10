@@ -168,6 +168,33 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Realiza a ação de desvincular o estudante",
+            description = "Realiza o desembarque voluntário e/ou conclusão de percurso de um estudante, desvinculando-o do rastreamento. \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Estado da viagem**: Validando a existência da viagem, é verificado o seu STATUS: se for `TRAVELLING` o processamento continua. Em casos de viagens `PENDING` ou `FINISH` o backend lança exception. \n" +
+                    "- **Validação de vínculo**: O sistema realiza validações para comprovar se o estudante está ativo na viagem. Se houver tentativa de de \"leave\" em uma viagem onde ele não está inserindo o backend lança exception. \n" +
+                    "- **Registro de saída**: Altera o embarque para false, registra o momento exato do desembarque e assina o motivo da saída no banco de dados, definido de forma padrão pelo controller como `LEFT`. \n" +
+                    "### Importante: \n" +
+                    "O sistema possui um algoritmo de auto-desvinculo de estudantes, quando um estudante é desvinculado pelo 'leaveTravel' ele deve respeitar a decisão padrão do Controller para setar o Status como `LEFT`.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "desvinculo do estudante realizado com sucesso. Sem body retornado.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_USER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Recurso não encontrado. Possíveis causas: \n" +
+                    "- **Estudante não localizado**: O estudante dono do token JWT não foi localizado no banco de dados. \n" +
+                    "- **Estudante desvinculado**: O estudante não está atualmente ativo na viagem (isEmbark = false). \n" +
+                    "- **Vínculo não encontrado**: Nenhum vínculo entre o estudante e a viagem foi encontrado.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "A viagem não está registrada como em andamento (`TRAVELLING)`.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/{travelId}/leave")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> leaveTravel (@PathVariable UUID travelId, Authentication authentication) {
