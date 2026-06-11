@@ -25,6 +25,8 @@ public class StudentAwayStateListener {
     @Async("studentAwayTaskExecutor")
     @EventListener
     public void handleStudentAwayState(StudentAwayStateCheckEvent event) {
+        long start = System.currentTimeMillis(); // usado para logs de TTL
+
         // usa redis para garantir que a demora na execução do algoritmo não gere múltiplos processamentos, evitando duplicidade
         boolean isLockAcquire = redisTrackingService.tryAcquireStudentAwayStateLock(event.travelId());
 
@@ -37,6 +39,10 @@ public class StudentAwayStateListener {
         } catch (Exception e) {
             logger.error("[handleStudentAwayState] - não foi possível publicar o evento para a viagem: {}", event.travelId(), e);
         } finally {
+            long elapsed = System.currentTimeMillis() - start;
+
+            logger.info("[processStudentAwayState] a viagem {} foi processada em {} ms", event.travelId(), elapsed);
+
             redisTrackingService.releaseStudentAwayStateLock(event.travelId());
         }
     }
