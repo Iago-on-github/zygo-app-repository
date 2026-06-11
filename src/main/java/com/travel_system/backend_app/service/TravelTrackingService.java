@@ -13,6 +13,7 @@ import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -52,6 +53,7 @@ public class TravelTrackingService {
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final TravelService travelService;
     private final LocationService locationService;
+    private final TravelCacheService travelCacheService;
 
     private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
 
@@ -62,7 +64,7 @@ public class TravelTrackingService {
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, TravelCacheService travelCacheService, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
@@ -72,6 +74,7 @@ public class TravelTrackingService {
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.travelService = travelService;
         this.locationService = locationService;
+        this.travelCacheService = travelCacheService;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
@@ -82,10 +85,10 @@ public class TravelTrackingService {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
 
-        Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Trip not found"));
+        // busca por cache da viagem, caso não haja, faz requisição e armazena os dados em cache para utilizar aqui
+        TravelCacheDTO travelCached = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
-        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
+        if (travelCached.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("A viagem " + travelId + " não está em andamento");
         }
 
@@ -104,15 +107,15 @@ public class TravelTrackingService {
         String strLatitude = String.valueOf(latitude);
         String strLongitude = String.valueOf(longitude);
 
-        Double finalLongitude = travel.getFinalLongitude();
-        Double finalLatitude = travel.getFinalLatitude();
+        Double finalLongitude = travelCached.finalLongitude();
+        Double finalLatitude = travelCached.finalLatitude();
 
         // realiza o primeiro cálculo da viagem
         if (routeCalculateReference == null || routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null) {
             RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
             if (routeDetailsDTO == null || routeDetailsDTO.distance() == null || routeDetailsDTO.geometry() == null) {
-                throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travel);
+                throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travelCached.travelId());
             }
 
             logger.info("[markDriverCheckpoint] - primeiro cálculo da viagem {} realizado com sucesso. Armazenando no redis.", travelId);
@@ -132,7 +135,7 @@ public class TravelTrackingService {
                     RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
                     if (routeDetailsDTO == null || routeDetailsDTO.distance() == null || routeDetailsDTO.geometry() == null) {
-                        throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travel);
+                        throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travelCached.travelId());
                     }
 
                     logger.info("[markDriverCheckpoint] - api respondeu com sucesso. Salvando a nova rota calculada para a viagem: {} ", travelId);
@@ -153,7 +156,7 @@ public class TravelTrackingService {
                 latitude,
                 longitude,
                 Instant.now(),
-                travel.getTravelStatus(),
+                travelCached.travelStatus(),
                 speed,
                 heading);
 
