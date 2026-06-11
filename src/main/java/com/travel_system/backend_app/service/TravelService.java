@@ -40,10 +40,11 @@ public class TravelService {
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final PolylineService polylineService;
     private final RouteCalculationService routeCalculationService;
+    private final TravelCacheService travelCacheService;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -54,6 +55,7 @@ public class TravelService {
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.polylineService = polylineService;
         this.routeCalculationService = routeCalculationService;
+        this.travelCacheService = travelCacheService;
     }
 
     @Transactional
@@ -138,6 +140,9 @@ public class TravelService {
         // adiciona viagem ativa ao redis para métricas de self-health do sistema
         redisTrackingService.addActiveTravel(travelId);
 
+        // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
+        travelCacheService.invalidateTravelStaticCache(travelId);
+
         log.info("viagem {} iniciada com sucesso. ", travelId);
     }
 
@@ -211,6 +216,9 @@ public class TravelService {
         travelRepository.save(actualTrip);
 
         redisTrackingService.clearTravelLocationCache(travelId);
+
+        // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
+        travelCacheService.invalidateTravelStaticCache(travelId);
 
         log.info("Viagem: {} encerrada com sucesso", travelId);
     }
@@ -332,6 +340,9 @@ public class TravelService {
         studentTravel.setEmbarkHour(Instant.now());
 
         studentTravelRepository.save(studentTravel);
+
+        // armazena métrica de salvamento em cache
+
     }
 
     private void deactivateStudentLink(Travel actualTrip, Student student, StudentTravelStatus studentTravelStatus) {
