@@ -59,7 +59,7 @@ public class TravelCacheService {
     }
 
     // recupera o cache estático da viagem
-    public TravelCacheDTO getTravelStaticCache(UUID travelId) {
+    private TravelCacheDTO getTravelStaticCache(UUID travelId) {
         String key = TRAVEL_STATIC_CACHE + travelId;
 
         Map<String, String> redisData = redisOperations.entries(key);
@@ -71,12 +71,15 @@ public class TravelCacheService {
         String cityId = redisData.get("cityId");
         String travelStatus = redisData.get("travelStatus");
         String polylineRoute = redisData.get("polyline");
+        String finalLatitudeStr = redisData.get("finalLatitude");
+        String finalLongitudeStr = redisData.get("finalLongitude");
+        String distanceStr = redisData.get("distance");
+        String durationStr = redisData.get("duration");
 
-        Double finalLatitude = Double.valueOf(redisData.get("finalLatitude"));
-        Double finalLongitude = Double.valueOf(redisData.get("finalLongitude"));
-
-        Double distance = Double.valueOf(redisData.get("distance"));
-        Double duration = Double.valueOf(redisData.get("duration"));
+        Double finalLatitude = (finalLatitudeStr != null) ? Double.valueOf(finalLatitudeStr) : null;
+        Double finalLongitude = (finalLongitudeStr != null) ? Double.valueOf(finalLongitudeStr) : null;
+        Double distance = (distanceStr != null) ? Double.valueOf(distanceStr) : null;
+        Double duration = (durationStr != null) ? Double.valueOf(durationStr) : null;
 
         UUID cityIdConverted = cityId != null ? UUID.fromString(cityId) : null;
 
