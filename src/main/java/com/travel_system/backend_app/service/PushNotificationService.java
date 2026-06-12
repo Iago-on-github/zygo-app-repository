@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.events.StudentProximityEvents;
 import com.travel_system.backend_app.events.VehicleMovementEvents;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
+import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
@@ -62,7 +63,7 @@ public class PushNotificationService {
         Double heading = vehicleLocationRequest.heading();
 
         LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null);
-        Set<StudentTravelResponseDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
+        Set<StudentTrackingPositionDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
         List<DistanceResponseDTO> differencePosition = locationService.distanceBetweenPositions(travelId, driverPosition);
 
         Map<UUID, Double> distances = differencePosition.stream()
