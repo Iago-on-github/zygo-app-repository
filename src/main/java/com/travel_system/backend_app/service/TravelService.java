@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
@@ -274,15 +275,19 @@ public class TravelService {
         deactivateStudentLink(trip, student, studentTravelStatus);
     }
 
-    public Set<StudentTravelResponseDTO> linkedStudentTravel(UUID travelId) {
-        Travel travel = travelRepository.findByIdWithStudents(travelId)
-                .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada: " + travelId));
+    public Set<StudentTrackingPositionDTO> linkedStudentTravel(UUID travelId) {
+        long start = System.currentTimeMillis(); // debbuging
 
-        Set<StudentTravel> linkedStudents = travel.getStudentTravels();
+        Set<StudentTrackingPositionDTO> linkedStudents = travelRepository.findTrackingPositionsByTravelId(travelId);
 
-        if (linkedStudents == null) throw new StudentNotLinkedToTripException("Nenhum estudante vincualado à viagem");
+        if (linkedStudents.isEmpty()) {
+            throw new StudentNotLinkedToTripException("Nenhum estudante vincualado à viagem: " + travelId);
+        }
 
-        return linkedStudents.stream().map(this::studentTravelMapper).collect(Collectors.toSet());
+        long executingTime = System.currentTimeMillis() - start;
+        log.info("[linkedStudentTravel] - método que busca a viagem com estudantes. Tempo de execução: {} ", executingTime);
+
+        return linkedStudents;
     }
 
     @Cacheable(value = "studentLogged", key = "#studentId + '-' + #travelId")
@@ -346,12 +351,17 @@ public class TravelService {
     }
 
     private void deactivateStudentLink(Travel actualTrip, Student student, StudentTravelStatus studentTravelStatus) {
+        long start = System.currentTimeMillis(); // debugging ttl
+
         StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), student.getId())
                 .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[leaveTravel] Vínculo aluno-viagem não encontrado."));
 
         studentTravel.setEmbark(false);
         studentTravel.setDisembarkHour(Instant.now());
         studentTravel.setStudentTravelStatus(studentTravelStatus);
+
+        long elapsed = System.currentTimeMillis() - start;
+        log.info("[leaveTravel] tempo para executar o leave-travel: {}", elapsed);
 
         studentTravelRepository.save(studentTravel);
     }
