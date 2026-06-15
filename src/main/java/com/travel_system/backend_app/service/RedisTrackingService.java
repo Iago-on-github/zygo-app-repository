@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
@@ -32,7 +33,7 @@ public class RedisTrackingService {
 
     private final String TRACKING_KEY_PREFIX = "travel:tracking:";
     private final String ROUTE_KEY_PREFIX = "travel:route:";
-    private final String STUDENT_TRAVEL_KEY_PREFIX = "student:travel:";
+    private final String STUDENT_TRAVEL_KEY_PREFIX = "travel:away_students:";
     private final String STUDENT_AWAY_STATE_LOCK = "travel:student-away-lock:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
@@ -533,28 +534,31 @@ public class RedisTrackingService {
 
         long now = Instant.now().toEpochMilli();
 
-        String studentAwayTimestamp = hashOperations.get(studentTravelKey, "studentAwayTimestamp");
-
-        // só armazena caso não haja timestamp anterior
-        if (studentAwayTimestamp == null || studentAwayTimestamp.isEmpty()) {
-            hashOperations.put(studentTravelKey,"studentAwayTimestamp", String.valueOf(now));
-        }
+        hashOperations.put(studentTravelKey,"studentAwayTimestamp", String.valueOf(now));
     }
 
     // recupera o timstamp do afastamento do student do onibus
-    public Long getStudentAwayTimestamp(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
-        if (travelId == null || distanceResponseDTO.studentId() == null) {
+    public Map<UUID, Long> getStudentAwayTimestamp(UUID travelId) {
+        if (travelId == null) {
             logger.info("[getStudentAwayTimestamp] dados de entrada inválidos ou insuficientes");
             return null;
         }
 
-        UUID studentId = distanceResponseDTO.studentId();
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + travelId;
 
-        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+        Map<String, String> storedRedis = hashOperations.entries(studentTravelKey);
 
-        String studentAwayTimestamp = hashOperations.get(studentTravelKey, "studentAwayTimestamp");
+        Map<UUID, Long> data = new HashMap<>();
 
-        return studentAwayTimestamp != null ? Long.parseLong(studentAwayTimestamp) : null;
+        for (Map.Entry<String, String> entry : storedRedis.entrySet()) {
+            UUID studentIdKey = UUID.fromString(entry.getKey());
+
+            Long timestampValue = Long.valueOf(entry.getValue());
+
+            data.put(studentIdKey, timestampValue);
+        }
+
+        return data;
     }
 
     // limpa todo o registro de afastamento
