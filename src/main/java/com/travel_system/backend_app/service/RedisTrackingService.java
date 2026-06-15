@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -522,19 +523,21 @@ public class RedisTrackingService {
     }
 
     // registra o timeStamp de distância do afastamento do student do onibus
-    public void markStudentAsAway(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
-        if (travelId == null || distanceResponseDTO.studentId() == null || distanceResponseDTO.distance() == null) {
+    public void markStudentAsAway(UUID travelId, Map<UUID, Long> studentsToMarkAway) {
+        if (travelId == null || studentsToMarkAway.isEmpty()) {
             logger.info("[studentAwayFromBus] dados de entrada inválidos ou insuficientes");
             return;
         }
 
-        UUID studentId = distanceResponseDTO.studentId();
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + travelId;
 
-        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+        Map<String, String> convertedMap = studentsToMarkAway.entrySet()
+                        .stream().collect(Collectors.toMap(
+                                e -> e.getKey().toString(),
+                                e -> e.getValue().toString()
+                ));
 
-        long now = Instant.now().toEpochMilli();
-
-        hashOperations.put(studentTravelKey,"studentAwayTimestamp", String.valueOf(now));
+        hashOperations.putAll(studentTravelKey, convertedMap);
     }
 
     // recupera o timstamp do afastamento do student do onibus
@@ -558,21 +561,27 @@ public class RedisTrackingService {
             data.put(studentIdKey, timestampValue);
         }
 
-        return data;
+        if (data.isEmpty()) return Collections.emptyMap();
+
+        else return data;
     }
 
-    // limpa todo o registro de afastamento
-    public void clearStudentAwayState(UUID travelId, DistanceResponseDTO distanceResponseDTO) {
-        if (travelId == null || distanceResponseDTO.studentId() == null) {
+    // limpa o registro dos estudantes (não deleta tudo - somente os ids dos estudantes presentes)
+    public void clearStudentAwayState(UUID travelId, Set<UUID> studentIds) {
+        if (travelId == null || studentIds.isEmpty()) {
             logger.info("[clearStudentAwayState] dados de entrada inválidos ou insuficientes");
             return;
         }
 
-        UUID studentId = distanceResponseDTO.studentId();
+        logger.info("[clearStudentAwayState] - REMOVENDO {} IDS", studentIds.size());
 
-        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + studentId + ":" + travelId;
+        String studentTravelKey = STUDENT_TRAVEL_KEY_PREFIX + travelId;
 
-        hashOperations.delete(studentTravelKey, "studentAwayTimestamp");
+        Set<String> studentIdsStr = studentIds.stream().map(UUID::toString).collect(Collectors.toSet());
+
+        String[] arrStudentIds = studentIdsStr.toArray(String[]::new);
+
+        hashOperations.delete(studentTravelKey, arrStudentIds);
     }
 
     // evita múltiplo processamento do mesmo dado em threads diferentes com base na key
