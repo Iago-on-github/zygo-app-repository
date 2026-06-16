@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.repository.query.ParameterOutOfBoundsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
@@ -42,10 +43,11 @@ public class TravelService {
     private final PolylineService polylineService;
     private final RouteCalculationService routeCalculationService;
     private final TravelCacheService travelCacheService;
+    private final TravelStudentStateCacheService travelStudentStateCacheService;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -57,6 +59,7 @@ public class TravelService {
         this.polylineService = polylineService;
         this.routeCalculationService = routeCalculationService;
         this.travelCacheService = travelCacheService;
+        this.travelStudentStateCacheService = travelStudentStateCacheService;
     }
 
     @Transactional
@@ -252,27 +255,24 @@ public class TravelService {
 
     @Transactional
     public void leaveTravel(UUID travelId, String studentEmail, StudentTravelStatus studentTravelStatus) {
-        if (travelId == null || studentEmail == null) {
+        if (travelId == null || studentEmail == null || studentTravelStatus == null) {
             throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
         }
 
-        // Remove um estudante de uma viagem, registrando o desembarque.
-        Travel trip = travelRepository.getReferenceById(travelId);
+        // recupera dados das viagens via cache, perante estratégia "getOrLoad"
+        TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
+        StudentTravelCacheDTO studentTravelCache = travelStudentStateCacheService.getOrLoadStudentTravelCache(travelId, studentEmail);
 
-        if (!(trip.getTravelStatus() == TravelStatus.TRAVELLING)) {
+        if (travelStaticCache.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("Viagem " + travelId + " não está em andamento.");
         }
 
-        Student student = studentRepository.findByEmail(studentEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante com email " + studentEmail + " nao encontrado"));
+        // verifica se o estudante NÃO ESTÁ ativo na viagem
+        if (studentTravelCache.studentId() == null || !studentTravelCache.embark()) {
+            throw new TravelStudentAssociationNotFoundException("Estudante " + studentEmail + " não está ATIVO na viagem.");
+        }
 
-        boolean isStudentLinked = trip.getStudentTravels().stream()
-                .filter(st -> st.isEmbark() && st.getStudent() != null)
-                .anyMatch(st -> st.getStudent().getId().equals(student.getId()));
-
-        if (!isStudentLinked) throw new TravelStudentAssociationNotFoundException("Estudante " + studentEmail + " não está ATIVO na viagem.");
-
-        deactivateStudentLink(trip, student, studentTravelStatus);
+        deactivateStudentLink(travelId, studentTravelCache, studentTravelStatus);
     }
 
     public Set<StudentTrackingPositionDTO> linkedStudentTravel(UUID travelId) {
@@ -350,20 +350,22 @@ public class TravelService {
 
     }
 
-    private void deactivateStudentLink(Travel actualTrip, Student student, StudentTravelStatus studentTravelStatus) {
+    private void deactivateStudentLink(UUID travelId, StudentTravelCacheDTO studentTravelCache, StudentTravelStatus studentTravelStatus) {
         long start = System.currentTimeMillis(); // debugging ttl
 
-        StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentId(actualTrip.getId(), student.getId())
-                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[leaveTravel] Vínculo aluno-viagem não encontrado."));
+        String studentEmail = studentTravelCache.studentEmail();
 
-        studentTravel.setEmbark(false);
-        studentTravel.setDisembarkHour(Instant.now());
-        studentTravel.setStudentTravelStatus(studentTravelStatus);
+        UUID studentTravelId = studentTravelCache.studentTravelId();
+        Instant disembarkHour = Instant.now();
+
+        // faz a persistencia, validando o desvinculo
+        studentTravelRepository.disconnectedStudentFromTrip(List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
+
+        // remove as respectivas keys do redis para o aluno em específico
+        travelStudentStateCacheService.evictStudentTravelCachedData(travelId, studentEmail);
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("[leaveTravel] tempo para executar o leave-travel: {}", elapsed);
-
-        studentTravelRepository.save(studentTravel);
     }
 
     private void throwTravelException(String msg) {
