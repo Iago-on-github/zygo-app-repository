@@ -22,7 +22,6 @@ public class TravelCacheService {
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> redisOperations;
 
-    private final String STUDENT_TRIP_LIFECYCLE = "trip:student:";
     private final String TRAVEL_STATIC_CACHE = "trip:static:";
 
     private Logger logger = LoggerFactory.getLogger(TravelCacheService.class);
