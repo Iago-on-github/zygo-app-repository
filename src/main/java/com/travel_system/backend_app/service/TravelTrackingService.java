@@ -125,7 +125,7 @@ public class TravelTrackingService {
         // faz recalculo da rota/ETA se necessário
         else {
             // verifica se deve recalcular rota
-            boolean isShouldRecalculateRoute = shouldRecalculateRoute(latitude, longitude, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
+            boolean isShouldRecalculateRoute = shouldRevalidateRoute(latitude, longitude, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
 
             if (isShouldRecalculateRoute) {
                 RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, latitude, longitude));
@@ -188,77 +188,37 @@ public class TravelTrackingService {
         RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
         RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
 
-        if (routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || routeState.distance() == null) {
+        if (routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || routeState == null || routeState.distance() == null) {
             throw new LiveLocationDataNotFoundException("[processNewLocation] Dados obrigatórios do liveLocation são null ou inválidos. Viagem: " + travelId);
         }
 
-        boolean shouldRecalculateRoute = shouldRecalculateRoute(currentLat, currentLng, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
+        boolean shouldRevalidateRoute = shouldRevalidateRoute(currentLat, currentLng, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
 
-        RouteDetailsDTO newEtaRecalculateByApi;
-        PreviousStateDTO previousEta;
-
-        double newETARecalculateByInternally;
-
-        RouteDetailsDTO currentRouteDetails = new RouteDetailsDTO(null, routeState.distance(), routeState.geometry());
-
+        RouteDetailsDTO currentRouteDetails;
         RouteDeviationDTO routeDeviation = null;
-        try {
-            // valida se precisa recalcular
-            if (shouldRecalculateRoute) {
-                routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, currentLat, currentLng));
 
-                // se está fora da rota, chama o mapbox
-                if (routeDeviation.isOffRoute()) {
-                    newEtaRecalculateByApi = mapboxAPIService.recalculateETA(
-                            currentLng,
-                            currentLat,
-                            travelStaticCache.finalLongitude(),
-                            travelStaticCache.finalLatitude());
+        // valida se precisa recalcular e chama metodo responsavel pelo calculo
+        if (shouldRevalidateRoute) {
+            routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, currentLat, currentLng));
 
-                    if (newEtaRecalculateByApi == null
-                            || newEtaRecalculateByApi.duration() == null
-                            || newEtaRecalculateByApi.distance() == null) {
-                        throw new RecalculateEtaException("[processNewLocation] resposta inválida da API de rotas");
-                    }
-
-                    currentRouteDetails = new RouteDetailsDTO(
-                            newEtaRecalculateByApi.duration(),
-                            newEtaRecalculateByApi.distance(),
-                            newEtaRecalculateByApi.geometry());
-                }
-
-            } else {
-                logger.info("[processNewLocation] - ônibus não se encontra fora de Rota");
-
-                previousEta = redisTrackingService.getPreviousEta(travelStaticCache.travelId());
-
-                if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
-                    throw new EtaDataStatesInvalidException("[processNewLocation] dados do previousEta inválidos ou null para a viagem: " + previousEta);
-                }
-
-                long currentTimeMillis = clock.millis();
-                long timeElapsedMillis = currentTimeMillis - previousEta.timeStamp();
-                double timeElapsedSeconds = (double) timeElapsedMillis / 1000.0;
-
-                newETARecalculateByInternally = previousEta.durationRemaining() - timeElapsedSeconds;
-
-                // nunca deixa ser valor negativo
-                newETARecalculateByInternally = Math.max(0.0, newETARecalculateByInternally);
-
-                currentRouteDetails = new RouteDetailsDTO(
-                        newETARecalculateByInternally,
-                        travelStaticCache.distance(),
-                        travelStaticCache.polylineRoute());
+            if (routeDeviation.isOffRoute()) {
+                currentRouteDetails = calculateEtaFromMapbox(currentLat, currentLng, travelStaticCache.finalLatitude(), travelStaticCache.finalLongitude(), routeState.distance(), routeState.geometry());
             }
-        } catch (RecalculateEtaException | EtaDataStatesInvalidException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            throw new RecalculateEtaException(e.getMessage());
+            else {
+                // precisa recalcular, mas sem desvio de rota
+                currentRouteDetails = calculateEtaInternally(travelId, travelStaticCache.distance(), travelStaticCache.polylineRoute());
+            }
+
+        } else {
+            // sem desvio de rota, realiza cálculo interno
+            logger.info("[processNewLocation] - ônibus não se encontra fora de Rota.");
+
+            currentRouteDetails = calculateEtaInternally(travelId, travelStaticCache.distance(), travelStaticCache.polylineRoute());
+
         }
 
         // atualiza somente se houve recalculate real de rota
-        if (shouldRecalculateRoute && routeDeviation.isOffRoute()) {
+        if (shouldRevalidateRoute && routeDeviation.isOffRoute()) {
             redisTrackingService.storeCalculatedRouteState(
                     travelStaticCache.travelId(),
                     currentLat.toString(),
@@ -346,14 +306,14 @@ public class TravelTrackingService {
     }
 
     // verifica se deve recalcular
-    private boolean shouldRecalculateRoute(Double currentLat, Double currentLng, RouteCalculationReferenceDTO routeCalculationReference) {
+    private boolean shouldRevalidateRoute(Double currentLat, Double currentLng, RouteCalculationReferenceDTO routeCalculationReference) {
         if (currentLat == null || currentLng == null) {
-            logger.info("[shouldRecalculateRoute] - currentLat/Lng são null");
+            logger.info("[shouldRevalidateRoute] - currentLat/Lng são null");
             return false;
         }
 
         if (routeCalculationReference.lastCalcLat() == null || routeCalculationReference.lastCalcLng() == null) {
-            logger.info("[shouldRecalculateRoute] - sem referência anterior para os cálculos.");
+            logger.info("[shouldRevalidateRoute] - sem referência anterior para os cálculos.");
             return false;
         }
 
@@ -363,12 +323,58 @@ public class TravelTrackingService {
         Double distanceFromLastCalculation = routeCalculationService.calculateHaversineDistanceInMeters(currentLat, currentLng, lastCalcLat, lastCalcLng);
 
         if (distanceFromLastCalculation == null) {
-            logger.info("[shouldRecalculateRoute] - distância calculada: null");
+            logger.info("[shouldRevalidateRoute] - distância calculada: null");
             return false;
         }
 
-        logger.info("[shouldRecalculateRoute] - distância desde o último cálculo: {} metros", distanceFromLastCalculation);
+        logger.info("[shouldRevalidateRoute] - distância desde o último cálculo: {} metros", distanceFromLastCalculation);
 
         return distanceFromLastCalculation > ROUTE_RECALCULATION_THRESHOLD;
+    }
+
+    // responsável por realizar o calculo de ETA (rota) com o mapbox p/ onibus fora de rota
+    private RouteDetailsDTO calculateEtaFromMapbox(Double currentLatitude, Double currentLongitude, Double travelFinalLatitude, Double travelFinalLongitude, Double routeDistance, String routeGeometry) {
+        RouteDetailsDTO newEtaRecalculateByApi;
+
+        // se está fora da rota, chama o mapbox
+        newEtaRecalculateByApi = mapboxAPIService.recalculateETA(
+                currentLongitude,
+                currentLatitude,
+                travelFinalLongitude,
+                travelFinalLatitude);
+
+        if (newEtaRecalculateByApi == null
+                || newEtaRecalculateByApi.duration() == null
+                || newEtaRecalculateByApi.distance() == null) {
+            throw new RecalculateEtaException("[processNewLocation] resposta inválida da API de rotas");
+        }
+
+        return new RouteDetailsDTO(
+                newEtaRecalculateByApi.duration(),
+                newEtaRecalculateByApi.distance(),
+                newEtaRecalculateByApi.geometry());
+    }
+
+    // responsavel por calcular o ETA de forma interna,com os dados armazenados no redis p onibus EM ROTA comum
+    private RouteDetailsDTO calculateEtaInternally(UUID travelId, Double travelDistance, String polyline) {
+        PreviousStateDTO previousEta = redisTrackingService.getPreviousEta(travelId);
+
+        if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
+            throw new EtaDataStatesInvalidException("[processNewLocation] dados do previousEta inválidos ou null para a viagem: " + previousEta);
+        }
+
+        long currentTimeMillis = clock.millis();
+        long timeElapsedMillis = currentTimeMillis - previousEta.timeStamp();
+        double timeElapsedSeconds = (double) timeElapsedMillis / 1000.0;
+
+        double newETARecalculateByInternally = previousEta.durationRemaining() - timeElapsedSeconds;
+
+        // nunca deixa ser valor negativo
+        newETARecalculateByInternally = Math.max(0.0, newETARecalculateByInternally);
+
+        return new RouteDetailsDTO(
+                newETARecalculateByInternally,
+                travelDistance,
+                polyline);
     }
 }
