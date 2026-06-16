@@ -300,16 +300,13 @@ public class TravelTrackingService {
 
     // endpoint de fastview - provê a loc do driver
     public LiveLocationDTO getDriverPosition(UUID travelId) {
-        Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("[getDriverPosition] Viagem não encontrada: " + travelId));
+        TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
-        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
+        if (travelStaticCache.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("[getDriverPosition] Viagem " + travelId + " não está em andamento.");
         }
 
-        LiveLocationDTO liveCoordinates = extractLiveCoordinates(travelId);
-
-        return liveCoordinates;
+        return extractLiveCoordinates(travelId);
     }
 
     // fornece um histórico de points salvos no banco
