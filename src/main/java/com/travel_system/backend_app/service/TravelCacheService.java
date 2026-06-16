@@ -34,7 +34,7 @@ public class TravelCacheService {
     }
 
     // armazena o cache estático da viagem
-    public void storeTravelStaticCache(TravelCacheDTO travelCacheDTO) {
+    private void storeTravelStaticCache(TravelCacheDTO travelCacheDTO) {
         if (travelCacheDTO == null) {
             logger.warn("[storeTravelStaticCache] - TravelCacheDTO está null.");
             return;
@@ -103,7 +103,7 @@ public class TravelCacheService {
             logger.info("[getOrLoadTravelStaticCache] - utilizando dados em cache para a viagem estática.");
             return travelStaticCache;
         } else {
-            logger.info("[getOrLoadTravelStaticCache] - não cache. Buscando e armazenando os dados.");
+            logger.info("[getOrLoadTravelStaticCache] - sem cache. Buscando e armazenando os dados.");
 
             Travel travel = travelRepository.findById(travelId)
                     .orElseThrow((() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada.")));
