@@ -179,15 +179,11 @@ public class TravelTrackingService {
         Double currentLat = vehicleLocationRequest.latitude();
         Double currentLng = vehicleLocationRequest.longitude();
 
-        Travel travel = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("[processNewLocation] Trip not found: " + travelId));
+        TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
-        if (travel.getTravelStatus() != TravelStatus.TRAVELLING) {
+        if (travelStaticCache.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("[processNewLocation] A viagem não está em andamento: " + travelId);
         }
-
-        // obtém as últimas coordenadas validadas
-//        LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
 
         RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
         RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
@@ -216,8 +212,8 @@ public class TravelTrackingService {
                     newEtaRecalculateByApi = mapboxAPIService.recalculateETA(
                             currentLng,
                             currentLat,
-                            travel.getFinalLongitude(),
-                            travel.getFinalLatitude());
+                            travelStaticCache.finalLongitude(),
+                            travelStaticCache.finalLatitude());
 
                     if (newEtaRecalculateByApi == null
                             || newEtaRecalculateByApi.duration() == null
@@ -234,7 +230,7 @@ public class TravelTrackingService {
             } else {
                 logger.info("[processNewLocation] - ônibus não se encontra fora de Rota");
 
-                previousEta = redisTrackingService.getPreviousEta(travel.getId());
+                previousEta = redisTrackingService.getPreviousEta(travelStaticCache.travelId());
 
                 if (previousEta == null || previousEta.timeStamp() == null || previousEta.durationRemaining() == null) {
                     throw new EtaDataStatesInvalidException("[processNewLocation] dados do previousEta inválidos ou null para a viagem: " + previousEta);
@@ -251,8 +247,8 @@ public class TravelTrackingService {
 
                 currentRouteDetails = new RouteDetailsDTO(
                         newETARecalculateByInternally,
-                        travel.getDistance(),
-                        travel.getPolylineRoute());
+                        travelStaticCache.distance(),
+                        travelStaticCache.polylineRoute());
             }
         } catch (RecalculateEtaException | EtaDataStatesInvalidException e) {
             throw e;
@@ -264,16 +260,16 @@ public class TravelTrackingService {
         // atualiza somente se houve recalculate real de rota
         if (shouldRecalculateRoute && routeDeviation.isOffRoute()) {
             redisTrackingService.storeCalculatedRouteState(
-                    travel.getId(),
+                    travelStaticCache.travelId(),
                     currentLat.toString(),
                     currentLng.toString(),
                     currentRouteDetails);
         }
 
         redisTrackingService.storeTravelMetadata(
-                travel.getId(),
+                travelStaticCache.travelId(),
                 currentRouteDetails,
-                travel.getTravelStatus().toString()
+                travelStaticCache.travelStatus().toString()
         );
     }
 
