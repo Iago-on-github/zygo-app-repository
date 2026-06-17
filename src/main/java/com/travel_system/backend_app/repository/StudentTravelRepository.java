@@ -51,4 +51,6 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
 
     @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.email = :studentEmail")
     Optional<StudentTravel> findByTravelIdAndStudentEmail(@Param("travelId") UUID travelId, @Param("studentEmail") String studentEmail);
+
+    boolean existsByTravelIdAndStudentEmailAndEmbarkTrue(UUID travelId, String studentEmail);
 }
