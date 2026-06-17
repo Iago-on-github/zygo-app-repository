@@ -228,35 +228,33 @@ public class TravelService {
     }
 
     @Transactional
-    public void joinTravel(UUID travelId, String studentEmail) {
-        if (travelId == null || studentEmail == null) {
-            throw new IllegalArgumentException("[joinTravel] travelId " + travelId + " ou studentEmail " + studentEmail + " vindo nulos.");
+    public void joinTravel(UUID travelId, String studentEmail, StudentTravelStatus status) {
+        if (travelId == null || studentEmail == null || status == null) {
+            throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " ou status vindo nulos");
         }
 
-        // realiza vínculo estudante-viagem (estudante entra na viagem)
-        Travel trip = travelRepository.getReferenceById(travelId);
+        boolean isAlreadyActive = studentTravelRepository.existsByTravelIdAndStudentEmailAndEmbarkTrue(travelId, studentEmail);
 
-        if (!(trip.getTravelStatus() == TravelStatus.TRAVELLING)) {
-            throwTravelException("Viagem " + travelId + " não está em andamento.");
-        }
-
-        Student student = studentRepository.findByEmail(studentEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante com o email " + studentEmail + " não encontrado"));
-
-        boolean isStudentAlreadyLinked = trip.getStudentTravels().stream()
-                .anyMatch(st -> st.getStudent().getId().equals(student.getId()));
-
-        if (isStudentAlreadyLinked) {
+        if (isAlreadyActive) {
             throw new StudentAlreadyLinkedToTrip("Estudante " + studentEmail + " já vinculado à viagem:" + travelId);
         }
 
-        persistStudentLink(trip, student);
+        Travel trip = travelRepository.getReferenceById(travelId);
+
+        if (trip.getTravelStatus() != TravelStatus.TRAVELLING) {
+            throw new TravelException("Viagem " + travelId + " não está em andamento.");
+        }
+
+        Student student = studentRepository.findByEmail(studentEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante com email " + studentEmail + " não encontrado"));
+
+        persistStudentLink(trip, student, status);
     }
 
     @Transactional
     public void leaveTravel(UUID travelId, String studentEmail, StudentTravelStatus studentTravelStatus) {
         if (travelId == null || studentEmail == null || studentTravelStatus == null) {
-            throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
+            throw new IllegalArgumentException("[leaveTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
         }
 
         // recupera dados das viagens via cache, perante estratégia "getOrLoad"
@@ -336,15 +334,18 @@ public class TravelService {
                 studentTravel.getPosition());
     }
 
-    private void persistStudentLink(Travel actualTrip, Student student) {
+    private void persistStudentLink(Travel travel, Student student, StudentTravelStatus status) {
         StudentTravel studentTravel = new StudentTravel();
 
-        studentTravel.setTravel(actualTrip);
+        studentTravel.setTravel(travel);
         studentTravel.setStudent(student);
         studentTravel.setEmbark(true);
         studentTravel.setEmbarkHour(Instant.now());
+        studentTravel.setStudentTravelStatus(status);
 
         studentTravelRepository.save(studentTravel);
+
+        travelStudentStateCacheService.evictStudentTravelCachedData(travel.getId(), student.getEmail());
 
         // armazena métrica de salvamento em cache
 
