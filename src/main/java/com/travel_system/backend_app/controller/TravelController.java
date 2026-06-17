@@ -164,7 +164,7 @@ public class TravelController {
     public ResponseEntity<Void> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
-        travelService.joinTravel(travelId, studentEmail);
+        travelService.joinTravel(travelId, studentEmail, StudentTravelStatus.ACTIVE);
         return ResponseEntity.noContent().build();
     }
 
