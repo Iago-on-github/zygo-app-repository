@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/auth")
@@ -71,8 +72,9 @@ public class AuthController {
     public ResponseEntity<RefreshTokenResponseDTO> refreshToken(@Parameter(description = "RefreshToken enviado no cabeçalho da requisição.", required = true)
                                                                     @RequestHeader("X-Refresh-Token") String refreshToken) {
         String email = tokenConfig.getSubjectFromToken(refreshToken);
+        UUID customerId = tokenConfig.getCustomerIdFromToken(refreshToken);
 
-        var token = authService.refreshToken(email, refreshToken);
+        var token = authService.refreshToken(email, refreshToken, customerId);
 
         return ResponseEntity.ok().body(token);
     }
