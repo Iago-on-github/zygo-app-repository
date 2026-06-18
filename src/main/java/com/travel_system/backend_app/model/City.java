@@ -18,7 +18,7 @@ public class City {
     private CitySize size;
     private boolean isActive = true;
     @OneToMany(mappedBy = "city")
-    private Set<Driver> drivers = new HashSet<>();
+    private Set<Customer> customers = new HashSet<>();
 
     public City() {
     }
@@ -62,11 +62,11 @@ public class City {
         isActive = active;
     }
 
-    public Set<Driver> getDrivers() {
-        return drivers;
+    public Set<Customer> getCustomers() {
+        return customers;
     }
 
-    public void setDrivers(Set<Driver> drivers) {
-        this.drivers = drivers;
+    public void setCustomers(Set<Customer> customers) {
+        this.customers = customers;
     }
 }
