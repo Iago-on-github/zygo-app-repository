@@ -12,6 +12,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class AuthService {
 
@@ -42,7 +44,7 @@ public class AuthService {
             throw new EntityNotFoundException("Email não encontrado. Tente novamente");
         }
 
-        var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles());
+        var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles(), user.getCustomer().getId());
 
         return new LoginResponseDTO(
                 tokenResponse.username(),
@@ -53,10 +55,9 @@ public class AuthService {
                 tokenResponse.refreshToken());
     }
 
-    public RefreshTokenResponseDTO refreshToken(String email, String refreshToken) {
-        var user = userRepository.findUserByEmail(email);
-
-        if (user == null) throw new EntityNotFoundException("Email não encontrado. Tente novamente");
+    public RefreshTokenResponseDTO refreshToken(String email, String refreshToken, UUID customerId) {
+        userRepository.findByEmailAndCustomerId(email, customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Entidade com o email " + email + " não encontrado"));
 
         var refreshedToken = tokenConfig.refreshToken(refreshToken);
 
