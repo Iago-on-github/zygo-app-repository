@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -19,4 +20,6 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
     Set<String> findByName(String name);
 
     boolean existsByEmailAndIdAndStatus(String email, UUID id, GeneralStatus status);
+
+    Optional<UserModel> findByEmailAndCustomerId(String email, UUID customerId);
 }
