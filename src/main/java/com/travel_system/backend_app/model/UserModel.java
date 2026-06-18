@@ -36,6 +36,8 @@ public class UserModel {
     @JoinTable(name = "user_permissions", joinColumns = {@JoinColumn (name="id_user")},
     inverseJoinColumns = {@JoinColumn (name = "id_permission")})
     private List<Permissions> permissions = new ArrayList<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Customer customer;
 
     public UserModel() {}
 
@@ -146,6 +148,14 @@ public class UserModel {
 
     public void setPermissions(List<Permissions> permissions) {
         this.permissions = permissions;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
     }
 
     @Override
