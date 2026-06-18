@@ -3,17 +3,20 @@ package com.travel_system.backend_app.config;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.travel_system.backend_app.exceptions.InvalidJwtAuthenticationToken;
 import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.response.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO;
+import com.travel_system.backend_app.security.JwtAuthenticationFilter;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
@@ -24,6 +27,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class TokenConfig {
@@ -48,20 +52,21 @@ public class TokenConfig {
         algorithm = Algorithm.HMAC256(secret.getBytes());
     }
 
-    public LoginResponseDTO createAccessToken(String email, List<String> roles)  {
+    public LoginResponseDTO createAccessToken(String email, List<String> roles, UUID customerId)  {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInMilliseconds, ChronoUnit.MILLIS);
 
-        var accessToken = getAccessToken(email, roles, now, validity);
-        var refreshToken = getRefreshToken(email, roles, now);
+        var accessToken = getAccessToken(email, roles, now, validity, customerId);
+        var refreshToken = getRefreshToken(email, roles, now, customerId);
 
         return new LoginResponseDTO(email, true, now, validity, accessToken, refreshToken);
     }
 
-    private String getAccessToken(String email, List<String> roles, Instant now, Instant validity) {
+    private String getAccessToken(String email, List<String> roles, Instant now, Instant validity, UUID customerId) {
         String issuerUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         return JWT.create()
                 .withClaim("roles", roles)
+                .withClaim("customerId", customerId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validity)
                 .withSubject(email)
@@ -70,10 +75,11 @@ public class TokenConfig {
                 .strip();
     }
 
-    private String getRefreshToken(String email, List<String> roles, Instant now) {
+    private String getRefreshToken(String email, List<String> roles, Instant now, UUID customerId) {
         Instant validityRefreshToken = now.plus(validityInMilliseconds * 3, ChronoUnit.MILLIS);
         return JWT.create()
                 .withClaim("roles", roles)
+                .withClaim("customerId", customerId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validityRefreshToken)
                 .withSubject(email)
@@ -89,9 +95,12 @@ public class TokenConfig {
 
         String email = decodedJWT.getSubject();
         List<String> roles = decodedJWT.getClaim("roles").asList(String.class);
+        String strCustomerId = decodedJWT.getClaim("customerId").asString();
+
+        UUID customerId = UUID.fromString(strCustomerId);
 
         // chama o metodo e retorna somente os campos necessários
-        LoginResponseDTO token = createAccessToken(email, roles);
+        LoginResponseDTO token = createAccessToken(email, roles, customerId);
 
         return new RefreshTokenResponseDTO(token.accessToken(), token.refreshToken(), token.expiration());
     }
@@ -119,9 +128,15 @@ public class TokenConfig {
     }
 
     public String getSubjectFromToken(String token) {
-        DecodedJWT decodedJWT = JWT.require(algorithm).build().verify(token); // se inválido, lança exceção
+        DecodedJWT decodedJWT = decodedToken(token);
 
         return decodedJWT.getSubject();
+    }
+
+    public UUID getCustomerIdFromToken(String token) {
+        DecodedJWT decodedJWT = decodedToken(token);
+
+        return UUID.fromString(decodedJWT.getClaim("customerId").asString());
     }
 
     public Boolean validateToken(String token) {
