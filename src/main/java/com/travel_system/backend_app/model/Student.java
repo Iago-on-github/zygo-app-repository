@@ -23,13 +23,6 @@ public class Student extends UserModel {
     public Student() {
     }
 
-//    public Student(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, InstitutionType institutionType, String course, Role role) {
-//        super(id, email, password, name, lastName, telephone, profilePicture, status, createdAt, updatedAt);
-//        this.institutionType = institutionType;
-//        this.course = course;
-//        this.role = role;
-//    }
-
     public Student(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, InstitutionType institutionType, String course) {
         super(id, email, password, name, lastName, telephone, profilePicture, status, createdAt, updatedAt);
         this.institutionType = institutionType;
