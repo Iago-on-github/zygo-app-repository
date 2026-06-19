@@ -43,7 +43,6 @@ public class TravelCacheService {
 
         Map<String, String> redisData = new HashMap<>();
 
-        addIfNotNull(redisData, "cityId", travelCacheDTO.cityId());
         addIfNotNull(redisData, "travelStatus", travelCacheDTO.travelStatus());
         addIfNotNull(redisData, "polyline", travelCacheDTO.polylineRoute());
         addIfNotNull(redisData, "finalLatitude", travelCacheDTO.finalLatitude());
@@ -67,7 +66,6 @@ public class TravelCacheService {
             return null;
         }
 
-        String cityId = redisData.get("cityId");
         String travelStatus = redisData.get("travelStatus");
         String polylineRoute = redisData.get("polyline");
         String finalLatitudeStr = redisData.get("finalLatitude");
@@ -80,11 +78,9 @@ public class TravelCacheService {
         Double distance = (distanceStr != null) ? Double.valueOf(distanceStr) : null;
         Double duration = (durationStr != null) ? Double.valueOf(durationStr) : null;
 
-        UUID cityIdConverted = cityId != null ? UUID.fromString(cityId) : null;
-
         TravelStatus travelStatusConverted = travelStatus != null ? TravelStatus.valueOf(travelStatus) : null;
 
-        return new TravelCacheDTO(travelId, cityIdConverted, travelStatusConverted, finalLatitude, finalLongitude, polylineRoute, distance, duration);
+        return new TravelCacheDTO(travelId, travelStatusConverted, finalLatitude, finalLongitude, polylineRoute, distance, duration);
     }
 
     // invalida (deleta) todo o cache da viagem estática
@@ -118,7 +114,6 @@ public class TravelCacheService {
     private TravelCacheDTO travelCacheMapper(Travel travel) {
         return new TravelCacheDTO(
                 travel.getId(),
-                travel.getCity().getId(),
                 travel.getTravelStatus(),
                 travel.getFinalLatitude(),
                 travel.getFinalLongitude(),
