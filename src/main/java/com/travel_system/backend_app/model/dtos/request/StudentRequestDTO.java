@@ -5,6 +5,7 @@ import com.travel_system.backend_app.model.enums.InstitutionType;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
+import java.util.UUID;
 
 public record StudentRequestDTO(
         @Email
@@ -19,5 +20,6 @@ public record StudentRequestDTO(
         String telephone,
         String profilePicture,
         InstitutionType institutionType,
-        String course) {
+        String course,
+        UUID customerId) {
 }
