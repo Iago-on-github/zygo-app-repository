@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travel_system.backend_app.model.enums.CitySize;
 import jakarta.persistence.*;
 
@@ -62,6 +63,7 @@ public class City {
         isActive = active;
     }
 
+    @JsonIgnore
     public Set<Customer> getCustomers() {
         return customers;
     }
