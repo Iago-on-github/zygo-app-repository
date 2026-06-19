@@ -2,10 +2,12 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.StudentMapper;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -30,12 +32,14 @@ public class StudentService {
     private final StudentRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionsRepository permissionsRepository;
+    private final CustomerRepository customerRepository;
     private final StudentMapper studentMapper;
 
-    public StudentService(StudentRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, StudentMapper studentMapper) {
+    public StudentService(StudentRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, CustomerRepository customerRepository, StudentMapper studentMapper) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
+        this.customerRepository = customerRepository;
         this.studentMapper = studentMapper;
     }
 
@@ -57,10 +61,8 @@ public class StudentService {
     public StudentResponseDTO createStudent(StudentRequestDTO requestDTO) {
         verifyFieldsIsNull(requestDTO);
 
-        Student newStudent = studentMapper(requestDTO);
-
-        Optional<Student> email = repository.findByEmail(newStudent.getEmail());
-        Optional<Student> telephone = repository.findByTelephone(newStudent.getTelephone());
+        Optional<Student> email = repository.findByEmail(requestDTO.email());
+        Optional<Student> telephone = repository.findByTelephone(requestDTO.telephone());
 
         if (email.isPresent()) throw new DuplicateResourceException("O email " + requestDTO.email() + " já existe");
         if (telephone.isPresent()) throw new DuplicateResourceException("O telefone " + requestDTO.telephone() + " já existe");
@@ -69,9 +71,15 @@ public class StudentService {
         Permissions userPerm = permissionsRepository.findByDescription(PERM)
                 .orElseThrow(() -> new PermissionNotFoundException("Permissão " + PERM + " não encontrada."));
 
+        Customer customer = customerRepository.findById(requestDTO.customerId())
+                .orElseThrow(() -> new EntityNotFoundException("Customer: " + requestDTO.customerId() + " não encontrado"));
+
+        Student newStudent = studentMapper(requestDTO);
+
         newStudent.setPermissions(List.of(userPerm));
         newStudent.setCreatedAt(LocalDateTime.now());
         newStudent.setStatus(GeneralStatus.ACTIVE);
+        newStudent.setCustomer(customer);
 
         Student savedStudent = repository.save(newStudent);
         return studentConverted(savedStudent);
@@ -168,13 +176,15 @@ public class StudentService {
                 student.getProfilePicture(),
                 student.getCreatedAt(),
                 student.getInstitutionType(),
-                student.getCourse()
+                student.getCourse(),
+                student.getCustomer().getId()
         );
     }
 
     private void verifyFieldsIsNull(StudentRequestDTO dto) {
         if (dto.email() == null || dto.password() == null ||
-                dto.name() == null || dto.telephone() == null || dto.institutionType() == null || dto.course() == null) {
+                dto.name() == null || dto.telephone() == null || dto.institutionType() == null || dto.course() == null
+        || dto.customerId() == null) {
             throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos");
         }
     }
