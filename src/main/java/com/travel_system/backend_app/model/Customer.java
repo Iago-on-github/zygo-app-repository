@@ -1,7 +1,11 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.model.enums.ClientSector;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -15,18 +19,34 @@ public class Customer {
     private String name;
     @Column(unique = true)
     private String slug;
+    private String cnpj;
     private boolean active;
     @ManyToOne
     private City city;
     @OneToMany(mappedBy = "customer")
     private Set<UserModel> users = new HashSet<>();
+    @Enumerated(EnumType.STRING)
+    private ClientSector clientSector;
+    private String profilePicture;
+    @CreatedDate
+    private Instant createdAt;
+    @LastModifiedDate
+    private Instant updatedAt;
 
-    public Customer(UUID id, String name, String slug, boolean active, City city) {
+    public Customer() {
+    }
+
+    public Customer(UUID id, String name, String slug, String cnpj, boolean active, City city, ClientSector clientSector, String profilePicture, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.slug = slug;
+        this.cnpj = cnpj;
         this.active = active;
         this.city = city;
+        this.clientSector = clientSector;
+        this.profilePicture = profilePicture;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() {
@@ -53,6 +73,14 @@ public class Customer {
         this.slug = slug;
     }
 
+    public String getCnpj() {
+        return cnpj;
+    }
+
+    public void setCnpj(String cnpj) {
+        this.cnpj = cnpj;
+    }
+
     public boolean isActive() {
         return active;
     }
@@ -67,5 +95,45 @@ public class Customer {
 
     public void setCity(City city) {
         this.city = city;
+    }
+
+    public Set<UserModel> getUsers() {
+        return users;
+    }
+
+    public void setUsers(Set<UserModel> users) {
+        this.users = users;
+    }
+
+    public ClientSector getClientSector() {
+        return clientSector;
+    }
+
+    public void setClientSector(ClientSector clientSector) {
+        this.clientSector = clientSector;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
