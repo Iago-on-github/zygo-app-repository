@@ -15,7 +15,6 @@ public class Travel {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @ManyToOne
     @Enumerated(value = EnumType.STRING)
     private TravelStatus travelStatus;
     @ManyToOne
