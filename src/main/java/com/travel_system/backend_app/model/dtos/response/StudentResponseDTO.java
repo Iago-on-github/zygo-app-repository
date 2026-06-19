@@ -16,6 +16,7 @@ public record StudentResponseDTO(
         String profilePicture,
         LocalDateTime createdAt,
         InstitutionType institutionType,
-        String course
+        String course,
+        UUID customerId
         ) {
 }
