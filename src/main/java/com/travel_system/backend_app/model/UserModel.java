@@ -41,7 +41,7 @@ public class UserModel {
 
     public UserModel() {}
 
-    public UserModel(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public UserModel(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, Customer customer) {
         this.id = id;
         this.email = email;
         this.password = password;
@@ -52,6 +52,7 @@ public class UserModel {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.customer = customer;
     }
 
     public List<String> getRoles() {
