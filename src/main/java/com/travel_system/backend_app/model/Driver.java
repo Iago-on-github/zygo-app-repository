@@ -24,11 +24,10 @@ public class Driver extends UserModel {
     public Driver() {
     }
 
-    public Driver(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, String areaOfActivity, Integer totalTrips, List<Travel> travels, City city) {
-        super(id, email, password, name, lastName, telephone, profilePicture, status, createdAt, updatedAt);
+    public Driver(UUID id, String email, String password, String name, String lastName, String telephone, String profilePicture, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, Customer customer, String areaOfActivity, Integer totalTrips, City city) {
+        super(id, email, password, name, lastName, telephone, profilePicture, status, createdAt, updatedAt, customer);
         this.areaOfActivity = areaOfActivity;
         this.totalTrips = totalTrips;
-        this.travels = travels;
         this.city = city;
     }
 
