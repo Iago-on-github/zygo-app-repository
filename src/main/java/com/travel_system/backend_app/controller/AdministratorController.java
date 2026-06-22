@@ -2,6 +2,7 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
@@ -155,6 +157,14 @@ public class AdministratorController {
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(newAdm.id()).toUri();
 
         return ResponseEntity.created(uri).body(newAdm);
+    }
+
+    @PostMapping("/platformAdm")
+    public ResponseEntity<AdministratorResponseDTO> createPlatformAdministrator(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdmRequestDTO, UriComponentsBuilder componentsBuilder) {
+        AdministratorResponseDTO platformAdministrator = administratorService.createPlatformAdministrator(platformAdmRequestDTO);
+        URI uri = componentsBuilder.path("/{id}").buildAndExpand(platformAdministrator.id()).toUri();
+
+        return ResponseEntity.created(uri).body(platformAdministrator);
     }
 
     @Operation(
