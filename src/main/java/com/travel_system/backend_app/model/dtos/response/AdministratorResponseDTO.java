@@ -15,6 +15,7 @@ public record AdministratorResponseDTO(
         String profilePicture,
         GeneralStatus status,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        UUID customerId
 ) {
 }
