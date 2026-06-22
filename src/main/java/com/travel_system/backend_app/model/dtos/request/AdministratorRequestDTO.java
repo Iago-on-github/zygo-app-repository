@@ -2,6 +2,7 @@ package com.travel_system.backend_app.model.dtos.request;
 
 
 import javax.validation.constraints.*;
+import java.util.UUID;
 
 public record AdministratorRequestDTO(
         @Email(message = "Verifique a inserção do email")
@@ -26,6 +27,8 @@ public record AdministratorRequestDTO(
         @Min(8)
         @NotBlank(message = "Campo 'Telefone' é obrigatório")
         String telephone,
-        String profilePicture
+        String profilePicture,
+        @NotNull @NotBlank
+        UUID customerId
 ) {
 }
