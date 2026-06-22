@@ -2,10 +2,8 @@ package com.travel_system.backend_app.model.dtos.request;
 
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 
-import javax.validation.constraints.Email;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import javax.validation.constraints.*;
+import java.util.UUID;
 
 public record DriverRequestDTO(
         @Email
@@ -17,6 +15,8 @@ public record DriverRequestDTO(
         String lastName,
         String telephone,
         String profilePicture,
-        String areaOfActivity
+        String areaOfActivity,
+        @NotNull @NotBlank
+        UUID customerId
 ) {
 }
