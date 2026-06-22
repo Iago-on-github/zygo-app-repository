@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.interfaces.mappers.DriverMapper;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
@@ -13,6 +14,7 @@ import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -31,12 +33,14 @@ import java.util.UUID;
 @Service
 public class DriverService {
     private final DriverRepository repository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionsRepository permissionsRepository;
     private final DriverMapper driverMapper;
 
-    public DriverService(DriverRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, DriverMapper driverMapper) {
+    public DriverService(DriverRepository repository, CustomerRepository customerRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, DriverMapper driverMapper) {
         this.repository = repository;
+        this.customerRepository = customerRepository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
         this.driverMapper = driverMapper;
@@ -60,21 +64,25 @@ public class DriverService {
     public DriverResponseDTO createDriver(DriverRequestDTO driverRequestDTO) {
         verifyFieldsIsNull(driverRequestDTO);
 
+        Optional<Driver> email = repository.findByEmail(driverRequestDTO.email());
+        Optional<Driver> telephone = repository.findByTelephone(driverRequestDTO.telephone());
+
+        if (email.isPresent()) throw new DuplicateResourceException("Email " + driverRequestDTO.email() + " já existe");
+        if (telephone.isPresent()) throw new DuplicateResourceException("Telefone " + driverRequestDTO.telephone() + " já existe");
+
         Driver newDriver = driverMapper(driverRequestDTO);
-
-        Optional<Driver> email = repository.findByEmail(newDriver.getEmail());
-        Optional<Driver> telephone = repository.findByTelephone(newDriver.getTelephone());
-
-        if (email.isPresent()) throw new DuplicateResourceException("Email já existe");
-        if (telephone.isPresent()) throw new DuplicateResourceException("Telefone já existe");
 
         newDriver.setCreatedAt(LocalDateTime.now());
         newDriver.setStatus(GeneralStatus.ACTIVE);
+
+        Customer customer = customerRepository.findById(driverRequestDTO.customerId())
+                .orElseThrow(() -> new EntityNotFoundException("Customer " + driverRequestDTO.customerId() + " não encontrado."));
 
         final String ROLE_DRIVER = "ROLE_DRIVER";
         Permissions admPerm = permissionsRepository.findByDescription(ROLE_DRIVER)
                 .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_DRIVER + " não encontrada."));
 
+        newDriver.setCustomer(customer);
         newDriver.setPermissions(List.of(admPerm));
 
         Driver savedDriver = repository.save(newDriver);
@@ -165,18 +173,12 @@ public class DriverService {
 
     private void verifyFieldsIsNull(DriverRequestDTO dto) {
         if (dto.email() == null || dto.password() == null ||
-                dto.name() == null || dto.telephone() == null || dto.areaOfActivity() == null) {
+                dto.name() == null || dto.telephone() == null || dto.areaOfActivity() == null || dto.customerId() == null) {
             throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos");
         }
     }
 
     private DriverResponseDTO driverConverted(Driver driver) {
-        CityResponseDTO cityResponseDTO = null;
-
-        if (driver.getCity() != null) {
-            cityResponseDTO = new CityResponseDTO(driver.getCity().getId(), driver.getCity().getName(), driver.getCity().getSize());
-        }
-
         return new DriverResponseDTO(
                 driver.getId(),
                 driver.getName(),
@@ -188,7 +190,7 @@ public class DriverService {
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips(),
-                cityResponseDTO
+                driver.getCustomer().getId()
         );
     }
 }
