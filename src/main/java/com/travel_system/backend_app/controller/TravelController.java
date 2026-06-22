@@ -160,7 +160,6 @@ public class TravelController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @PostMapping("/{travelId}/join")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
@@ -196,7 +195,6 @@ public class TravelController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @PostMapping("/{travelId}/leave")
-    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Void> leaveTravel (@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
