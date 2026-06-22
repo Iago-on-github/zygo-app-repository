@@ -1,17 +1,17 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.DuplicateResourceException;
-import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
-import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
-import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
+import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.AdministratorMapper;
 import com.travel_system.backend_app.model.Administrator;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.AdministratorRepository;
+import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -27,20 +27,32 @@ import java.util.UUID;
 @Service
 public class AdministratorService {
     private final AdministratorRepository administratorRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionsRepository permissionsRepository;
     private final AdministratorMapper administratorMapper;
+    private final CurrentUserService currentUserService;
 
     @Autowired
-    public AdministratorService(AdministratorRepository administratorRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, AdministratorMapper administratorMapper) {
+    public AdministratorService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, AdministratorMapper administratorMapper, CurrentUserService currentUserService) {
         this.administratorRepository = administratorRepository;
+        this.customerRepository = customerRepository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
         this.administratorMapper = administratorMapper;
+        this.currentUserService = currentUserService;
     }
 
     public List<AdministratorResponseDTO> getAllAdministrators() {
-        List<Administrator> allAdmins = administratorRepository.findAll();
+        boolean platformAdmin = currentUserService.isPlatformAdmin();
+
+        List<Administrator> allAdmins;
+
+        if (platformAdmin) {
+            allAdmins = administratorRepository.findAll();
+        } else {
+            allAdmins = administratorRepository.findAllWithCustomerId();
+        }
 
         return allAdmins.stream().map(this::admConverted).toList();
     }
@@ -48,7 +60,14 @@ public class AdministratorService {
     public List<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status) {
         if (status == null) status = GeneralStatus.ACTIVE;
 
-        List<Administrator> administrators = administratorRepository.findByStatus(status);
+        boolean platformAdmin = currentUserService.isPlatformAdmin();
+
+        List<Administrator> administrators;
+        if (platformAdmin) {
+            administrators = administratorRepository.findByStatusWithCustomerId(status);
+        } else {
+            administrators = administratorRepository.findByStatus(status);
+        }
 
         return administrators.stream().map(this::admConverted).toList();
     }
@@ -64,10 +83,8 @@ public class AdministratorService {
     public AdministratorResponseDTO createAdministrator(AdministratorRequestDTO admRequestDTO) {
         checkFieldsIsNull(admRequestDTO);
 
-        Administrator adm = admMapper(admRequestDTO);
-
-        Optional<Administrator> existingAdministratorEmail = administratorRepository.findByEmail(adm.getEmail());
-        Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(adm.getTelephone());
+        Optional<Administrator> existingAdministratorEmail = administratorRepository.findByEmail(admRequestDTO.email());
+        Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(admRequestDTO.telephone());
 
         if (existingAdministratorEmail.isPresent()) throw new DuplicateResourceException("Email já registrado");
         if (existingAdministratorTelephone.isPresent()) throw new DuplicateResourceException("Telefone já registrado");
@@ -75,6 +92,38 @@ public class AdministratorService {
         final String ROLE_ADMIN = "ROLE_ADMIN";
         Permissions admPerm = permissionsRepository.findByDescription(ROLE_ADMIN)
                 .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_ADMIN + " não encontrada."));
+
+        Customer customer = customerRepository.findById(admRequestDTO.customerId())
+                .orElseThrow(() -> new EntityNotFoundException("Customer " + admRequestDTO.customerId() + " não encontrado"));
+
+        Administrator adm = admMapper(admRequestDTO);
+
+        adm.setPermissions(List.of(admPerm));
+        adm.setCustomer(customer);
+
+        Administrator savedAdm = administratorRepository.save(adm);
+        return admConverted(savedAdm);
+    }
+
+    @Transactional
+    public AdministratorResponseDTO createPlatformAdministrator(PlatformAdministratorRequestDTO platformAdmRequestDTO) {
+        boolean platformAdmin = currentUserService.isPlatformAdmin();
+
+        if (!platformAdmin) {
+            throw new NotAuthorizedException("Administrador sem permissão necessária para criar Administradores de Plataforma.");
+        }
+
+        Optional<Administrator> existingAdministratorEmail = administratorRepository.findByEmail(platformAdmRequestDTO.email());
+        Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(platformAdmRequestDTO.telephone());
+
+        if (existingAdministratorEmail.isPresent()) throw new DuplicateResourceException("Email já registrado");
+        if (existingAdministratorTelephone.isPresent()) throw new DuplicateResourceException("Telefone já registrado");
+
+        final String ROLE_PLATFORM = "ROLE_PLATFORM_ADMIN";
+        Permissions admPerm = permissionsRepository.findByDescription(ROLE_PLATFORM)
+                .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_PLATFORM + " não encontrada."));
+
+        Administrator adm = admPlatformMapper(platformAdmRequestDTO);
 
         adm.setPermissions(List.of(admPerm));
 
@@ -84,6 +133,12 @@ public class AdministratorService {
 
     @Transactional
     public AdministratorResponseDTO updateCurrentAdministrator(String authenticatedEmail, AdministratorUpdateDTO admRequestDTO) {
+        boolean platformAdmin = currentUserService.isPlatformAdmin();
+
+        if (!platformAdmin) {
+            throw new NotAuthorizedException("Administrador sem permissão necessária para alterar Administratores de Plataforma.");
+        }
+
         Administrator loggedAdm = administratorRepository.findByEmail(authenticatedEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado, " + authenticatedEmail));
 
@@ -113,6 +168,12 @@ public class AdministratorService {
 
     @Transactional
     public void updateAdministrator(UUID id, GeneralStatus newStatus) {
+        boolean platformAdmin = currentUserService.isPlatformAdmin();
+
+        if (!platformAdmin) {
+            throw new NotAuthorizedException("Administrador sem permissão necessária para alterar Administratores de Plataforma.");
+        }
+
         Administrator expectedAdministrator = administratorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado: " + id));
 
@@ -129,7 +190,8 @@ public class AdministratorService {
 
     private void checkFieldsIsNull(AdministratorRequestDTO admRequestDTO) {
        if (admRequestDTO.email() == null || admRequestDTO.password() == null ||
-               admRequestDTO.name() == null || admRequestDTO.cpf() == null || admRequestDTO.telephone() == null)  {
+               admRequestDTO.name() == null || admRequestDTO.cpf() == null || admRequestDTO.telephone() == null ||
+       admRequestDTO.customerId() == null)  {
            throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos.");
        }
     }
@@ -151,7 +213,26 @@ public class AdministratorService {
         return adm;
     }
 
+    private Administrator admPlatformMapper(PlatformAdministratorRequestDTO admRequestDto) {
+        Administrator adm = new Administrator();
+
+        adm.setEmail(admRequestDto.email());
+        adm.setPassword(passwordEncoder.encode(admRequestDto.password()));
+        adm.setName(admRequestDto.name());
+        adm.setLastName(admRequestDto.lastName());
+        adm.setCpf(admRequestDto.cpf());
+        adm.setBirthDate(admRequestDto.birthDate());
+        adm.setTelephone(admRequestDto.telephone());
+        adm.setStatus(GeneralStatus.ACTIVE);
+        adm.setCreatedAt(LocalDateTime.now());
+        adm.setProfilePicture(admRequestDto.profilePicture());
+
+        return adm;
+    }
+
     private AdministratorResponseDTO admConverted(Administrator adm) {
+        UUID customerId = adm.getCustomer() != null ? adm.getCustomer().getId() : null;
+
         return new AdministratorResponseDTO(
                 adm.getId(),
                 adm.getEmail(),
@@ -162,7 +243,8 @@ public class AdministratorService {
                 adm.getProfilePicture(),
                 adm.getStatus(),
                 adm.getCreatedAt(),
-                adm.getUpdatedAt()
+                adm.getUpdatedAt(),
+                customerId
         );
     }
 }
