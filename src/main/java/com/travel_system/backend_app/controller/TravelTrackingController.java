@@ -58,7 +58,6 @@ public class TravelTrackingController {
 
     })
     @PostMapping("/travels/{travelId}/locations/{cityId}")
-    @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @Valid @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
         return ResponseEntity.ok().build();
@@ -87,7 +86,6 @@ public class TravelTrackingController {
                     content = @Content(schema = @Schema(hidden = true))),
     })
     @GetMapping("/travels/{travelId}/location")
-    @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
