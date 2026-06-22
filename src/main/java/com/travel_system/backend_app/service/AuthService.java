@@ -7,9 +7,12 @@ import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO
 import com.travel_system.backend_app.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -44,7 +47,9 @@ public class AuthService {
             throw new EntityNotFoundException("Email não encontrado. Tente novamente");
         }
 
-        var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles(), user.getCustomer().getId());
+        UUID customerId = user.getCustomer() != null ? user.getCustomer().getId() : null;
+
+        var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles(), customerId);
 
         return new LoginResponseDTO(
                 tokenResponse.username(),
@@ -56,8 +61,17 @@ public class AuthService {
     }
 
     public RefreshTokenResponseDTO refreshToken(String email, String refreshToken, UUID customerId) {
-        userRepository.findByEmailAndCustomerId(email, customerId)
-                .orElseThrow(() -> new EntityNotFoundException("Entidade com o email " + email + " não encontrado"));
+        boolean rolePlatformAdmin = tokenConfig.getRolesFromToken(refreshToken).contains("ROLE_PLATFORM_ADMIN");
+
+        if (customerId == null && rolePlatformAdmin) {
+            final String ROLE_PLATFORM_ADMIN = "ROLE_PLATFORM_ADMIN";
+            userRepository.findByEmailAndRole(email, ROLE_PLATFORM_ADMIN).orElseThrow(() -> new EntityNotFoundException("Platform Admin não encontrado"));
+        } else {
+            if (customerId == null) throw new BadCredentialsException("Usuário " + email + " mal formado com customerId ausente");
+
+            userRepository.findByEmailAndCustomerId(email, customerId)
+                    .orElseThrow(() -> new EntityNotFoundException("Entidade com o email " + email + " não encontrado"));
+        }
 
         var refreshedToken = tokenConfig.refreshToken(refreshToken);
 
