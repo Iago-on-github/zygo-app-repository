@@ -1,22 +1,18 @@
 package com.travel_system.backend_app.config;
 
 import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.travel_system.backend_app.exceptions.InvalidJwtAuthenticationToken;
-import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.response.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO;
-import com.travel_system.backend_app.security.JwtAuthenticationFilter;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
@@ -64,27 +60,35 @@ public class TokenConfig {
 
     private String getAccessToken(String email, List<String> roles, Instant now, Instant validity, UUID customerId) {
         String issuerUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        return JWT.create()
+
+        JWTCreator.Builder builder = JWT.create()
                 .withClaim("roles", roles)
-                .withClaim("customerId", customerId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validity)
                 .withSubject(email)
-                .withIssuer(issuerUri)
-                .sign(algorithm)
-                .strip();
+                .withIssuer(issuerUri);
+
+        if (isPlatformAdmin(roles)) {
+            builder.withClaim("customerId", customerId.toString());
+        }
+
+        return builder.sign(algorithm).strip();
     }
 
     private String getRefreshToken(String email, List<String> roles, Instant now, UUID customerId) {
         Instant validityRefreshToken = now.plus(validityInMilliseconds * 3, ChronoUnit.MILLIS);
-        return JWT.create()
+
+        JWTCreator.Builder builder = JWT.create()
                 .withClaim("roles", roles)
-                .withClaim("customerId", customerId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validityRefreshToken)
-                .withSubject(email)
-                .sign(algorithm)
-                .strip();
+                .withSubject(email);
+
+        if (isPlatformAdmin(roles)) {
+            builder.withClaim("customerId", customerId.toString());
+        }
+
+        return builder.sign(algorithm).strip();
     }
 
     public RefreshTokenResponseDTO refreshToken(String refreshToken) {
@@ -95,16 +99,19 @@ public class TokenConfig {
 
         String email = decodedJWT.getSubject();
         List<String> roles = decodedJWT.getClaim("roles").asList(String.class);
-        String strCustomerId = decodedJWT.getClaim("customerId").asString();
 
-        UUID customerId = UUID.fromString(strCustomerId);
+        UUID customerId = null;
+
+        if (isPlatformAdmin(roles)) {
+            String strCustomerId = decodedJWT.getClaim("customerId").asString();
+            customerId = UUID.fromString(strCustomerId);
+        }
 
         // chama o metodo e retorna somente os campos necessários
         LoginResponseDTO token = createAccessToken(email, roles, customerId);
 
         return new RefreshTokenResponseDTO(token.accessToken(), token.refreshToken(), token.expiration());
     }
-
 
     // extrai infos de autenticacao do token
     public Authentication getAuthentication(String token) {
@@ -146,5 +153,15 @@ public class TokenConfig {
         } catch(Exception e) {
             throw new InvalidJwtAuthenticationToken("Token expirado ou inválido");
         }
+    }
+
+    public boolean isPlatformAdmin(List<String> roles) {
+        return roles.stream().noneMatch(r -> r.equals("ROLE_PLATFORM_ADMIN"));
+    }
+
+    public List<String> getRolesFromToken(String token) {
+        DecodedJWT decodedJWT = decodedToken(token);
+
+        return decodedJWT.getClaim("roles").asList(String.class);
     }
 }
