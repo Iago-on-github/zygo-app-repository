@@ -16,6 +16,6 @@ public record DriverResponseDTO(
         GeneralStatus status,
         String areaOfActivity,
         Integer totalTrips,
-        CityResponseDTO city
+        UUID customerId
 ) {
 }
