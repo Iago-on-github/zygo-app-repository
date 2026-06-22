@@ -398,11 +398,7 @@ public class TravelService {
     }
 
     private DriverResponseDTO driverMapper(Driver driver) {
-        CityResponseDTO cityResponseDTO = null;
 
-        if (driver.getCity() != null) {
-            cityResponseDTO = new CityResponseDTO(driver.getCity().getId(), driver.getCity().getName(), driver.getCity().getSize());
-        }
         return new DriverResponseDTO(
                 driver.getId(),
                 driver.getName(),
@@ -414,7 +410,7 @@ public class TravelService {
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips(),
-                cityResponseDTO
+                driver.getCustomer().getId()
         );
     }
 }
