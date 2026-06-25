@@ -113,6 +113,8 @@ public class AdministratorService {
             throw new NotAuthorizedException("Administrador sem permissão necessária para criar Administradores de Plataforma.");
         }
 
+        checkFieldsIsNull(platformAdmRequestDTO);
+
         Optional<Administrator> existingAdministratorEmail = administratorRepository.findByEmail(platformAdmRequestDTO.email());
         Optional<Administrator> existingAdministratorTelephone = administratorRepository.findByTelephone(platformAdmRequestDTO.telephone());
 
@@ -194,6 +196,13 @@ public class AdministratorService {
        admRequestDTO.customerId() == null)  {
            throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos.");
        }
+    }
+
+    private void checkFieldsIsNull(PlatformAdministratorRequestDTO platformAdmRequestDTO) {
+        if (platformAdmRequestDTO.email() == null || platformAdmRequestDTO.password() == null ||
+                platformAdmRequestDTO.name() == null || platformAdmRequestDTO.cpf() == null || platformAdmRequestDTO.telephone() == null)  {
+            throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos.");
+        }
     }
 
     private Administrator admMapper(AdministratorRequestDTO admRequestDto) {
