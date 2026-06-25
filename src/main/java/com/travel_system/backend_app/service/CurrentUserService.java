@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 public class CurrentUserService {
 
     // verifica se o adm logado é o adm da plataforma
-    protected boolean isPlatformAdmin() {
+    public boolean isPlatformAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         return auth.getAuthorities().stream().anyMatch(p -> p.getAuthority().equals("ROLE_PLATFORM_ADMIN"));
