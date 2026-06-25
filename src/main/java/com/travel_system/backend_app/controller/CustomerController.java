@@ -172,6 +172,25 @@ public class CustomerController {
         return ResponseEntity.ok().body(customerService.updateCustomer(id, customerUpdateDTO));
     }
 
+    @Operation(
+            summary = "Atualiza o status do Customer",
+            description = "Deve atualizar o status do Customer, que controla a sua atividade/inatividade. Requer, obrigatoriamente, autenticação com perfil de Platform Administrator.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Status do Customer modificado com sucesso. Nenhuma resposta é retornada no body.",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Customer já possui esse status",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Customer não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/{id}/enabled")
     public ResponseEntity<Void> updateCustomerActive(@PathVariable UUID id, @RequestParam boolean isEnabled) {
         customerService.updateCustomerActive(id, isEnabled);
