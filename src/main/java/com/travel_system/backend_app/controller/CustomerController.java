@@ -148,6 +148,25 @@ public class CustomerController {
         return ResponseEntity.created(uri).body(customer);
     }
 
+    @Operation(
+            summary = "Atualiza o Customer",
+            description = "Deve atualizar os campos de name ou profilePicture do Customer. Requer, obrigatoriamente, autenticação com perfil de Platform Administrator.",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Customer atualizado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Customer está desativado no sistema",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_PLATFORM_ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Customer não encontrado no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<CustomerResponseDTO> updateCustomer(@PathVariable UUID id, @RequestBody CustomerUpdateDTO customerUpdateDTO) {
         return ResponseEntity.ok().body(customerService.updateCustomer(id, customerUpdateDTO));
