@@ -2,9 +2,11 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.CustomerRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
+import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerResponseDTO;
 import com.travel_system.backend_app.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -115,6 +117,28 @@ public class CustomerController {
         return ResponseEntity.ok().body(customerService.findAllByActive(enabled));
     }
 
+    @Operation(
+            summary = "Criar um novo Customer",
+            description = "Cadastra um novo Customer no sistema e valida duplicidade de dados. Pode ser criado apenas por Platform Administrators",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Customer criado com sucesso.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdministratorResponseDTO.class)),
+                    headers = @Header(name = "Location", description = "URI do Customer criado (ex: /v1/customers/{id})", schema = @Schema(type = "string"))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                    "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
+                    "- **CNPJ** já cadastrado no sistema;\n" +
+                    "- **Permissão 'ROLE_PLATFORM_ADMIN'** não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_PLATFORM_ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Entidade City não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping
     public ResponseEntity<CustomerResponseDTO> createCustomer(@Valid @RequestBody CustomerRequestDTO customerRequestDTO, UriComponentsBuilder componentsBuilder) {
         CustomerResponseDTO customer = customerService.createCustomer(customerRequestDTO);
