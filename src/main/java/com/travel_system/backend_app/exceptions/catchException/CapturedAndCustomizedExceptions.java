@@ -22,6 +22,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(NotAuthorizedException.class)
+    public final ResponseEntity<StandardError> NotAuthorizedException(NotAuthorizedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(EmptyMandatoryFieldsFound.class)
     public final ResponseEntity<StandardError> emptyMandatoryFieldsException(EmptyMandatoryFieldsFound ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
