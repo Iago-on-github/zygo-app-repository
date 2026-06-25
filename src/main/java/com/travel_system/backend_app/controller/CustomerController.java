@@ -60,8 +60,7 @@ public class CustomerController {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Customer retornado com sucesso",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CustomerResponseDTO.class))),
             @ApiResponse(responseCode = "400", description = "Entidade não encontrada no banco de dados",
                     content = @Content(schema = @Schema(hidden = true))),
             @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
@@ -81,9 +80,8 @@ public class CustomerController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Customer retornado om sucesso",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+            @ApiResponse(responseCode = "200", description = "Customer retornado com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CustomerResponseDTO.class))),
             @ApiResponse(responseCode = "400", description = "Entidade não encontrada no banco de dados",
                     content = @Content(schema = @Schema(hidden = true))),
             @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
@@ -96,6 +94,22 @@ public class CustomerController {
         return ResponseEntity.ok().body(customerService.findCustomerBySlug(slug));
     }
 
+    @Operation(
+            summary = "Recupera todos os Customers pelo Status",
+            description = "Recupera todos os Customers com base no boolean Status (ativo | inativo). Requer autorização como Administrador de Plataforma. " +
+                    "Caso não seja fornecido o status, ele irá filtar com base no status ativo por padrão.",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Customers retornados com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ROLE_PLATFORM_ADMIN'. ",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping
     public ResponseEntity<List<CustomerResponseDTO>> findAllByActive(@RequestParam(required = false) boolean enabled) {
         return ResponseEntity.ok().body(customerService.findAllByActive(enabled));
