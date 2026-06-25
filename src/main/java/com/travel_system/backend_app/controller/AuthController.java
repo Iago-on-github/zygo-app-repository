@@ -5,6 +5,7 @@ import com.travel_system.backend_app.model.dtos.request.LoginRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.RefreshTokenResponseDTO;
 import com.travel_system.backend_app.service.AuthService;
+import com.travel_system.backend_app.service.CurrentUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -25,10 +26,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final TokenConfig tokenConfig;
+    private final CurrentUserService currentUserService;
 
-    public AuthController(AuthService authService, TokenConfig tokenConfig) {
+    public AuthController(AuthService authService, TokenConfig tokenConfig, CurrentUserService currentUserService) {
         this.authService = authService;
         this.tokenConfig = tokenConfig;
+        this.currentUserService = currentUserService;
     }
 
     @Operation(
@@ -70,9 +73,15 @@ public class AuthController {
     })
     @PostMapping("/refresh")
     public ResponseEntity<RefreshTokenResponseDTO> refreshToken(@Parameter(description = "RefreshToken enviado no cabeçalho da requisição.", required = true)
-                                                                    @RequestHeader("X-Refresh-Token") String refreshToken) {
+                                                                @RequestHeader("X-Refresh-Token") String refreshToken) {
+        boolean isPlatformAdmin = currentUserService.isPlatformAdmin();
+
+        UUID customerId = null;
+        if (!isPlatformAdmin) {
+            customerId = tokenConfig.getCustomerIdFromToken(refreshToken);
+        }
+
         String email = tokenConfig.getSubjectFromToken(refreshToken);
-        UUID customerId = tokenConfig.getCustomerIdFromToken(refreshToken);
 
         var token = authService.refreshToken(email, refreshToken, customerId);
 
