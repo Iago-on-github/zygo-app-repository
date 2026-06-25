@@ -59,7 +59,7 @@ public class CustomerController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Customers retornados com sucesso",
+            @ApiResponse(responseCode = "200", description = "Customer retornado com sucesso",
                     content = @Content(mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
             @ApiResponse(responseCode = "400", description = "Entidade não encontrada no banco de dados",
@@ -74,6 +74,23 @@ public class CustomerController {
         return ResponseEntity.ok().body(customerService.findCustomerById(id));
     }
 
+    @Operation(
+            summary = "Recupera um Customer pelo Slug",
+            description = "Recupera um Customer específico com base no SLUG. Requer autorização como Administrador de Plataforma.",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Customer retornado om sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+            @ApiResponse(responseCode = "400", description = "Entidade não encontrada no banco de dados",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ROLE_PLATFORM_ADMIN'. ",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/slug")
     public ResponseEntity<CustomerResponseDTO> findCustomerBySlug(@RequestParam String slug) {
         return ResponseEntity.ok().body(customerService.findCustomerBySlug(slug));
