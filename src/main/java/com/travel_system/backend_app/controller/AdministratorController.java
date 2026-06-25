@@ -159,6 +159,27 @@ public class AdministratorController {
         return ResponseEntity.created(uri).body(newAdm);
     }
 
+    @Operation(
+            summary = "Criar um novo Administrador da Plataforma",
+            description = "Cadastra um novo administrador da Plataforma no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_PLATFORM_ADMIN'." +
+                    "Ele é um Administrator comum, porém com maiores permissões capaz de acessar recursos críticos do próprio sistema. Pode ser criado apenas por outro Platform Administrator.",
+            tags = {"Administrators"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Platform Administrador criado com sucesso.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdministratorResponseDTO.class)),
+                    headers = @Header(name = "Location", description = "URI do administrador criado (ex: /v1/admins/{id})", schema = @Schema(type = "string"))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
+                    "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
+                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
+                    "- **Permissão 'ROLE_PLATFORM_ADMIN'** não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_PLATFORM_ADMIN'.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PostMapping("/platformAdm")
     public ResponseEntity<AdministratorResponseDTO> createPlatformAdministrator(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdmRequestDTO, UriComponentsBuilder componentsBuilder) {
         AdministratorResponseDTO platformAdministrator = administratorService.createPlatformAdministrator(platformAdmRequestDTO);
