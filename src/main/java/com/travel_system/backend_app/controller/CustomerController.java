@@ -52,6 +52,23 @@ public class CustomerController {
         return ResponseEntity.ok().body(customerService.getAllCustomers());
     }
 
+    @Operation(
+            summary = "Recupera um Customer pelo ID",
+            description = "Recupera um Customer específico com base no ID. Requer autorização como Administrador de Plataforma.",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Customers retornados com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+            @ApiResponse(responseCode = "400", description = "Entidade não encontrada no banco de dados",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ROLE_PLATFORM_ADMIN'. ",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/{id}")
     public ResponseEntity<CustomerResponseDTO> findCustomerById(@PathVariable UUID id) {
         return ResponseEntity.ok().body(customerService.findCustomerById(id));
