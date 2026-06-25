@@ -24,6 +24,6 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
 
     Optional<UserModel> findByEmailAndCustomerId(String email, UUID customerId);
 
-    @Query("SELECT u FROM UserModel u JOIN u.permissions p WHERE u.email = :email AND p.description =: role")
+    @Query("SELECT u FROM UserModel u JOIN u.permissions p WHERE u.email = :email AND p.description = :role")
     Optional<UserModel> findByEmailAndRole(@Param("email") String email, @Param("role") String role);
 }
