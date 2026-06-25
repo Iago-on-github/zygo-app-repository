@@ -4,7 +4,15 @@ import com.travel_system.backend_app.model.dtos.request.CustomerRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerResponseDTO;
 import com.travel_system.backend_app.service.CustomerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.apache.coyote.Response;
+import org.hibernate.annotations.Array;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +32,21 @@ public class CustomerController {
         this.customerService = customerService;
     }
 
+    @Operation(
+            summary = "Recupera todos os Customers",
+            description = "Recupera todos os Customers cadastrados no sistema. Requer autorização como Administrador de Plataforma.",
+            tags = {"Customers"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Customers retornados com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = CustomerResponseDTO.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ROLE_PLATFORM_ADMIN'. ",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @GetMapping("/all")
     public ResponseEntity<Page<CustomerResponseDTO>> getAllCustomers() {
         return ResponseEntity.ok().body(customerService.getAllCustomers());
