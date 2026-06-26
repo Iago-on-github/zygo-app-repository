@@ -156,7 +156,7 @@ public class TokenConfig {
     }
 
     public boolean isPlatformAdmin(List<String> roles) {
-        return roles.stream().noneMatch(r -> r.equals("ROLE_PLATFORM_ADMIN"));
+        return roles.stream().anyMatch(r -> r.equals("ROLE_PLATFORM_ADMIN"));
     }
 
     public List<String> getRolesFromToken(String token) {
