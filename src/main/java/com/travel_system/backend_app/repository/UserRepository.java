@@ -3,6 +3,7 @@ package com.travel_system.backend_app.repository;
 import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +27,8 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
 
     @Query("SELECT u FROM UserModel u JOIN u.permissions p WHERE u.email = :email AND p.description = :role")
     Optional<UserModel> findByEmailAndRole(@Param("email") String email, @Param("role") String role);
+
+    @Modifying
+    @Query("UPDATE UserModel u SET u.profilePicture = :profilePictureKey WHERE u.email = :userEmail")
+    int updateProfilePicture(@Param("profilePictureKey") String profilePictureKey, @Param("userEmail") String userEmail);
 }
