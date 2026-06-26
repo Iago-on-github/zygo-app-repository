@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   rabbitmq:
     image: rabbitmq:3-management
@@ -16,6 +17,31 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      - mynet
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=abcd
+      - MINIO_ROOT_PASSWORD=abcd2345
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"     # API MinIO
+      - "9001:9001"     # Console MinIO
+    command: server /data --console-address ":9001"
+    networks:
+      mynet:
+        aliases:
+          - my-localhost
+
+networks:
+  mynet:
+    driver: bridge
 
 volumes:
   rabbitmq_data:
+  minio_data:
+    driver: local
