@@ -68,7 +68,7 @@ public class TokenConfig {
                 .withSubject(email)
                 .withIssuer(issuerUri);
 
-        if (isPlatformAdmin(roles)) {
+        if (!isPlatformAdmin(roles)) {
             builder.withClaim("customerId", customerId.toString());
         }
 
@@ -84,7 +84,7 @@ public class TokenConfig {
                 .withExpiresAt(validityRefreshToken)
                 .withSubject(email);
 
-        if (isPlatformAdmin(roles)) {
+        if (!isPlatformAdmin(roles)) {
             builder.withClaim("customerId", customerId.toString());
         }
 
@@ -102,7 +102,7 @@ public class TokenConfig {
 
         UUID customerId = null;
 
-        if (isPlatformAdmin(roles)) {
+        if (!isPlatformAdmin(roles)) {
             String strCustomerId = decodedJWT.getClaim("customerId").asString();
             customerId = UUID.fromString(strCustomerId);
         }
