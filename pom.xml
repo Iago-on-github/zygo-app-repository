@@ -248,13 +248,6 @@
 			<artifactId>s3</artifactId>
 		</dependency>
 
-		<!-- adiciona plugins ao ImageIO para formatos não cobertos pelo JDK -->
-		<dependency>
-			<groupId>com.twelvemonkeys.imageio</groupId>
-			<artifactId>imageio-webp</artifactId>
-			<version>3.13.1</version>
-		</dependency>
-
     </dependencies>
 
 	<build>
