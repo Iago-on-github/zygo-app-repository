@@ -27,7 +27,6 @@ public record AdministratorRequestDTO(
         @Min(8)
         @NotBlank(message = "Campo 'Telefone' é obrigatório")
         String telephone,
-        String profilePicture,
         @NotNull @NotBlank
         UUID customerId
 ) {
