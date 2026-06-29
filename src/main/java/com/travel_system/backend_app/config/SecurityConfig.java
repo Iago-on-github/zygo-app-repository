@@ -54,6 +54,7 @@ public class SecurityConfig {
                     configureStudentEndpoints(auth);
                     configureGpsEndpoints(auth);
                     configureCustomersEndpoints(auth);
+                    configureAnyRequireAuthEndpoints(auth);
                 })
                 // tratamento de exceptions do spring security
                 .exceptionHandling(ex -> ex
@@ -115,6 +116,7 @@ public class SecurityConfig {
                 .requestMatchers("/v1/auth/**").permitAll() // endpoints de login
                 .requestMatchers("/v1/messaging/auth/**").permitAll() // servidor externo do rabbitmq
                 .requestMatchers("/testing/**").permitAll(); // testes
+//                .requestMatchers("/v1/current/**").permitAll(); // testes
     }
 
     private void configureAdminsEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
@@ -126,6 +128,7 @@ public class SecurityConfig {
     }
 
     private void configureStudentEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/students/me").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
         auth.requestMatchers("/v1/students/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
@@ -135,5 +138,9 @@ public class SecurityConfig {
 
     private void configureCustomersEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers("/v1/customers/**").hasAnyRole(ROLE_PLATFORM_ADMIN);
+    }
+
+    private void configureAnyRequireAuthEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.anyRequest().authenticated();
     }
 }
