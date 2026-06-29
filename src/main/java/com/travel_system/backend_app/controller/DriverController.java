@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -50,7 +51,7 @@ public class DriverController {
                     content = @Content(schema = @Schema(hidden = true))),
     })
     @GetMapping("/all")
-    public ResponseEntity<List<DriverResponseDTO>> getAllDrivers() {
+    public ResponseEntity<Page<DriverResponseDTO>> getAllDrivers() {
         return ResponseEntity.ok().body(driverService.getAllDrivers());
     }
 
@@ -72,7 +73,7 @@ public class DriverController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping()
-    public ResponseEntity<List<DriverResponseDTO>> getDriversByStatus(@Parameter(description = "Status para filtragem dos motoristas. Se omitido, o padrão é 'ACTIVE'.", example = "ACTIVE")
+    public ResponseEntity<Page<DriverResponseDTO>> getDriversByStatus(@Parameter(description = "Status para filtragem dos motoristas. Se omitido, o padrão é 'ACTIVE'.", example = "ACTIVE")
                                                                           @RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(driverService.getDriversByStatus(status));
     }

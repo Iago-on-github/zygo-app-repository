@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -53,7 +54,7 @@ public class AdministratorController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping("/all")
-    public ResponseEntity<List<AdministratorResponseDTO>> getAllAdmins() {
+    public ResponseEntity<Page<AdministratorResponseDTO>> getAllAdmins() {
         return ResponseEntity.ok().body(administratorService.getAllAdministrators());
     }
 
@@ -75,7 +76,7 @@ public class AdministratorController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
-    public ResponseEntity<List<AdministratorResponseDTO>> getAdminsByStatus(@RequestParam(required = false) GeneralStatus status) {
+    public ResponseEntity<Page<AdministratorResponseDTO>> getAdminsByStatus(@RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status));
     }
 

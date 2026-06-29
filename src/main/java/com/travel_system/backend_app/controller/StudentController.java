@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -48,7 +49,7 @@ public class StudentController {
                     content = @Content(schema = @Schema(hidden = true))),
     })
     @GetMapping("/all")
-    public ResponseEntity<List<StudentResponseDTO>> getAllStudents() {
+    public ResponseEntity<Page<StudentResponseDTO>> getAllStudents() {
         return ResponseEntity.ok().body(studentService.getAllStudents());
     }
 
@@ -67,7 +68,7 @@ public class StudentController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
-    public ResponseEntity<List<StudentResponseDTO>> getStudentsByStatus(@RequestParam(required = false) GeneralStatus status) {
+    public ResponseEntity<Page<StudentResponseDTO>> getStudentsByStatus(@RequestParam(required = false) GeneralStatus status) {
         return ResponseEntity.ok().body(studentService.getStudentsByStatus(status));
     }
 
