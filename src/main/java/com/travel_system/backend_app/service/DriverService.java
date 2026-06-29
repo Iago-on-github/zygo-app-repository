@@ -20,6 +20,9 @@ import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -48,18 +51,22 @@ public class DriverService {
         this.currentUserService = currentUserService;
     }
 
-    public List<DriverResponseDTO> getAllDrivers() {
-        List<Driver> allDrivers = repository.findAll();
+    public Page<DriverResponseDTO> getAllDrivers() {
+        Pageable pageable = PageRequest.of(0, 10);
 
-        return allDrivers.stream().map(this::driverConverted).toList();
+        Page<Driver> allDrivers = repository.findAll(pageable);
+
+        return allDrivers.map(this::driverConverted);
     }
 
-    public List<DriverResponseDTO> getDriversByStatus(GeneralStatus newDriverStatus) {
+    public Page<DriverResponseDTO> getDriversByStatus(GeneralStatus newDriverStatus) {
+        Pageable pageable = PageRequest.of(0, 10);
+
         if (newDriverStatus == null) newDriverStatus = GeneralStatus.ACTIVE;
 
-        List<Driver> driverByStatus = repository.findAllByStatus(newDriverStatus);
+        Page<Driver> driverByStatus = repository.findAllByStatus(newDriverStatus, pageable);
 
-        return driverByStatus.stream().map(this::driverConverted).toList();
+        return driverByStatus.map(this::driverConverted);
     }
 
     @Transactional

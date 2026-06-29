@@ -19,6 +19,9 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.checkerframework.checker.units.qual.Current;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -46,18 +49,22 @@ public class StudentService {
         this.currentUserService = currentUserService;
     }
 
-    public List<StudentResponseDTO> getAllStudents() {
-        List<Student> getAllStudents = repository.findAll();
+    public Page<StudentResponseDTO> getAllStudents() {
+        Pageable pageable = PageRequest.of(0, 10);
 
-        return getAllStudents.stream().map(this::studentConverted).toList();
+        Page<Student> getAllStudents = repository.findAll(pageable);
+
+        return getAllStudents.map(this::studentConverted);
     }
 
-    public List<StudentResponseDTO> getStudentsByStatus(GeneralStatus status) {
+    public Page<StudentResponseDTO> getStudentsByStatus(GeneralStatus status) {
+        Pageable pageable = PageRequest.of(0, 10);
+
         if (status == null) status = GeneralStatus.ACTIVE;
 
-        List<Student> students = repository.findAllByStatus(status);
+        Page<Student> students = repository.findAllByStatus(status, pageable);
 
-        return students.stream().map(this::studentConverted).toList();
+        return students.map(this::studentConverted);
     }
 
     @Transactional

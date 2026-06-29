@@ -16,6 +16,9 @@ import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -43,33 +46,37 @@ public class AdministratorService {
         this.currentUserService = currentUserService;
     }
 
-    public List<AdministratorResponseDTO> getAllAdministrators() {
+    public Page<AdministratorResponseDTO> getAllAdministrators() {
+        Pageable pageable = PageRequest.of(0, 10);
+
         boolean platformAdmin = currentUserService.isPlatformAdmin();
 
-        List<Administrator> allAdmins;
+        Page<Administrator> allAdmins;
 
         if (platformAdmin) {
-            allAdmins = administratorRepository.findAll();
+            allAdmins = administratorRepository.findAll(pageable);
         } else {
-            allAdmins = administratorRepository.findAllWithCustomerId();
+            allAdmins = administratorRepository.findAllWithCustomerId(pageable);
         }
 
-        return allAdmins.stream().map(this::admConverted).toList();
+        return allAdmins.map(this::admConverted);
     }
 
-    public List<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status) {
+    public Page<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status) {
         if (status == null) status = GeneralStatus.ACTIVE;
+
+        Pageable pageable = PageRequest.of(0, 10);
 
         boolean platformAdmin = currentUserService.isPlatformAdmin();
 
-        List<Administrator> administrators;
+        Page<Administrator> administrators;
         if (platformAdmin) {
-            administrators = administratorRepository.findByStatusWithCustomerId(status);
+            administrators = administratorRepository.findByStatusWithCustomerId(status, pageable);
         } else {
-            administrators = administratorRepository.findByStatus(status);
+            administrators = administratorRepository.findByStatus(status, pageable);
         }
 
-        return administrators.stream().map(this::admConverted).toList();
+        return administrators.map(this::admConverted);
     }
 
     public AdministratorResponseDTO getCurrentAdministrator(String authenticatedAdmEmail) {
