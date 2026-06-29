@@ -4,6 +4,8 @@ import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.StudentTokensDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -23,7 +25,7 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     Optional<Student> findByEmailOrTelephone(String email, String telephone);
 
-    List<Student> findAllByStatus(GeneralStatus status);
+    Page<Student> findAllByStatus(GeneralStatus status, Pageable pageable);
 
     @Query("SELECT dt.token FROM DeviceToken dt WHERE dt.student.id = :id AND dt.active = true")
     Set<String> findActiveTokensByStudentId(@Param("id") UUID id);

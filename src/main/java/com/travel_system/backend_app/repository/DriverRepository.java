@@ -2,6 +2,8 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -19,5 +21,5 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
 
     Optional<Driver> findByEmailOrTelephone(String email, String telephone);
 
-    List<Driver> findAllByStatus(GeneralStatus status);
+    Page<Driver> findAllByStatus(GeneralStatus status, Pageable pageable);
 }
