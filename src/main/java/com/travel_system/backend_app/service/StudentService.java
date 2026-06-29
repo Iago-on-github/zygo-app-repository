@@ -17,6 +17,7 @@ import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.checkerframework.checker.units.qual.Current;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,13 +35,15 @@ public class StudentService {
     private final PermissionsRepository permissionsRepository;
     private final CustomerRepository customerRepository;
     private final StudentMapper studentMapper;
+    private final CurrentUserService currentUserService;
 
-    public StudentService(StudentRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, CustomerRepository customerRepository, StudentMapper studentMapper) {
+    public StudentService(StudentRepository repository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, CustomerRepository customerRepository, StudentMapper studentMapper, CurrentUserService currentUserService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
         this.customerRepository = customerRepository;
         this.studentMapper = studentMapper;
+        this.currentUserService = currentUserService;
     }
 
     public List<StudentResponseDTO> getAllStudents() {
@@ -158,7 +161,6 @@ public class StudentService {
         newStudent.setName(requestDTO.name());
         newStudent.setLastName(requestDTO.lastName());
         newStudent.setTelephone(requestDTO.telephone());
-        newStudent.setProfilePicture(requestDTO.profilePicture());
         newStudent.setInstitutionType(requestDTO.institutionType());
         newStudent.setCourse(requestDTO.course());
 
@@ -173,7 +175,7 @@ public class StudentService {
                 student.getEmail(),
                 student.getTelephone(),
                 student.getStatus(),
-                student.getProfilePicture(),
+                currentUserService.getPublicUrl(student.getProfilePicture()),
                 student.getCreatedAt(),
                 student.getInstitutionType(),
                 student.getCourse(),
