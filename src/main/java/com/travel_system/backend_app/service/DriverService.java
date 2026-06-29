@@ -37,13 +37,15 @@ public class DriverService {
     private final PasswordEncoder passwordEncoder;
     private final PermissionsRepository permissionsRepository;
     private final DriverMapper driverMapper;
+    private final CurrentUserService currentUserService;
 
-    public DriverService(DriverRepository repository, CustomerRepository customerRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, DriverMapper driverMapper) {
+    public DriverService(DriverRepository repository, CustomerRepository customerRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, DriverMapper driverMapper, CurrentUserService currentUserService) {
         this.repository = repository;
         this.customerRepository = customerRepository;
         this.passwordEncoder = passwordEncoder;
         this.permissionsRepository = permissionsRepository;
         this.driverMapper = driverMapper;
+        this.currentUserService = currentUserService;
     }
 
     public List<DriverResponseDTO> getAllDrivers() {
@@ -165,7 +167,6 @@ public class DriverService {
         newDriver.setName(requestDTO.name());
         newDriver.setLastName(requestDTO.lastName());
         newDriver.setTelephone(requestDTO.telephone());
-        newDriver.setProfilePicture(requestDTO.profilePicture());
         newDriver.setAreaOfActivity(requestDTO.areaOfActivity());
 
         return newDriver;
@@ -173,7 +174,7 @@ public class DriverService {
 
     private void verifyFieldsIsNull(DriverRequestDTO dto) {
         if (dto.email() == null || dto.password() == null ||
-                dto.name() == null || dto.telephone() == null || dto.areaOfActivity() == null || dto.customerId() == null) {
+                dto.name() == null || dto.telephone() == null || dto.customerId() == null) {
             throw new EmptyMandatoryFieldsFound("Você deve preencher todos os campos requeridos");
         }
     }
@@ -185,7 +186,7 @@ public class DriverService {
                 driver.getLastName(),
                 driver.getEmail(),
                 driver.getTelephone(),
-                driver.getProfilePicture(),
+                currentUserService.getPublicUrl(driver.getProfilePicture()),
                 driver.getCreatedAt(),
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
