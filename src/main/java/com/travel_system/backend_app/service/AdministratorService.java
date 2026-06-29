@@ -217,7 +217,6 @@ public class AdministratorService {
         adm.setTelephone(admRequestDto.telephone());
         adm.setStatus(GeneralStatus.ACTIVE);
         adm.setCreatedAt(LocalDateTime.now());
-        adm.setProfilePicture(admRequestDto.profilePicture());
 
         return adm;
     }
@@ -234,7 +233,6 @@ public class AdministratorService {
         adm.setTelephone(admRequestDto.telephone());
         adm.setStatus(GeneralStatus.ACTIVE);
         adm.setCreatedAt(LocalDateTime.now());
-        adm.setProfilePicture(admRequestDto.profilePicture());
 
         return adm;
     }
@@ -249,7 +247,7 @@ public class AdministratorService {
                 adm.getLastName(),
                 adm.getBirthDate(),
                 adm.getTelephone(),
-                adm.getProfilePicture(),
+                currentUserService.getPublicUrl(adm.getProfilePicture()),
                 adm.getStatus(),
                 adm.getCreatedAt(),
                 adm.getUpdatedAt(),
