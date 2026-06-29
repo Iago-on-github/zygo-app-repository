@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.service;
 
 import com.google.api.client.util.Value;
+import com.travel_system.backend_app.config.StorageProperties;
 import com.travel_system.backend_app.exceptions.StorageException;
 import com.travel_system.backend_app.interfaces.StorageInterfaceService;
+import org.slf4j.ILoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -22,14 +24,13 @@ import java.io.IOException;
 
 @Service
 public class S3StorageService implements StorageInterfaceService {
-    @Value("${storage.bucket-name}")
-    private String bucketName;
-    @Value("${storage.public-base-url}")
-    private String publicBaseUrl;
+
+    private final StorageProperties storageProperties;
 
     private final S3Client s3Client;
 
-    public S3StorageService(S3Client s3Client) {
+    public S3StorageService(StorageProperties storageProperties, S3Client s3Client) {
+        this.storageProperties = storageProperties;
         this.s3Client = s3Client;
     }
 
@@ -50,7 +51,7 @@ public class S3StorageService implements StorageInterfaceService {
 
         try {
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(storageProperties.getBucketName())
                     .key(objectKey)
                     .contentType(contentType) // brower needs to know image type
                     .contentLength((long) bytes.length) // stream length
@@ -72,7 +73,7 @@ public class S3StorageService implements StorageInterfaceService {
 
         try {
             DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
-                    .bucket(bucketName)
+                    .bucket(storageProperties.getBucketName())
                     .key(objectKey)
                     .build();
 
@@ -84,10 +85,11 @@ public class S3StorageService implements StorageInterfaceService {
 
     @Override
     public String getPublicUrl(String objectKey) {
+        // se estiver null = não tem foto de perfil
         if (objectKey == null || objectKey.isBlank()) {
-            throw new IllegalArgumentException("[getPublicUrl] - objectKey inválida");
+            return null;
         }
 
-        return publicBaseUrl + "/" + objectKey;
+        return storageProperties.getPublicBaseUrl() + "/" + objectKey;
     }
 }
