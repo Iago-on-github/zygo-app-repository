@@ -18,7 +18,6 @@ public record StudentRequestDTO(
         String lastName,
         @Size(min = 9)
         String telephone,
-        String profilePicture,
         InstitutionType institutionType,
         String course,
         UUID customerId) {
