@@ -28,7 +28,6 @@ public record PlatformAdministratorRequestDTO(
         @NotNull
         @Min(8)
         @NotBlank(message = "Campo 'Telefone' é obrigatório")
-        String telephone,
-        String profilePicture
+        String telephone
 ) {
 }

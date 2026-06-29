@@ -14,7 +14,6 @@ public record DriverRequestDTO(
         String name,
         String lastName,
         String telephone,
-        String profilePicture,
         String areaOfActivity,
         @NotNull @NotBlank
         UUID customerId

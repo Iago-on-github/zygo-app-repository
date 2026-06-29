@@ -12,7 +12,6 @@ public record DriverUpdateDTO(
         String name,
         String lastName,
         String telephone,
-        String profilePicture,
         String areaOfActivity
 ) {
 }
