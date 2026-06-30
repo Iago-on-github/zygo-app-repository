@@ -1,10 +1,11 @@
 package com.travel_system.backend_app.controller.develop;
 
-import com.travel_system.backend_app.controller.TravelTrackingController;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.mensageria.SendPackageDataToRabbitMQ;
+import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.service.NotificationService;
-import com.travel_system.backend_app.service.TravelTrackingService;
+import com.travel_system.backend_app.service.*;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,10 +21,16 @@ public class DevSandboxController {
 
     private final NotificationService notificationService;
     private final TravelTrackingService travelTrackingService;
+    private final RouteCalculationService routeCalculationService;
+    private final MapboxAPIService mapboxAPIService;
+    private final PushNotificationService pushNotificationService;
 
-    public DevSandboxController(NotificationService notificationService, TravelTrackingService travelTrackingService) {
+    public DevSandboxController(NotificationService notificationService, TravelTrackingService travelTrackingService, RouteCalculationService routeCalculationService, MapboxAPIService mapboxAPIService, PushNotificationService pushNotificationService) {
         this.notificationService = notificationService;
         this.travelTrackingService = travelTrackingService;
+        this.routeCalculationService = routeCalculationService;
+        this.mapboxAPIService = mapboxAPIService;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @PostMapping("/sendRabbitMessage")
@@ -41,5 +48,26 @@ public class DevSandboxController {
     public ResponseEntity<Void> processNewLocation(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
         travelTrackingService.processNewLocation(vehicleLocationRequest);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/deviation")
+    public ResponseEntity<RouteDeviationDTO> isRouteDeviation(@RequestBody RouteDeviationRequestDTO routeDeviationRequestDTO) {
+        RouteDeviationDTO deviationDTO = routeCalculationService.isRouteDeviation(routeDeviationRequestDTO);
+        return ResponseEntity.ok().body(deviationDTO);
+    }
+
+    @GetMapping("/calculate")
+    public ResponseEntity<RouteDetailsDTO> calculateRoute(
+            @RequestParam double originLong,
+            @RequestParam double originLat,
+            @RequestParam double destLong,
+            @RequestParam double destLat) {
+        return ResponseEntity.ok().body(mapboxAPIService.calculateRoute(originLong, originLat, destLong, destLat));
+    }
+
+    @PostMapping("/{travelId}")
+    public ResponseEntity<Void> processVehicleMovement(@PathVariable UUID travelId, @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
+        pushNotificationService.processVehicleMovement(vehicleLocationRequest);
+        return ResponseEntity.ok().build();
     }
 }
