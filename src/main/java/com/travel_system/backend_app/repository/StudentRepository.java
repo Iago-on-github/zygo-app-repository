@@ -27,6 +27,5 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     Page<Student> findAllByStatus(GeneralStatus status, Pageable pageable);
 
-    @Query("SELECT dt.token FROM DeviceToken dt WHERE dt.student.id = :id AND dt.active = true")
-    Set<String> findActiveTokensByStudentId(@Param("id") UUID id);
+    Set<String> findByCustomerId(UUID customerId);
 }
