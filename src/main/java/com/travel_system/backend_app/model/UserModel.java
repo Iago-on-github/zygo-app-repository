@@ -38,6 +38,8 @@ public class UserModel {
     private List<Permissions> permissions = new ArrayList<>();
     @ManyToOne(fetch = FetchType.LAZY)
     private Customer customer;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private Set<DeviceToken> deviceTokens = new HashSet<>();
 
     public UserModel() {}
 
@@ -157,6 +159,14 @@ public class UserModel {
 
     public void setCustomer(Customer customer) {
         this.customer = customer;
+    }
+
+    public Set<DeviceToken> getDeviceTokens() {
+        return deviceTokens;
+    }
+
+    public void setDeviceTokens(Set<DeviceToken> deviceTokens) {
+        this.deviceTokens = deviceTokens;
     }
 
     @Override
