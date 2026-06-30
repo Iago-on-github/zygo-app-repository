@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.UnsupportedMediaTypeException;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -18,12 +19,12 @@ public class ImageProcessingService {
             throw new IllegalArgumentException("[convertImageToJPEG] file não pode estar null ou inválido");
         }
 
-        if (!isImage(file)) throw new IllegalArgumentException("[convertImageToJPEG] não é uma imagem");
+        if (!isImage(file)) throw new UnsupportedMediaTypeException("[convertImageToJPEG] não é uma imagem");
 
         try (InputStream inputStream = file.getInputStream()) {
             BufferedImage originalImage = ImageIO.read(inputStream);
 
-            if (originalImage == null) throw new IOException("[convertImageToJPEG] originalImage null");
+            if (originalImage == null) throw new UnsupportedMediaTypeException("[convertImageToJPEG] originalImage null ou inválida");
 
             BufferedImage rgbImage = new BufferedImage(
                     originalImage.getWidth(),
