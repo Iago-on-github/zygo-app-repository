@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.model.enums.NotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -15,12 +16,14 @@ public class DeviceToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
-    private Student student;
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserModel user;
     private String token;
     @Enumerated(EnumType.STRING)
     private Platform platform;
     private boolean active = true;
+    @Enumerated(EnumType.STRING)
+    private NotificationAudience notificationAudience;
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -31,12 +34,13 @@ public class DeviceToken {
     public DeviceToken() {
     }
 
-    public DeviceToken(UUID id, Student student, String token, Platform platform, boolean active) {
+    public DeviceToken(UUID id, UserModel userModel, String token, Platform platform, boolean active, NotificationAudience notificationAudience) {
         this.id = id;
-        this.student = student;
+        this.user = userModel;
         this.token = token;
         this.platform = platform;
         this.active = active;
+        this.notificationAudience = notificationAudience;
     }
 
     public UUID getId() {
@@ -47,12 +51,12 @@ public class DeviceToken {
         this.id = id;
     }
 
-    public Student getStudent() {
-        return student;
+    public UserModel getUser() {
+        return user;
     }
 
-    public void setStudent(Student student) {
-        this.student = student;
+    public void setUser(UserModel user) {
+        this.user = user;
     }
 
     public String getToken() {
@@ -77,6 +81,14 @@ public class DeviceToken {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public NotificationAudience getNotificationAudience() {
+        return notificationAudience;
+    }
+
+    public void setNotificationAudience(NotificationAudience notificationAudience) {
+        this.notificationAudience = notificationAudience;
     }
 
     public LocalDateTime getCreatedAt() {
