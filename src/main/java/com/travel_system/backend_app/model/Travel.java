@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import jakarta.persistence.*;
 
@@ -22,6 +23,7 @@ public class Travel {
     private Driver driver;
     @OneToMany(mappedBy = "travel")
     private Set<StudentTravel> studentTravels = new HashSet<>();
+    private TravelPeriod travelPeriod;
     private Instant createdAt;
     private Instant startHourTravel;
     private Instant endHourTravel;
@@ -45,12 +47,13 @@ public class Travel {
     public Travel() {
     }
 
-    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity) {
+    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity) {
         this.id = id;
         this.travelStatus = travelStatus;
         this.driver = driver;
         this.createdAt = createdAt;
         this.startHourTravel = startHourTravel;
+        this.travelPeriod = travelPeriod;
         this.endHourTravel = endHourTravel;
         this.polylineRoute = polylineRoute;
         this.duration = duration;
@@ -92,6 +95,14 @@ public class Travel {
 
     public void setStudentTravels(Set<StudentTravel> studentTravels) {
         this.studentTravels = studentTravels;
+    }
+
+    public TravelPeriod getTravelPeriod() {
+        return travelPeriod;
+    }
+
+    public void setTravelPeriod(TravelPeriod travelPeriod) {
+        this.travelPeriod = travelPeriod;
     }
 
     public Instant getStartHourTravel() {
