@@ -41,4 +41,5 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
 
     @Query("SELECT u.profilePicture FROM UserModel u WHERE u.email = :email")
     Optional<String> findProfilePictureByEmail(@Param("email") String email);
+
 }
