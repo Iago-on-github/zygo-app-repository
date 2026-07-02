@@ -11,6 +11,7 @@ import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,6 +26,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,10 +47,11 @@ public class TravelService {
     private final RouteCalculationService routeCalculationService;
     private final TravelCacheService travelCacheService;
     private final TravelStudentStateCacheService travelStudentStateCacheService;
+    private final TravelNotificationService travelNotificationService;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -60,6 +64,7 @@ public class TravelService {
         this.routeCalculationService = routeCalculationService;
         this.travelCacheService = travelCacheService;
         this.travelStudentStateCacheService = travelStudentStateCacheService;
+        this.travelNotificationService = travelNotificationService;
     }
 
     @Transactional
@@ -84,6 +89,12 @@ public class TravelService {
         travel.setFinalLongitude(travelRequestDTO.finalLongitude());
         travel.setFinalLatitude(travelRequestDTO.finalLatitude());
 
+        if (travelRequestDTO.travelPeriod() == null) {
+            throw new TravelException("O período da viagem precisa ser selecionado.");
+        }
+
+        travel.setTravelPeriod(travelRequestDTO.travelPeriod());
+
         travel.setCreatedAt(Instant.now());
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
@@ -102,6 +113,9 @@ public class TravelService {
         travel.setDestinationCity(travelRequestDTO.destinationCity());
 
         travelRepository.save(travel);
+
+        // envia notificação para o firebase comunicando a criação da viagem
+        travelNotificationService.sendTravelCreatedNotification(travel);
 
         return travelConverted(travel);
     }
@@ -140,6 +154,9 @@ public class TravelService {
         actualTrip.setTravelStatus(TravelStatus.TRAVELLING);
 
         travelRepository.save(actualTrip);
+
+        // envia notificação para o firebase comunicando o incio da viagem
+        travelNotificationService.sendTravelStartedNotification(actualTrip);
 
         // adiciona viagem ativa ao redis para métricas de self-health do sistema
         redisTrackingService.addActiveTravel(travelId);
@@ -212,6 +229,9 @@ public class TravelService {
                 (int) percentual);
 
         travelReportsRepository.save(travelReports);
+
+        // envia notificação para o firebase comunicando o fim da viagem
+        travelNotificationService.sendTravelEndedNotification(actualTrip);
 
         // deleta os polylines para evitar lixo no banco
         // obs.: passível de usar tarefas agendadas para apagar somente dps de um determinado tempo
@@ -389,6 +409,7 @@ public class TravelService {
         return new TravelResponseDTO(
                 travel.getId(),
                 travel.getTravelStatus(),
+                travel.getTravelPeriod(),
                 driverResponseDTO,
                 travel.getStudentTravels(),
                 travel.getCreatedAt(),
