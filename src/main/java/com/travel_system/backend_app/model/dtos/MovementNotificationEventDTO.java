@@ -5,7 +5,7 @@ import com.travel_system.backend_app.model.enums.Priority;
 
 import java.util.UUID;
 
-public record MovementNotificationEventDTO(UUID studentId,
+public record MovementNotificationEventDTO(UUID userId,
                                            UUID travelId,
                                            MovementState movementState,
                                            Priority priority,
