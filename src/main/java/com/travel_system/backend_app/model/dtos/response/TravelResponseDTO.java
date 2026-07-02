@@ -3,6 +3,7 @@ package com.travel_system.backend_app.model.dtos.response;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 
 import java.time.Instant;
@@ -12,6 +13,7 @@ import java.util.UUID;
 public record TravelResponseDTO(
         UUID id,
         TravelStatus status,
+        TravelPeriod travelPeriod,
         DriverResponseDTO driverResponseDTO,
         Set<StudentTravel> studentTravel,
         Instant createdAt,
