@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
+import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import com.travel_system.backend_app.model.enums.NotificationAudience;
@@ -9,6 +10,7 @@ import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -62,6 +64,55 @@ public class TravelTrackingNotificationService {
 
         // send to firebase through handle
         handleMovementNotification(travelId, driverId, title, message, link, data);
+    }
+
+    // AUTO DISCONNECTED
+    public void sendAutoDisconnectStudentNotification(Travel travel, UUID studentId) {
+        UUID travelId = travel.getId();
+
+        NotificationAudience student = NotificationAudience.SPECIFIC_USER; // estudante específico no qual foi desvinculado
+
+        String title = "Desconexão automática";
+        String message = "Você foi desembarcado automaticamente da viagem por estar distante do ônibus";
+        String link = "/travels/" + travelId + "/tracking";
+
+        Map<String, String> data = Map.of(
+                "eventType", "AUTO_DISCONNECTED_STUDENT",
+                "travelId", travelId.toString(),
+                "studentStatus", "AUTO_DISCONNECTED"
+        );
+
+        // dto notificação estudante
+        PushNotificationCommandDTO studentCommand = new PushNotificationCommandDTO(
+                student, studentId, null, travelId, title, message, link, Priority.NORMAL, data);
+
+        firebaseNotificationSender.sendPushNotification(studentCommand);
+    }
+
+    // STUDENT PROXIMIT
+    public void sendCheckProximityAlertsNotification(StudentProximityNotificationMessage event) {
+        UUID travelId = event.travelId();
+        UUID studentId = event.studentId();
+
+        NotificationAudience student = NotificationAudience.SPECIFIC_USER; // manda para o student
+
+        String title = "Alerta de ônibus se aproximando";
+        String message = "O ônibus está a " + Math.round(event.distance()) + " metros de você.";
+        String link = "/travels/" + travelId + "/tracking";
+
+        Map<String, String> data = Map.of(
+                "eventType", "STUDENT_PROXIMITY",
+                "travelId", travelId.toString(),
+                "distance", event.distance().toString(),
+                "zone", event.zone(),
+                "alertType", event.alertType(),
+                "timestamp", event.timestamp()
+        );
+
+        PushNotificationCommandDTO studentCommand =
+                new PushNotificationCommandDTO(student, studentId, null, travelId, title, message, link, Priority.NORMAL, data);
+
+        firebaseNotificationSender.sendPushNotification(studentCommand);
     }
 
     // handle movement notification
