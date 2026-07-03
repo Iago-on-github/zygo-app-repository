@@ -127,7 +127,7 @@ public class TravelNotificationService {
 
         UUID travelId = travel.getId();
         UUID driverId = travel.getDriver().getId();
-        UUID customerId = travel.getDriver().getCustomer().getId();
+        UUID customerId = travel.getCustomer().getId();
 
         // notificação estudantes
         PushNotificationCommandDTO students = new PushNotificationCommandDTO(
