@@ -1,11 +1,12 @@
 package com.travel_system.backend_app.utils;
 
 import com.travel_system.backend_app.config.RabbitMQConfig;
-import com.travel_system.backend_app.model.dtos.mensageria.SendPackageDataToRabbitMQ;
+import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.TravelHistoryPingsService;
+import com.travel_system.backend_app.service.TravelTrackingNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -18,17 +19,22 @@ import java.util.UUID;
 public class RabbitMQConsumers {
     private final RedisTrackingService redisTrackingService;
     private final TravelHistoryPingsService travelHistoryPingsService;
+    private final TravelTrackingNotificationService trackingNotificationService;
 
-    public RabbitMQConsumers(RedisTrackingService redisTrackingService, TravelHistoryPingsService travelHistoryPingsService) {
+    public RabbitMQConsumers(RedisTrackingService redisTrackingService, TravelHistoryPingsService travelHistoryPingsService, TravelTrackingNotificationService trackingNotificationService) {
         this.redisTrackingService = redisTrackingService;
         this.travelHistoryPingsService = travelHistoryPingsService;
+        this.trackingNotificationService = trackingNotificationService;
     }
 
     private final Logger logger = LoggerFactory.getLogger(RabbitMQConsumers.class);
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NOTIFICATION_NAME)
-    public void receiveMessages(SendPackageDataToRabbitMQ event) {
+    public void receiveMessages(StudentProximityNotificationMessage event) {
         logger.info("method receiveMessage received message: {}", event);
+
+        // envia notificação ao firebase
+        trackingNotificationService.sendCheckProximityAlertsNotification(event);
     }
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_PROCESSING_COORDINATES)
