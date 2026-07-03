@@ -49,7 +49,7 @@ public class AsyncNotificationService {
         if (shouldNotify.equals(ShouldNotify.SHOULD_NO_NOTIFY)) return;
 
         if (shouldNotify.equals(ShouldNotify.SHOULD_NOTIFY_SLOW)) {
-            logger.info("Enviando notificação para ônibus lento... {} {} {}", travelId, shouldNotify, traceId);
+            logger.info("Enviando notificação para ônibus lento... {} {}", travelId, shouldNotify);
             slowNotification(travelId, velocityAnalysis);
         }
         if (shouldNotify.equals(ShouldNotify.SHOULD_NOTIFY_STOPPED)) {
