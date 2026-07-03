@@ -39,13 +39,14 @@ public class LocationService {
     private final TravelService travelService;
     private final RedisTrackingService redisTrackingService;
     private final TravelCacheService travelCacheService;
+    private final TravelTrackingNotificationService trackingNotificationService;
     
     private Logger log = LoggerFactory.getLogger(LocationService.class);
 
     private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
     private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
 
-    public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, TravelRepository travelRepository, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService) {
+    public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, TravelRepository travelRepository, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService) {
         this.geoPositionRepository = geoPositionRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.routeCalculationService = routeCalculationService;
@@ -53,6 +54,7 @@ public class LocationService {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.travelCacheService = travelCacheService;
+        this.trackingNotificationService = trackingNotificationService;
     }
 
     @Transactional
@@ -100,6 +102,8 @@ public class LocationService {
         // ids de estudantes que irão ser limpos no redis
         Set<UUID> studentIdsToClear = new HashSet<>();
 
+        Set<UUID> studentIdsToAutoDisconnect = new HashSet<>(); // students auto-disconnected
+
         Map<UUID, Long> awayStudents = redisTrackingService.getStudentAwayTimestamp(travelId);
 
         distanceBetweenPositions.forEach(dist -> {
@@ -145,6 +149,8 @@ public class LocationService {
                         log.info("[processStudentAwayState] - estudante desembarcou. Começando desvinculação automática dele");
                         studentTravelsToAutoDisconnect.add((student.studentTravelId()));
 
+                        studentIdsToAutoDisconnect.add(student.studentId());
+
                         studentIdsToClear.add(student.studentId());
 
                     }
@@ -183,6 +189,16 @@ public class LocationService {
         if (!studentTravelsToAutoDisconnect.isEmpty()) {
             Instant disembarkHour = Instant.now();
             studentTravelRepository.disconnectedStudentFromTrip(studentTravelsToAutoDisconnect, StudentTravelStatus.AUTO_DISCONNECTED, disembarkHour, false);
+
+            // apenas se conseguir disconectar busca a viagem inteira no banco para recuperar dados para notificação
+            Travel travel = travelRepository.findById(travelId)
+                    .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada: " + travelId));
+
+            // manda notificação para cada estudante compatível com o auto-desvínculo
+            studentIdsToAutoDisconnect.forEach(studentToNotification -> {
+                trackingNotificationService.sendAutoDisconnectStudentNotification(travel, studentToNotification);
+            });
+
         }
     }
     
