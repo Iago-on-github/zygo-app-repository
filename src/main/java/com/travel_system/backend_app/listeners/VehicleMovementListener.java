@@ -21,7 +21,6 @@ public class VehicleMovementListener {
         asyncNotificationService.processNotificationType(
                 vehicleMovementEvents.travelId(),
                 vehicleMovementEvents.velocityAnalysis(),
-                vehicleMovementEvents.decision(),
-                vehicleMovementEvents.traceId());
+                vehicleMovementEvents.decision());
     }
 }
