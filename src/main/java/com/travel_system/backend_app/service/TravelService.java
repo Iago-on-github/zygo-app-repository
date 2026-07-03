@@ -272,6 +272,38 @@ public class TravelService {
     }
 
     @Transactional
+    public void cancelTravel(UUID travelId) {
+        Travel actualTrip = travelRepository.findById(travelId)
+                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+
+        if (actualTrip.getTravelStatus() != TravelStatus.PENDING) {
+            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já foi finalizada ou esté em andamento");
+        }
+
+        actualTrip.setTravelStatus(TravelStatus.CANCELED);
+        actualTrip.setEndHourTravel(Instant.now());
+
+        // verifica se existem estudantes vinculados e faz a deconexão
+        if (!actualTrip.getStudentTravels().isEmpty()) {
+            actualTrip.getStudentTravels().forEach(studentTravel -> {
+                if (studentTravel.isEmbark()) {
+                    studentTravel.setEmbark(false);
+                    studentTravel.setDisembarkHour(Instant.now());
+                    studentTravelRepository.save(studentTravel);
+                }
+                log.info("[cancelTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
+            });
+        }
+
+        travelRepository.save(actualTrip);
+
+        // envia notificação para o firebase comunicando o cancelamento da viagem
+        travelNotificationService.sendTravelCanceledNotification(actualTrip);
+
+        // não deve registrar nenhum tipo de histórico de viagem
+    }
+
+    @Transactional
     public void leaveTravel(UUID travelId, String studentEmail, StudentTravelStatus studentTravelStatus) {
         if (travelId == null || studentEmail == null || studentTravelStatus == null) {
             throw new IllegalArgumentException("[leaveTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " vindo nulos");
