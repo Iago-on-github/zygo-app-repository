@@ -27,6 +27,8 @@ public class Customer {
     private Set<UserModel> users = new HashSet<>();
     @Enumerated(EnumType.STRING)
     private ClientSector clientSector;
+    @OneToMany(mappedBy = "customer")
+    private Set<Travel> travels = new HashSet<>();
     private String profilePicture;
     @CreatedDate
     private Instant createdAt;
@@ -111,6 +113,14 @@ public class Customer {
 
     public void setClientSector(ClientSector clientSector) {
         this.clientSector = clientSector;
+    }
+
+    public Set<Travel> getTravels() {
+        return travels;
+    }
+
+    public void setTravels(Set<Travel> travels) {
+        this.travels = travels;
     }
 
     public String getProfilePicture() {
