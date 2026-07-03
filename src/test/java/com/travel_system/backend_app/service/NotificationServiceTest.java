@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.RabbitMQConfig;
-import com.travel_system.backend_app.model.dtos.mensageria.SendPackageDataToRabbitMQ;
+import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +54,7 @@ class NotificationServiceTest {
         @DisplayName("should send message to rabbitmq with success")
         void shouldSendMessageToRabbitMqWithSuccess() {
             // arrange
-            SendPackageDataToRabbitMQ sendPackageData = new SendPackageDataToRabbitMQ(
+            StudentProximityNotificationMessage sendPackageData = new StudentProximityNotificationMessage(
                     UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
                     UUID.fromString("987e6543-e21b-45d3-b321-123456789abc"),
                     123.5,
@@ -72,7 +71,7 @@ class NotificationServiceTest {
                     eq(RabbitMQConfig.EXCHANGE_NOTIFICATION_NAME),
                     eq(RabbitMQConfig.NOTIFICATION_ROUTING_KEY),
                     argThat(packDataProp -> {
-                        SendPackageDataToRabbitMQ msg = (SendPackageDataToRabbitMQ) packDataProp;
+                        StudentProximityNotificationMessage msg = (StudentProximityNotificationMessage) packDataProp;
                         return msg.travelId().toString().equals("123e4567-e89b-12d3-a456-426614174000") &&
                                 msg.studentId().toString().equals("987e6543-e21b-45d3-b321-123456789abc") &&
                                 msg.distance().equals(123.5) &&
@@ -89,7 +88,7 @@ class NotificationServiceTest {
         @DisplayName("should set deliveryMode message type (QoS 1) with success")
         void shouldSetDeliveryModeMessageTypeWithSuccess() {
             // arrange
-            SendPackageDataToRabbitMQ sendPackageData = new SendPackageDataToRabbitMQ(
+            StudentProximityNotificationMessage sendPackageData = new StudentProximityNotificationMessage(
                     UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
                     UUID.fromString("987e6543-e21b-45d3-b321-123456789abc"),
                     123.5,

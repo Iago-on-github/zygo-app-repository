@@ -2,7 +2,7 @@ package com.travel_system.backend_app.controller.develop;
 
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
-import com.travel_system.backend_app.model.dtos.mensageria.SendPackageDataToRabbitMQ;
+import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.service.*;
@@ -35,7 +35,7 @@ public class DevSandboxController {
 
     @PostMapping("/sendRabbitMessage")
     public void sendTestMessage() {
-        notificationService.sendMessage(new SendPackageDataToRabbitMQ(
+        notificationService.sendMessage(new StudentProximityNotificationMessage(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 350.0,
