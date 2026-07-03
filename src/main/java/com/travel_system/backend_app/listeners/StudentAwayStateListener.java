@@ -36,6 +36,7 @@ public class StudentAwayStateListener {
         }
         try {
             locationService.processStudentAwayState(event);
+
         } catch (Exception e) {
             logger.error("[handleStudentAwayState] - não foi possível publicar o evento para a viagem: {}", event.travelId(), e);
         } finally {
