@@ -28,6 +28,9 @@ public class Travel {
     private Instant createdAt;
     private Instant startHourTravel;
     private Instant endHourTravel;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customerId", nullable = false)
+    private Customer customer;
 
     // rota (estáticos)
     @Column(columnDefinition = "text")
@@ -48,7 +51,7 @@ public class Travel {
     public Travel() {
     }
 
-    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity) {
+    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity, Customer customer) {
         this.id = id;
         this.travelStatus = travelStatus;
         this.driver = driver;
@@ -64,6 +67,7 @@ public class Travel {
         this.finalLatitude = finalLatitude;
         this.finalLongitude = finalLongitude;
         this.destinationCity = destinationCity;
+        this.customer = customer;
     }
 
     public UUID getId() {
@@ -192,5 +196,13 @@ public class Travel {
 
     public void setDestinationCity(String destinationCity) {
         this.destinationCity = destinationCity;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
     }
 }
