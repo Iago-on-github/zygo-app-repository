@@ -167,6 +167,12 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{travelId}/change/{driverId}")
+    public ResponseEntity<Void> driverChange(@PathVariable UUID travelId, @PathVariable UUID driverId) {
+        travelService.driverChanged(travelId, driverId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{travelId}/cancel")
     public ResponseEntity<Void> cancelTravel(@PathVariable UUID travelId) {
         travelService.cancelTravel(travelId);
