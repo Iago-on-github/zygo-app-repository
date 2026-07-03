@@ -2,7 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.RabbitMQConfig;
 import com.travel_system.backend_app.interfaces.NotificationMessagingContract;
-import com.travel_system.backend_app.model.dtos.mensageria.SendPackageDataToRabbitMQ;
+import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
@@ -22,7 +22,7 @@ public class NotificationService implements NotificationMessagingContract {
     }
 
     @Override
-    public void sendMessage(SendPackageDataToRabbitMQ dataEvent) {
+    public void sendMessage(StudentProximityNotificationMessage dataEvent) {
         logger.info("Received message: {}", dataEvent);
         // QoS 1: Mensagem persistente
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NOTIFICATION_NAME, RabbitMQConfig.NOTIFICATION_ROUTING_KEY, dataEvent, event -> {
