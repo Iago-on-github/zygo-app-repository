@@ -167,6 +167,12 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{travelId}/cancel")
+    public ResponseEntity<Void> cancelTravel(@PathVariable UUID travelId) {
+        travelService.cancelTravel(travelId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(
             summary = "Realiza a ação de desvincular o estudante",
             description = "Realiza o desembarque voluntário e/ou conclusão de percurso de um estudante, desvinculando-o do rastreamento. \n" +
