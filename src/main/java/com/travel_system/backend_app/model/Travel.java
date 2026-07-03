@@ -23,6 +23,7 @@ public class Travel {
     private Driver driver;
     @OneToMany(mappedBy = "travel")
     private Set<StudentTravel> studentTravels = new HashSet<>();
+    @Enumerated(value = EnumType.STRING)
     private TravelPeriod travelPeriod;
     private Instant createdAt;
     private Instant startHourTravel;
