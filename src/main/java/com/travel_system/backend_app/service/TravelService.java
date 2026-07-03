@@ -188,12 +188,18 @@ public class TravelService {
             percentual = totalOccupancy * 100 / studentSize;
         }
 
+        UUID baseCustomerId = actualTrip.getCustomer().getId();
+
+        // realiza o desvínculo de estudantes
         actualTrip.getStudentTravels().forEach(studentTravel -> {
-            if (studentTravel.isEmbark()) {
+            UUID studentsCustomerId = studentTravel.getStudent().getCustomer().getId();
+
+            if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
                 studentTravel.setEmbark(false);
                 studentTravel.setDisembarkHour(Instant.now());
                 studentTravelRepository.save(studentTravel);
             }
+
             log.info("[endTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
         });
 
@@ -268,7 +274,51 @@ public class TravelService {
         Student student = studentRepository.findByEmail(studentEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Estudante com email " + studentEmail + " não encontrado"));
 
+        UUID baseCustomerId = trip.getCustomer().getId();
+        UUID studentsCustomerId = student.getCustomer().getId();
+
+        if (!isSameCustomer(baseCustomerId, studentsCustomerId)) {
+            throwTravelException("O estudante deve obrigariamente ser do mesmo customer");
+        }
+
         persistStudentLink(trip, student, status);
+    }
+
+    @Transactional
+    public void driverChanged(UUID travelId, UUID driverId) {
+        Travel actualTrip = travelRepository.findById(travelId)
+                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+
+        if (actualTrip.getTravelStatus() == TravelStatus.CANCELED || actualTrip.getTravelStatus() == TravelStatus.FINISH) {
+            throwTravelException("Não é possível alterar o motorista de uma viagem cancelada ou finalizada");
+        }
+
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista " + driverId + " não encontrado."));
+
+        if (driver.getStatus().equals(GeneralStatus.INACTIVE)) {
+            throw new InactiveDriverException("Motorista inativo, não é possível prosseguir. driverId: " + driver.getId());
+        }
+
+        boolean hasActiveTravel = travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING));
+
+        if (hasActiveTravel) {
+            throwTravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
+        }
+
+        UUID actuallyDriverCustomerId = actualTrip.getDriver().getCustomer().getId();
+        UUID driverCandidateCustomerId = driver.getCustomer().getId();
+
+        if (!isSameCustomer(actuallyDriverCustomerId, driverCandidateCustomerId)) {
+            throwTravelException("Motoristas devem pertencer ao mesmo Customer");
+        }
+
+        actualTrip.setDriver(driver);
+
+        travelRepository.save(actualTrip);
+
+        // envia notificação para o firebase comunicando o cancelamento da viagem
+        travelNotificationService.sendDriverChangedNotification(actualTrip, driver);
     }
 
     @Transactional
@@ -283,10 +333,14 @@ public class TravelService {
         actualTrip.setTravelStatus(TravelStatus.CANCELED);
         actualTrip.setEndHourTravel(Instant.now());
 
+        UUID baseCustomerId = actualTrip.getCustomer().getId();
+
         // verifica se existem estudantes vinculados e faz a deconexão
         if (!actualTrip.getStudentTravels().isEmpty()) {
             actualTrip.getStudentTravels().forEach(studentTravel -> {
-                if (studentTravel.isEmbark()) {
+                UUID studentsCustomerId = studentTravel.getStudent().getCustomer().getId();
+
+                if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
                     studentTravel.setEmbark(false);
                     studentTravel.setDisembarkHour(Instant.now());
                     studentTravelRepository.save(studentTravel);
@@ -375,6 +429,10 @@ public class TravelService {
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
+
+    private boolean isSameCustomer(UUID baseCustomerId, UUID customerId) {
+        return baseCustomerId.equals(customerId);
+    }
 
     private StudentTravelResponseDTO studentTravelMapper(StudentTravel studentTravel) {
         return new StudentTravelResponseDTO(
