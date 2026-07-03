@@ -4,16 +4,19 @@ import com.google.firebase.messaging.*;
 import com.travel_system.backend_app.exceptions.DomainValidationException;
 import com.travel_system.backend_app.model.DeviceToken;
 import com.travel_system.backend_app.model.Student;
+import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.MovementNotificationEventDTO;
 import com.travel_system.backend_app.model.dtos.StudentTokensDTO;
 import com.travel_system.backend_app.model.dtos.VehicleMovementNotificationDTO;
+import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
+import com.travel_system.backend_app.model.enums.NotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
 import com.travel_system.backend_app.model.enums.Priority;
-import com.travel_system.backend_app.repository.DeviceTokenRepository;
-import com.travel_system.backend_app.repository.StudentRepository;
+import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.hibernate.engine.jdbc.batch.spi.Batch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,19 +32,19 @@ import static java.util.stream.Collectors.toList;
 public class FirebaseNotificationSender {
 
     private final DeviceTokenRepository deviceTokenRepository;
-    private final StudentRepository studentRepository;
+    private final NotificationRecipientResolver notificationRecipientResolver;
     private final FirebaseMessaging firebaseMessaging;
     private static final Logger logger = LoggerFactory.getLogger(FirebaseNotificationSender.class);
 
-    public FirebaseNotificationSender(DeviceTokenRepository deviceTokenRepository, StudentRepository studentRepository, FirebaseMessaging firebaseMessaging) {
+    public FirebaseNotificationSender(DeviceTokenRepository deviceTokenRepository, NotificationRecipientResolver notificationRecipientResolver, FirebaseMessaging firebaseMessaging) {
         this.deviceTokenRepository = deviceTokenRepository;
-        this.studentRepository = studentRepository;
+        this.notificationRecipientResolver = notificationRecipientResolver;
         this.firebaseMessaging = firebaseMessaging;
     }
 
     // registra/atualiza os tokens do usuário
-    public void manageUserToken(Student student, String token, Platform platform) {
-        if (student == null || token == null || token.isBlank() || platform == null) throw new DomainValidationException("Token is null");
+    public void manageUserToken(UserModel user, String token, Platform platform) {
+        if (user == null || token == null || token.isBlank() || platform == null) throw new DomainValidationException("Token is null");
 
         Optional<DeviceToken> existingDeviceToken = deviceTokenRepository.findDeviceTokenByToken(token);
 
@@ -49,54 +52,49 @@ public class FirebaseNotificationSender {
         if (existingDeviceToken.isPresent()) {
             deviceToken = existingDeviceToken.get();
 
-            deviceToken.setStudent(student);
+            deviceToken.setUser(user);
         } else {
             deviceToken = new DeviceToken();
 
-            deviceToken.setStudent(student);
+            deviceToken.setUser(user);
             deviceToken.setToken(token.trim());
         }
+
         deviceToken.setPlatform(platform);
         deviceTokenRepository.save(deviceToken);
     }
 
-    // enviar notificação ao firebase
-    public VehicleMovementNotificationDTO pushNotificationToFirebase(MovementNotificationEventDTO movementNotificationEvent) {
-        UUID studentId = movementNotificationEvent.studentId();
-        UUID travelId = movementNotificationEvent.travelId();
-        UUID traceId = movementNotificationEvent.traceId();
-        MovementState movementState = movementNotificationEvent.movementState();
-        Priority priority = movementNotificationEvent.priority();
-        String message = movementNotificationEvent.message();
+    // envia notificação ao firebase
+    public void sendPushNotification(PushNotificationCommandDTO pushNotificationCommand) {
+        UUID userId = pushNotificationCommand.userId();
+        Set<String> tokensByAudience = resolveTokensByAudience(pushNotificationCommand);
 
-        Set<String> studentActiveTokens = studentActiveTokens(studentId);
-
-        if (studentActiveTokens.isEmpty()) {
-            logger.info("Nenhum token ativo para o aluno {}, pulando notificação.", studentId);
-            return null;
+        if (tokensByAudience == null || tokensByAudience.isEmpty()) {
+            logger.info("Nenhum token ativo para o user {}, pulando notificação.", userId);
+            return;
         }
 
-        List<String> deviceTokens = studentActiveTokens.stream().toList();
+        List<String> deviceTokens = tokensByAudience.stream().toList();
 
-        MulticastMessage payload = convertMovementNotifyToFcmFormat(travelId, movementState, priority, message, deviceTokens);
+        MulticastMessage payload = buildFcmMessage(pushNotificationCommand, deviceTokens);
 
         try {
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(payload);
 
-            logger.info("[Trace: {}] Tokens enviados ao firebase: {}", traceId, response.getSuccessCount());
+            logger.info("Tokens enviados ao firebase: {}", response.getSuccessCount());
+
             if (response.getFailureCount() > 0) {
                 List<String> failureTokens = getFailureDeviceTokens(response, deviceTokens);
-                logger.error("Falha crítica no FCM para o aluno: {} {}", studentId, response.getFailureCount());
+                logger.error("Falha crítica no FCM para o user: {} {}", userId, response.getFailureCount());
+
                 if (!failureTokens.isEmpty()) {
                     logger.warn("Desativando {} tokens inválidos no banco.", failureTokens.size());
                     deviceTokenRepository.deactivateTokensByValue(failureTokens);
                 }
             }
         } catch (FirebaseMessagingException e) {
-            logger.error("Erro no envio da mensagem para o Firebase: {} {}", e.getMessagingErrorCode(), traceId);
+            logger.error("Erro no envio da mensagem para o Firebase: {}", e.getMessagingErrorCode());
         }
-
-        return new VehicleMovementNotificationDTO(travelId, movementState, Instant.now(), message, priority);
     }
 
     // retorna os tokens que falharam da response
@@ -128,25 +126,103 @@ public class FirebaseNotificationSender {
         return failureTokens;
     }
 
-    // converte dto para formato fcm
-    private MulticastMessage convertMovementNotifyToFcmFormat(UUID travelId, MovementState movementState, Priority priority, String message, List<String> studentActiveTokens) {
-        Map<String, String> data = new HashMap<>();
+    // converte para o formato FCM do firebase
+    private MulticastMessage buildFcmMessage(PushNotificationCommandDTO notificationCommandDTO, List<String> deviceTokens) {
+        if (deviceTokens == null || deviceTokens.isEmpty()) {
+            throw new DomainValidationException("[buildFcmMessage] tokens não podem ser vazios");
+        }
 
-        data.put("travelId", String.valueOf(travelId));
-        data.put("movementState", String.valueOf(movementState));
-        data.put("priority", String.valueOf(priority));
-        data.put("message", message);
+        Map<String, String> data = notificationCommandDTO.data() != null
+                ? new HashMap<>(notificationCommandDTO.data())
+                : new HashMap<>();
 
-        Set<String> convertedTokens = new HashSet<>(studentActiveTokens);
+        Set<String> convertedTokens = new HashSet<>(deviceTokens);
 
+        /*
+         * setNotification: notificação padrão para dispositivos móveis
+         * setWebpushConfig: notificação para navegadores, caso o user esteja no pc ou navegador.
+         * "setLink" faz o direcionamento para a página da viagem ao clicar na notificação
+         */
         return MulticastMessage.builder()
+                .setNotification(Notification.builder()
+                        .setTitle(notificationCommandDTO.title())
+                        .setBody(notificationCommandDTO.message())
+                        .build())
+                .setWebpushConfig(WebpushConfig.builder()
+                        .setNotification(WebpushNotification.builder()
+                                .setTitle(notificationCommandDTO.title())
+                                .setBody(notificationCommandDTO.message())
+                                .build())
+                        .setFcmOptions(WebpushFcmOptions.builder()
+                                .setLink(notificationCommandDTO.link())
+                                .build())
+                        .build())
                 .putAllData(data)
                 .addAllTokens(convertedTokens)
                 .build();
+
     }
 
-    // pega todos os tokens ativos do usuário
-    private Set<String> studentActiveTokens(UUID studentId) {
-        return studentRepository.findActiveTokensByStudentId(studentId);
+    // separa cada tokem com base na audiência dele (a quem deve ser enviado)
+    private Set<String> resolveTokensByAudience(PushNotificationCommandDTO command) {
+        if (command == null || command.notificationAudience() == null) {
+            throw new DomainValidationException("[resolveTokensByAudience] audience não pode ser null");
+        }
+
+        return switch (command.notificationAudience()) {
+            case SPECIFIC_USER -> {
+                if (command.userId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] userId obrigatório para SPECIFIC_USER");
+                }
+                yield notificationRecipientResolver.resolveSpecificUser(command.userId());
+            }
+
+            case ALL_CUSTOMER_USERS -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para ALL_CUSTOMER_USERS");
+                }
+                yield notificationRecipientResolver.resolveAllCustomerUsers(command.customerId());
+            }
+
+            case STUDENT_ONLY -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_STUDENTS");
+                }
+
+                yield notificationRecipientResolver.resolveCustomerStudents(command.customerId());
+            }
+
+            case DRIVER_ONLY -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_DRIVERS");
+                }
+
+                yield notificationRecipientResolver.resolveCustomerDrivers(command.customerId());
+            }
+
+            case ADMIN_ONLY -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_ADMINS");
+                }
+
+                yield notificationRecipientResolver.resolveCustomerAdmins(command.customerId());
+            }
+
+            case TRAVEL_STUDENTS -> {
+                if (command.travelId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para TRAVEL_STUDENTS");
+                }
+
+                yield notificationRecipientResolver.resolveTravelStudents(command.travelId());
+            }
+
+            case EMBARKED_TRAVEL_STUDENTS -> {
+                if (command.travelId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para EMBARKED_TRAVEL_STUDENTS");
+                }
+
+                yield notificationRecipientResolver.resolveEmbarkedTravelStudents(command.travelId());
+            }
+        };
     }
 }
