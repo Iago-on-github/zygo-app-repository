@@ -2,15 +2,15 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
 import com.travel_system.backend_app.exceptions.TravelException;
-import com.travel_system.backend_app.model.GeoPosition;
-import com.travel_system.backend_app.model.Student;
-import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
+import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
@@ -34,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -60,11 +61,11 @@ class LocationServiceTest {
     @Mock
     private TravelRepository travelRepository;
     @Mock
-    private StudentRepository studentRepository;
-    @Mock
     private TravelCacheService travelCacheService;
     @Mock
     private TravelTrackingNotificationService trackingNotificationService;
+    @Mock
+    private TravelService travelService;
 
     private ArgumentCaptor<GeoPosition> geoPosCaptor = ArgumentCaptor.forClass(GeoPosition.class);
 
@@ -450,4 +451,81 @@ class LocationServiceTest {
 
     }
 
+    @Nested
+    class distanceBetweenPositions {
+        UUID travelId;
+        UUID studentId;
+
+        Travel travelEntity;
+        Student studentEntity;
+        StudentTravel studentTravelEntity;
+        LiveLocationDTO liveLocationDTO;
+        StudentTrackingPositionDTO studentTrackingPositionDTO;
+
+        @BeforeEach
+        void setUp() {
+            travelId = UUID.randomUUID();
+            studentId = UUID.randomUUID();
+
+            studentEntity = new Student(studentId, "student@gmail.com", "123456", "Maria", "Oliveira", "75988888888", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), new Customer(), InstitutionType.UNIVERSITY, "Computer Science");
+
+            GeoPosition position = new GeoPosition(
+                    UUID.randomUUID(),
+                    -23.55,
+                    -46.63,
+                    Instant.now(),
+                    null
+            );
+
+            studentTravelEntity = new StudentTravel();
+            studentTravelEntity.setId(UUID.randomUUID());
+            studentTravelEntity.setStudent(studentEntity);
+            studentTravelEntity.setPosition(position);
+            studentTravelEntity.setEmbark(true);
+            studentTravelEntity.setStudentTravelStatus(StudentTravelStatus.ACTIVE);
+
+            travelEntity = new Travel();
+            travelEntity.setId(travelId);
+            travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity)));
+            travelEntity.setTravelStatus(TravelStatus.TRAVELLING);
+
+            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
+
+            studentTrackingPositionDTO = new StudentTrackingPositionDTO(studentId, -32.1223, -11.3233);
+        }
+
+        @Test
+        @DisplayName("Deve realizar o cálculo e o mapeamento de distâncias de forma correta")
+        void shouldCalculateAndMapDistancesCorrectly() {
+            doReturn(Set.of(studentTrackingPositionDTO)).when(travelService).linkedStudentTravel(travelEntity.getId());
+
+            when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenReturn(35.0);
+
+            List<DistanceResponseDTO> result = locationService.distanceBetweenPositions(travelEntity.getId(), liveLocationDTO);
+
+            assertNotNull(result);
+            assertEquals(1, result.size());
+
+            verify(travelService, times(1)).linkedStudentTravel(eq(travelEntity.getId()));
+            verify(routeCalculationService, times(1)).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+        }
+
+        @Test
+        @DisplayName("Deve realizar a filtragem de alunos sem posição registrada, retornando silenciosamente")
+        void shouldSkipStudentsWithoutRegisteredLocation() {
+            StudentTrackingPositionDTO studentTrackingWithoutPosition = new StudentTrackingPositionDTO(studentId, null, null);
+
+            doReturn(Set.of(studentTrackingWithoutPosition)).when(travelService).linkedStudentTravel(travelEntity.getId());
+
+            List<DistanceResponseDTO> result = locationService.distanceBetweenPositions(travelEntity.getId(), liveLocationDTO);
+
+            assertNotNull(result); // deve retornar o studentId mas sem a distance no DTO
+
+            verify(travelService, times(1)).linkedStudentTravel(eq(travelEntity.getId()));
+            verify(routeCalculationService, never()).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+
+        }
+    }
 }
