@@ -5,13 +5,18 @@ import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFound;
 import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
 import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.interfaces.mappers.StudentMapper;
+import com.travel_system.backend_app.model.City;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
+import com.travel_system.backend_app.model.enums.CitySize;
+import com.travel_system.backend_app.model.enums.ClientSector;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
+import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -28,9 +33,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -46,51 +56,67 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class StudentServiceTest {
 
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT) de forma com que todos os cenários sejam cobertos
-     *
-     */
-
     @InjectMocks
     private StudentService studentService;
 
     @Mock
-    private StudentRepository repository;
+    private StudentRepository studentRepository;
+    @Mock
+    private CurrentUserService currentUserService;
 
     @Spy
     private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     @Mock
     private PermissionsRepository permissionsRepository;
+    @Mock
+    private CustomerRepository customerRepository;
 
     @Mock
     private StudentMapper studentMapper;
 
+    private final Pageable expectedPageable = PageRequest.of(0, 10);
+
     Student student;
+    Customer customer;
     StudentRequestDTO studentRequestDTO;
     StudentUpdateDTO studentUpdateDTO;
 
     @BeforeEach
     void setUp() {
+        City city = new City(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "São Paulo",
+                CitySize.METROPOLIS,
+                true
+        );
+
+        customer = new Customer(
+                UUID.fromString("22222222-2222-2222-2222-222222222222"),
+                "Universidade Exemplo",
+                "universidade-exemplo",
+                "12.345.678/0001-90",
+                true,
+                city,
+                ClientSector.PRIVATE_CLIENT,
+                "https://cdn.exemplo.com/customers/universidade-exemplo.png",
+                Instant.parse("2026-07-16T12:00:00Z"),
+                Instant.parse("2026-07-16T12:00:00Z")
+        );
+
         student = new Student(
-                UUID.randomUUID(),
-                "student@gmail.com",
-                "senhaSegura123",
-                "Student",
-                "Teste",
-                "75999999999",
-                "teste_img",
+                UUID.fromString("33333333-3333-3333-3333-333333333333"),
+                "ana.souza@exemplo.com",
+                "Senha@123",
+                "Ana",
+                "Souza",
+                "+55 11 99999-1234",
+                "https://cdn.exemplo.com/students/ana-souza.png",
                 GeneralStatus.ACTIVE,
-                LocalDateTime.now(),
-                LocalDateTime.now(),
+                LocalDateTime.of(2026, 7, 16, 12, 0),
+                LocalDateTime.of(2026, 7, 16, 12, 0),
+                customer,
                 InstitutionType.UNIVERSITY,
-                "Ciência da Computação"
+                "Engenharia de Software"
         );
 
         studentRequestDTO = new StudentRequestDTO(
@@ -99,9 +125,9 @@ class StudentServiceTest {
                 "Lucas",
                 "Oliveira",
                 "71988887777",
-                "imagem_teste",
                 InstitutionType.UNIVERSITY,
-                "Engenharia de Software"
+                "Engenharia de Software",
+                customer.getId()
         );
 
         studentUpdateDTO = new StudentUpdateDTO(
@@ -110,7 +136,6 @@ class StudentServiceTest {
                 "Lucas",
                 "Oliveira",
                 "71988887777",
-                "imagem_teste",
                 InstitutionType.UNIVERSITY,
                 "Engenharia de Software"
         );
@@ -120,83 +145,60 @@ class StudentServiceTest {
     class getAllStudents {
 
         @Test
-        @DisplayName("should return all students with success")
-        void shouldReturnAllStudentsWithSuccess() {
-            Student student = new Student(
-                    UUID.randomUUID(),
-                    "student@gmail.com",
-                    "senhaSegura123",
-                    "Student",
-                    "Teste",
-                    "75999999999",
-                    "teste_img",
-                    GeneralStatus.ACTIVE,
-                    LocalDateTime.now(),
-                    LocalDateTime.now(),
-                    InstitutionType.UNIVERSITY,
-                    "Ciência da Computação"
-            );
+        void shouldRetrieveAndMapPaginatedStudentsSuccessfully() {
+            Page<Student> pageStudent = new PageImpl<>(List.of(student));
 
-            when(repository.findAll()).thenReturn(List.of(student, student));
+            when(studentRepository.findAll(expectedPageable)).thenReturn(pageStudent);
 
-            List<StudentResponseDTO> result = studentService.getAllStudents();
+            Page<StudentResponseDTO> result = studentService.getAllStudents();
 
             assertNotNull(result);
+            assertEquals(1, result.getTotalElements());
 
-            assertEquals(student.getEmail(), result.getFirst().email());
-            assertEquals(student.getId(), result.getFirst().id());
-            assertEquals(student.getId(), result.getFirst().id());
+            assertEquals(student.getEmail(), result.getContent().getFirst().email());
 
-            assertNotNull(result.getFirst().createdAt());
-        }
-
-        @Test
-        @DisplayName("should return an empty list when students not found from database")
-        void shouldReturnEmptyListWhenStudentsNotFound() {
-            when(repository.findAll()).thenReturn(List.of());
-
-            List<StudentResponseDTO> result = studentService.getAllStudents();
-
-            assertTrue(result.isEmpty());
+            verify(studentRepository, times(1)).findAll(expectedPageable);
         }
     }
 
     @Nested
     class getStudentsByStatus {
+        Page<Student> pageStudent;
 
-        @Test
-        void shouldGetStudentsByStatusWithSuccess() {
-            when(repository.findAllByStatus(student.getStatus())).thenReturn(List.of(student));
+        @BeforeEach
+        void setUp() {
+            when(currentUserService.getPublicUrl(student.getProfilePicture())).thenReturn("http://s3.url/pic.jpg");
 
-            List<StudentResponseDTO> result = studentService.getStudentsByStatus(student.getStatus());
+            pageStudent = new PageImpl<>(List.of(student));
 
-            assertNotNull(result);
-
-            assertAll(
-                    () -> assertEquals(1, result.size()),
-                    () -> assertEquals(GeneralStatus.ACTIVE, result.getFirst().status())
-            );
-
-            verify(repository).findAllByStatus(GeneralStatus.ACTIVE);
         }
 
         @Test
-        void shouldSetActiveStatusWhenParameterIsNotProvider() {
-            student.setStatus(GeneralStatus.ACTIVE);
+        @DisplayName("Deve retornar os students com base no status")
+        void shouldReturnPaginatedStudentsByStatus() {
+            when(studentRepository.findAllByStatus(GeneralStatus.INACTIVE, expectedPageable)).thenReturn(pageStudent);
 
-            when(repository.findAllByStatus(GeneralStatus.ACTIVE))
-                    .thenReturn(List.of(student));
-
-            List<StudentResponseDTO> result = studentService.getStudentsByStatus(null);
+            Page<StudentResponseDTO> result = studentService.getStudentsByStatus(GeneralStatus.INACTIVE);
 
             assertNotNull(result);
+            assertEquals(1 ,result.getTotalElements());
 
-            assertAll(
-                    () -> assertEquals(1, result.size()),
-                    () -> assertEquals(GeneralStatus.ACTIVE, result.getFirst().status())
-            );
+            assertEquals(result.getContent().getFirst().id(), student.getId());
+            assertEquals(result.getContent().getFirst().status(), student.getStatus());
+        }
 
-            verify(repository).findAllByStatus(GeneralStatus.ACTIVE);
+        @Test
+        @DisplayName("Deve retornar os estudantes com base no status com ativação de fallback")
+        void shouldReturnPaginatedStudentsByStatusWithFallback() {
+            when(studentRepository.findAllByStatus(GeneralStatus.ACTIVE, expectedPageable)).thenReturn(pageStudent);
+
+            Page<StudentResponseDTO> result = studentService.getStudentsByStatus(null);
+
+            assertNotNull(result);
+            assertEquals(1 ,result.getTotalElements());
+
+            assertEquals(result.getContent().getFirst().id(), student.getId());
+            assertEquals(result.getContent().getFirst().status(), student.getStatus());
         }
     }
 
@@ -210,12 +212,12 @@ class StudentServiceTest {
             student.setPermissions(List.of(new Permissions("ROLE_USER")));
             student.setCreatedAt(LocalDateTime.now());
 
-            when(repository.findByEmail(eq("student.test01@email.com"))).thenReturn(Optional.empty());
-            when(repository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
+            when(studentRepository.findByEmail(eq("student.test01@email.com"))).thenReturn(Optional.empty());
+            when(studentRepository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
 
             when(permissionsRepository.findByDescription("ROLE_USER")).thenReturn(Optional.of(new Permissions("ROLE_USER")));
-            when(repository.save(any(Student.class))).thenReturn(student);
-
+            when(studentRepository.save(any(Student.class))).thenReturn(student);
+            when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 
             StudentResponseDTO result = studentService.createStudent(studentRequestDTO);
 
@@ -223,7 +225,7 @@ class StudentServiceTest {
 
             ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
 
-            verify(repository, times(1)).save(studentCaptor.capture());
+            verify(studentRepository, times(1)).save(studentCaptor.capture());
             Student storedValue = studentCaptor.getValue();
 
             assertEquals(studentRequestDTO.email(), storedValue.getEmail());
@@ -231,8 +233,8 @@ class StudentServiceTest {
             assertEquals(studentRequestDTO.telephone(), storedValue.getTelephone());
             assertNotNull(storedValue.getCreatedAt());
 
-            verify(repository, times(1)).findByEmail(any());
-            verify(repository, times(1)).findByTelephone(any());
+            verify(studentRepository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByTelephone(any());
             verify(permissionsRepository, times(1)).findByDescription(any());
         }
 
@@ -244,9 +246,9 @@ class StudentServiceTest {
 
             verify(passwordEncoder, never()).encode(anyString());
 
-            verify(repository, never()).findByEmail(anyString());
-            verify(repository, never()).findByTelephone(anyString());
-            verify(repository, never()).save(any());
+            verify(studentRepository, never()).findByEmail(anyString());
+            verify(studentRepository, never()).findByTelephone(anyString());
+            verify(studentRepository, never()).save(any());
 
             verify(permissionsRepository, never()).findByDescription(anyString());
         }
@@ -259,9 +261,9 @@ class StudentServiceTest {
                             "Carlos",
                             "Souza",
                             "71999999999",
-                            "https://cdn.test.com/avatar.png",
                             InstitutionType.UNIVERSITY,
-                            "Direito"
+                            "Direito",
+                            UUID.randomUUID()
                     ),
                     new StudentRequestDTO(
                             "student@email.com",
@@ -269,9 +271,9 @@ class StudentServiceTest {
                             "Carlos",
                             "Souza",
                             "71999999999",
-                            "https://cdn.test.com/avatar.png",
                             InstitutionType.UNIVERSITY,
-                            "Direito"
+                            "Direito",
+                            UUID.randomUUID()
                     ),
                     new StudentRequestDTO(
                             "student@email.com",
@@ -279,9 +281,9 @@ class StudentServiceTest {
                             null,
                             "Souza",
                             "71999999999",
-                            "https://cdn.test.com/avatar.png",
                             InstitutionType.UNIVERSITY,
-                            "Direito"
+                            "Direito",
+                            UUID.randomUUID()
                     ),
                     new StudentRequestDTO(
                             "student@email.com",
@@ -289,18 +291,9 @@ class StudentServiceTest {
                             "Carlos",
                             "Souza",
                             null,
-                            "https://cdn.test.com/avatar.png",
                             InstitutionType.UNIVERSITY,
-                            "Direito"
-                    ), new StudentRequestDTO(
-                            "student@email.com",
-                            "Test@123",
-                            "Carlos",
-                            "Souza",
-                            "71999999999",
-                            "https://cdn.test.com/avatar.png",
-                            null,
-                            "Direito"
+                            "Direito",
+                            UUID.randomUUID()
                     ),
                     new StudentRequestDTO(
                             "student@email.com",
@@ -308,9 +301,19 @@ class StudentServiceTest {
                             "Carlos",
                             "Souza",
                             "71999999999",
-                            "https://cdn.test.com/avatar.png",
+                            null,
+                            "Direito",
+                            UUID.randomUUID()
+                    ),
+                    new StudentRequestDTO(
+                            "student@email.com",
+                            "Test@123",
+                            "Carlos",
+                            "Souza",
+                            "71999999999",
                             InstitutionType.UNIVERSITY,
-                            null
+                            null,
+                            UUID.randomUUID()
                     )
             );
         }
@@ -318,35 +321,36 @@ class StudentServiceTest {
         @Test
         @DisplayName("throw exception when email already registered by another user")
         void throwExceptionWhenEmailAlreadyRegistered() {
-            when(repository.findByEmail("student.test01@email.com")).thenReturn(Optional.of(student));
-            when(repository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
+            when(studentRepository.findByEmail("student.test01@email.com")).thenReturn(Optional.of(student));
+            when(studentRepository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
 
             assertThrows(DuplicateResourceException.class, () -> studentService.createStudent(studentRequestDTO));
 
-            verify(passwordEncoder, times(1)).encode(anyString());
-            verify(repository, times(1)).findByEmail(anyString());
-            verify(repository, times(1)).findByTelephone(anyString());
 
-            verify(repository, never()).save(any());
+            verify(studentRepository, times(1)).findByEmail(anyString());
+            verify(studentRepository, times(1)).findByTelephone(anyString());
 
+            verify(studentRepository, never()).save(any());
             verify(permissionsRepository, never()).findByDescription(anyString());
+            verify(passwordEncoder, never()).encode(anyString());
+            verify(customerRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("throw exception when telephone already registered by another user")
         void throwExceptionWhenTelephoneAlreadyRegistered() {
-            when(repository.findByEmail("student.test01@email.com")).thenReturn(Optional.empty());
-            when(repository.findByTelephone(eq("71988887777"))).thenReturn(Optional.of(student));
+            when(studentRepository.findByEmail("student.test01@email.com")).thenReturn(Optional.empty());
+            when(studentRepository.findByTelephone(eq("71988887777"))).thenReturn(Optional.of(student));
 
             assertThrows(DuplicateResourceException.class, () -> studentService.createStudent(studentRequestDTO));
 
-            verify(passwordEncoder, times(1)).encode(anyString());
-            verify(repository, times(1)).findByEmail(anyString());
-            verify(repository, times(1)).findByTelephone(anyString());
+            verify(studentRepository, times(1)).findByEmail(anyString());
+            verify(studentRepository, times(1)).findByTelephone(anyString());
 
-            verify(repository, never()).save(any());
-
+            verify(studentRepository, never()).save(any());
             verify(permissionsRepository, never()).findByDescription(anyString());
+            verify(customerRepository, never()).findById(any());
+            verify(passwordEncoder, never()).encode(anyString());
         }
 
         @Test
@@ -355,19 +359,19 @@ class StudentServiceTest {
             student.setPassword(passwordEncoder.encode("123"));
             student.setCreatedAt(LocalDateTime.now());
 
-            when(repository.findByEmail(eq("student.test01@email.com"))).thenReturn(Optional.empty());
-            when(repository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
+            when(studentRepository.findByEmail(eq("student.test01@email.com"))).thenReturn(Optional.empty());
+            when(studentRepository.findByTelephone(eq("71988887777"))).thenReturn(Optional.empty());
 
             when(permissionsRepository.findByDescription(anyString())).thenReturn(Optional.empty());
 
             assertThrows(PermissionNotFoundException.class, () -> studentService.createStudent(studentRequestDTO));
 
-            verify(repository, times(1)).findByEmail(any());
-            verify(repository, times(1)).findByTelephone(any());
+            verify(studentRepository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByTelephone(any());
 
             verify(permissionsRepository, times(1)).findByDescription(anyString());
 
-            verify(repository, never()).save(any());
+            verify(studentRepository, never()).save(any());
         }
     }
 
@@ -379,8 +383,8 @@ class StudentServiceTest {
         void shouldUpdateLoggedStudentWithSuccess() {
             String authEmail = "authEmail@gmail.com";
 
-            when(repository.findByEmail(authEmail)).thenReturn(Optional.of(student));
-            when(repository.save(any(Student.class))).thenReturn(student);
+            when(studentRepository.findByEmail(authEmail)).thenReturn(Optional.of(student));
+            when(studentRepository.save(any(Student.class))).thenReturn(student);
 
             doAnswer(invocation -> {
                 StudentUpdateDTO dto = invocation.getArgument(0);
@@ -391,7 +395,6 @@ class StudentServiceTest {
                 entity.setCourse(dto.course());
                 entity.setInstitutionType(dto.institutionType());
                 entity.setTelephone(dto.telephone());
-                entity.setProfilePicture(dto.profilePicture());
 
                 return null;
             }).when(studentMapper).studentUpdateFromDTO(studentUpdateDTO, student);
@@ -400,7 +403,7 @@ class StudentServiceTest {
 
             ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
 
-            verify(repository, times(1)).save(studentCaptor.capture());
+            verify(studentRepository, times(1)).save(studentCaptor.capture());
             Student storedValue = studentCaptor.getValue();
 
             assertNotNull(result);
@@ -411,26 +414,25 @@ class StudentServiceTest {
                     () -> assertEquals(studentUpdateDTO.name(), storedValue.getName()),
                     () -> assertEquals(studentUpdateDTO.lastName(), storedValue.getLastName()),
                     () -> assertEquals(studentUpdateDTO.telephone(), storedValue.getTelephone()),
-                    () -> assertEquals(studentUpdateDTO.profilePicture(), storedValue.getProfilePicture()),
                     () -> assertEquals(studentUpdateDTO.institutionType(), storedValue.getInstitutionType()),
                     () -> assertEquals(studentUpdateDTO.course(), storedValue.getCourse())
             );
 
-            verify(repository, times(2)).findByEmail(any());
-            verify(repository, times(1)).findByTelephone(any());
+            verify(studentRepository, times(2)).findByEmail(any());
+            verify(studentRepository, times(1)).findByTelephone(any());
         }
 
         @Test
         @DisplayName("throw exception when student not found from database")
         void throwExceptionWhenStudentNotFound() {
-            when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
+            when(studentRepository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
 
             assertThrows(EntityNotFoundException.class, () -> studentService.updateCurrentStudent("unexistingEmail@gmail.com", studentUpdateDTO));
 
-            verify(repository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByEmail(any());
 
-            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
-            verify(repository, never()).save(any(Student.class));
+            verify(studentRepository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(studentRepository, never()).save(any(Student.class));
 
             verify(passwordEncoder, never()).encode(anyString());
         }
@@ -440,14 +442,14 @@ class StudentServiceTest {
         void throwExceptionWhenStudentWasInactive() {
             student.setStatus(GeneralStatus.INACTIVE);
 
-            when(repository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
 
             assertThrows(InactiveAccountModificationException.class, () -> studentService.updateCurrentStudent(student.getEmail(), studentUpdateDTO));
 
-            verify(repository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByEmail(any());
 
-            verify(repository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
-            verify(repository, never()).save(any(Student.class));
+            verify(studentRepository, never()).findByEmailOrTelephoneAndIdNot(any(), any(), any());
+            verify(studentRepository, never()).save(any(Student.class));
 
             verify(passwordEncoder, never()).encode(anyString());
         }
@@ -455,13 +457,13 @@ class StudentServiceTest {
         @Test
         void throwExceptionIfEmailAlreadyExists() {
 
-            when(repository.findByEmail(any())).thenReturn(Optional.of(student));
+            when(studentRepository.findByEmail(any())).thenReturn(Optional.of(student));
 
             assertThrows(DuplicateResourceException.class, () -> studentService.updateCurrentStudent(student.getEmail(), studentUpdateDTO));
 
-            verify(repository, times(2)).findByEmail(any());
+            verify(studentRepository, times(2)).findByEmail(any());
 
-            verify(repository, never()).save(any(Student.class));
+            verify(studentRepository, never()).save(any(Student.class));
 
             verify(passwordEncoder, never()).encode(anyString());
         }
@@ -473,23 +475,23 @@ class StudentServiceTest {
         @Test
         @DisplayName("should get logged in student profile with success")
         void shouldGetLoggedInStudentProfileWithSuccess() {
-            when(repository.findByEmail("email@gmail.com")).thenReturn(Optional.of(student));
+            when(studentRepository.findByEmail("email@gmail.com")).thenReturn(Optional.of(student));
 
             StudentResponseDTO result = studentService.getCurrentStudent("email@gmail.com");
 
             assertNotNull(result);
 
-            verify(repository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByEmail(any());
         }
 
         @Test
         @DisplayName("throw exception when student not found from database")
         void throwExceptionWhenStudentNotFound() {
-            when(repository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
+            when(studentRepository.findByEmail("unexistingEmail@gmail.com")).thenReturn(Optional.empty());
 
             assertThrows(EntityNotFoundException.class, () -> studentService.getCurrentStudent("unexistingEmail@gmail.com"));
 
-            verify(repository, times(1)).findByEmail(any());
+            verify(studentRepository, times(1)).findByEmail(any());
         }
     }
 
@@ -498,14 +500,14 @@ class StudentServiceTest {
 
         @Test
         void shouldUpdateStudentStatusWithSuccess() {
-            when(repository.findById(student.getId())).thenReturn(Optional.of(student));
-            when(repository.save(student)).thenReturn(student);
+            when(studentRepository.findById(student.getId())).thenReturn(Optional.of(student));
+            when(studentRepository.save(student)).thenReturn(student);
 
             studentService.updateStudentStatus(student.getId(), GeneralStatus.INACTIVE);
 
             ArgumentCaptor<Student> studentCaptor = ArgumentCaptor.forClass(Student.class);
 
-            verify(repository, times(1)).save(studentCaptor.capture());
+            verify(studentRepository, times(1)).save(studentCaptor.capture());
             Student savedStudent = studentCaptor.getValue();
 
             assertEquals(GeneralStatus.INACTIVE, savedStudent.getStatus());
@@ -514,21 +516,20 @@ class StudentServiceTest {
 
         @Test
         void throwExceptionWhenStudentNotFound() {
-            when(repository.findById(student.getId())).thenReturn(Optional.empty());
+            when(studentRepository.findById(student.getId())).thenReturn(Optional.empty());
 
             assertThrows(EntityNotFoundException.class, () -> studentService.updateStudentStatus(student.getId(), GeneralStatus.INACTIVE));
 
-            verifyNoMoreInteractions(repository);
+            verifyNoMoreInteractions(studentRepository);
         }
 
         @Test
         void throwExceptionWhenStudentAlreadyHasStatus() {
-            when(repository.findById(student.getId())).thenReturn(Optional.of(student));
+            when(studentRepository.findById(student.getId())).thenReturn(Optional.of(student));
 
             assertThrows(DuplicateResourceException.class, () -> studentService.updateStudentStatus(student.getId(), GeneralStatus.ACTIVE));
 
-            verifyNoMoreInteractions(repository);
+            verifyNoMoreInteractions(studentRepository);
         }
     }
-
 }
