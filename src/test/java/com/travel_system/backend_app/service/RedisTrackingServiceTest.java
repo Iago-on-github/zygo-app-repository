@@ -22,8 +22,10 @@ import org.springframework.boot.convert.DataSizeUnit;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.rmi.server.UID;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
@@ -34,17 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RedisTrackingServiceTest {
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT) de forma com que todos os cenários sejam cobertos
-     *
-     */
 
     private RedisTrackingService redisTrackingService;
 
@@ -1238,25 +1229,42 @@ class RedisTrackingServiceTest {
         }
 
         @Test
-        void shouldMarkStudentAsAway() {
-            redisTrackingService.markStudentAsAway(travelId, new DistanceResponseDTO(studentId, 600.40));
+        @DisplayName("Deve registrar estudantes afastados com sucesso convertendo IDs e timestamps para String")
+        void shouldRegisterAwayStudentsSuccessfully() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId2 = UUID.randomUUID();
+            long timestamp = Instant.now().toEpochMilli();
 
-            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
+            Map<UUID, Long> studentsToMarkAway = new HashMap<>();
+            studentsToMarkAway.put(studentId, timestamp);
+            studentsToMarkAway.put(studentId2, timestamp);
 
-            verify(hashOperations, times(1)).put(eq(studentTravelKey), eq("studentAwayTimestamp"), any());
+            redisTrackingService.markStudentAsAway(travelId, studentsToMarkAway);
+
+            ArgumentCaptor<Map<String, String>> mapCaptor = ArgumentCaptor.forClass(Map.class);
+
+            String expectedKey = "travel:away_students:" + travelId;
+            verify(hashOperations, times(1)).putAll(eq(expectedKey), mapCaptor.capture());
+
+            Map<String, String> capturedMap = mapCaptor.getValue();
+            assertNotNull(capturedMap);
+            assertEquals(2, capturedMap.size());
+            assertEquals(String.valueOf(timestamp), capturedMap.get(studentId.toString()));
+            assertEquals(String.valueOf(timestamp), capturedMap.get(studentId2.toString()));
         }
 
         @Test
-        void shouldNotMarkStudentAsAwayWhenAlreadyHaveTimestamp() {
-            String timestampString = String.valueOf(Instant.now().toEpochMilli());
+        @DisplayName("Deve abortar o registro de estudantes quando os parâmetros forem inválidos ou vazios")
+        void shouldNotRegisterAwayStudentsWhenParametersAreInvalidOrEmpty() {
+            UUID travelId = UUID.randomUUID();
+            Map<UUID, Long> emptyStudentsMap = Collections.emptyMap();
+            Map<UUID, Long> validStudentsMap = Map.of(UUID.randomUUID(), Instant.now().toEpochMilli());
 
-            when(hashOperations.get(eq(studentTravelKey), eq("studentAwayTimestamp"))).thenReturn(timestampString);
+            redisTrackingService.markStudentAsAway(null, validStudentsMap);
 
-            redisTrackingService.markStudentAsAway(travelId, new DistanceResponseDTO(studentId, 600.40));
+            redisTrackingService.markStudentAsAway(travelId, emptyStudentsMap);
 
-            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
-
-            verify(hashOperations, never()).put(any(), any(), any());
+            verify(hashOperations, never()).putAll(anyString(), anyMap());
         }
     }
 
@@ -1274,21 +1282,50 @@ class RedisTrackingServiceTest {
         }
 
         @Test
-        void shouldGetStudentAwayTimestampWithSuccess() {
-            String timestampString = String.valueOf(Instant.now().toEpochMilli());
+        @DisplayName("Deve recuperar os timestamps de afastamento dos estudantes com sucesso")
+        void shouldGetStudentAwayTimestampSuccessfully() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId1 = UUID.randomUUID();
+            UUID studentId2 = UUID.randomUUID();
+            long timestamp = Instant.now().toEpochMilli();
 
-            when(hashOperations.get(eq(studentTravelKey), eq("studentAwayTimestamp"))).thenReturn(timestampString);
+            String expectedKey = "travel:away_students:" + travelId;
+            Map<String, String> redisData = new HashMap<>();
+            redisData.put(studentId1.toString(), String.valueOf(timestamp));
+            redisData.put(studentId2.toString(), String.valueOf(timestamp));
 
-            redisTrackingService.getStudentAwayTimestamp(travelId, new DistanceResponseDTO(studentId, 382.12));
+            when(hashOperations.entries(expectedKey)).thenReturn(redisData);
 
-            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
+            Map<UUID, Long> result = redisTrackingService.getStudentAwayTimestamp(travelId);
+
+            assertNotNull(result);
+            assertEquals(2, result.size());
+            assertEquals(timestamp, result.get(studentId1));
+            assertEquals(timestamp, result.get(studentId2));
         }
 
         @Test
-        void shouldReturnNullWhenHasNoData() {
-            redisTrackingService.getStudentAwayTimestamp(travelId, new DistanceResponseDTO(studentId, 382.12));
+        @DisplayName("Deve retornar um mapa vazio quando não houver registros de afastamento para a viagem no Redis")
+        void shouldReturnEmptyMapWhenNoStudentAwayRecordsExist() {
+            UUID travelId = UUID.randomUUID();
+            String expectedKey = "travel:away_students:" + travelId;
 
-            verify(hashOperations, times(1)).get(eq(studentTravelKey), eq("studentAwayTimestamp"));
+            when(hashOperations.entries(expectedKey)).thenReturn(Collections.emptyMap());
+
+            Map<UUID, Long> result = redisTrackingService.getStudentAwayTimestamp(travelId);
+
+            assertNotNull(result);
+            assertTrue(result.isEmpty());
+            assertEquals(Collections.emptyMap(), result);
+        }
+
+        @Test
+        @DisplayName("Deve retornar null imediatamente sem consultar o Redis quando o ID da viagem for nulo")
+        void shouldReturnNullWhenTravelIdIsNull() {
+            Map<UUID, Long> result = redisTrackingService.getStudentAwayTimestamp(null);
+
+            assertNull(result);
+            verify(hashOperations, never()).entries(anyString());
         }
     }
 
@@ -1305,11 +1342,96 @@ class RedisTrackingServiceTest {
         }
 
         @Test
-        void shouldClearStudentAwayStateWithSuccess() {
-            redisTrackingService.clearStudentAwayState(travelId, new DistanceResponseDTO(studentId, 120.12));
+        @DisplayName("Deve remover do Redis apenas os IDs dos estudantes presentes")
+        void shouldClearStudentAwayStateSuccessfully() {
+            UUID travelId = UUID.randomUUID();
+            UUID studentId1 = UUID.randomUUID();
+            UUID studentId2 = UUID.randomUUID();
+            Set<UUID> studentIds = Set.of(studentId1, studentId2);
 
-            verify(hashOperations, times(1)).delete(eq(studentTravelKey), eq("studentAwayTimestamp"));
+            String expectedKey = "travel:away_students:" + travelId;
+
+            redisTrackingService.clearStudentAwayState(travelId, studentIds);
+
+            ArgumentCaptor<String[]> captor = ArgumentCaptor.forClass(String[].class);
+            verify(hashOperations, times(1)).delete(eq(expectedKey), captor.capture());
+
+            String[] capturedIds = captor.getValue();
+            assertNotNull(capturedIds);
+            assertEquals(2, capturedIds.length);
+            List<String> capturedList = Arrays.asList(capturedIds);
+            assertTrue(capturedList.contains(studentId1.toString()));
+            assertTrue(capturedList.contains(studentId2.toString()));
+        }
+
+        @Test
+        @DisplayName("Deve abortar a limpeza do estado quando os parâmetros forem inválidos ou vazios")
+        void shouldNotClearStudentAwayStateWhenParametersAreInvalidOrEmpty() {
+            UUID travelId = UUID.randomUUID();
+            Set<UUID> emptyStudentIds = Collections.emptySet();
+            Set<UUID> validStudentIds = Set.of(UUID.randomUUID());
+
+            redisTrackingService.clearStudentAwayState(null, validStudentIds);
+            redisTrackingService.clearStudentAwayState(travelId, emptyStudentIds);
+
+            verify(hashOperations, never()).delete(anyString(), any(Object[].class));
         }
     }
 
+    @Nested
+    class tryAcquireStudentAwayStateLock {
+
+        @Test
+        @DisplayName("Deve adquirir o lock de estado de estudantes afastados com sucesso")
+        void shouldAcquireStudentAwayStateLockSuccessfully() {
+            UUID travelId = UUID.randomUUID();
+            String expectedLockKey = "travel:student-away-lock:" + travelId;
+
+            ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
+
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.setIfAbsent(eq(expectedLockKey), eq("locked"), eq(Duration.ofSeconds(30))))
+                    .thenReturn(Boolean.TRUE);
+
+            boolean acquired = redisTrackingService.tryAcquireStudentAwayStateLock(travelId);
+
+            assertTrue(acquired);
+            verify(valueOperations, times(1))
+                    .setIfAbsent(eq(expectedLockKey), eq("locked"), eq(Duration.ofSeconds(30)));
+        }
+
+        @Test
+        @DisplayName("Deve retornar falso ao tentar adquirir o lock quando ele já estiver ativo (bloqueado)")
+        void shouldReturnFalseWhenStudentAwayStateLockIsAlreadyActive() {
+            UUID travelId = UUID.randomUUID();
+            String expectedLockKey = "travel:student-away-lock:" + travelId;
+
+            @SuppressWarnings("unchecked")
+            ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
+
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.setIfAbsent(eq(expectedLockKey), eq("locked"), eq(Duration.ofSeconds(30))))
+                    .thenReturn(Boolean.FALSE);
+
+            boolean acquired = redisTrackingService.tryAcquireStudentAwayStateLock(travelId);
+
+            assertFalse(acquired);
+            verify(valueOperations, times(1))
+                    .setIfAbsent(eq(expectedLockKey), eq("locked"), eq(Duration.ofSeconds(30)));
+        }
+    }
+
+    @Nested
+    class releaseStudentAwayStateLock {
+        @Test
+        @DisplayName("Cenário 4.3: Deve liberar o lock de estado de estudantes afastados com sucesso removendo a chave do Redis")
+        void shouldReleaseStudentAwayStateLockSuccessfully() {
+            UUID travelId = UUID.randomUUID();
+            String expectedLockKey = "travel:student-away-lock:" + travelId;
+
+            redisTrackingService.releaseStudentAwayStateLock(travelId);
+
+            verify(redisTemplate, times(1)).delete(eq(expectedLockKey));
+        }
+    }
 }
