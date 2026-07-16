@@ -79,17 +79,17 @@ public class DriverService {
         if (email.isPresent()) throw new DuplicateResourceException("Email " + driverRequestDTO.email() + " já existe");
         if (telephone.isPresent()) throw new DuplicateResourceException("Telefone " + driverRequestDTO.telephone() + " já existe");
 
-        Driver newDriver = driverMapper(driverRequestDTO);
-
-        newDriver.setCreatedAt(LocalDateTime.now());
-        newDriver.setStatus(GeneralStatus.ACTIVE);
-
         Customer customer = customerRepository.findById(driverRequestDTO.customerId())
                 .orElseThrow(() -> new EntityNotFoundException("Customer " + driverRequestDTO.customerId() + " não encontrado."));
 
         final String ROLE_DRIVER = "ROLE_DRIVER";
         Permissions admPerm = permissionsRepository.findByDescription(ROLE_DRIVER)
                 .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_DRIVER + " não encontrada."));
+
+        Driver newDriver = driverMapper(driverRequestDTO);
+
+        newDriver.setCreatedAt(LocalDateTime.now());
+        newDriver.setStatus(GeneralStatus.ACTIVE);
 
         newDriver.setCustomer(customer);
         newDriver.setPermissions(List.of(admPerm));
