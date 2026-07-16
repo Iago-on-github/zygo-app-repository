@@ -2,8 +2,10 @@ package com.travel_system.backend_app.integration.controller;
 
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.TravelRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.time.Instant;
 import java.util.List;
@@ -42,12 +45,15 @@ public class RouteCalculationControllerIT extends IntegrationTestBase {
 
         @BeforeEach
         void setUp() {
-             travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, null, Instant.now(),
-                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
-                    3600.0, 15000.0,
-                    -12.9714, -38.5016,
-                    -12.8000, -38.4000, "Feira de Santana"
+            travel = new Travel(UUID.fromString("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), TravelStatus.TRAVELLING, null, Instant.now().minusSeconds(1800), Instant.now().minusSeconds(900), TravelPeriod.AFTERNOON, null, "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                    2400.0, // Duração estimada em segundos (40 min)
+                    25000.0, // Distância estimada em metros (25 km)
+                    -12.9714, // Latitude de origem (Ex: Salvador)
+                    -38.5016, // Longitude de origem
+                    -12.8000, // Latitude final (Ex: Feira de Santana)
+                    -38.4000, // Longitude final
+                    "Feira de Santana",
+                    new Customer()
             );
 
             travelRepository.save(travel);
