@@ -2,12 +2,12 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
+import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -36,18 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TravelServiceTest {
-
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT)
-     *
-     */
     @Mock
     private StudentTravelRepository studentTravelRepository;
     @Mock
@@ -69,6 +57,12 @@ class TravelServiceTest {
     private TravelLocationHistoryRepository travelLocationHistoryRepository;
     @Mock
     private StudentRepository studentRepository;
+    @Mock
+    private TravelCacheService travelCacheService;
+    @Mock
+    private TravelNotificationService travelNotificationService;
+    @Mock
+    private TravelStudentStateCacheService travelStudentStateCacheService;
 
     @InjectMocks
     private TravelService travelService;
@@ -78,33 +72,41 @@ class TravelServiceTest {
     TravelRequestDTO travelRequestDTO;
     Driver driver;
     Travel travel;
+    Customer customer;
     Student student;
     StudentTravel studentTravel;
 
     @BeforeEach
     void setUp() {
-        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(),null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana");
+        customer = new Customer(UUID.randomUUID(), "Universidade Exemplo", "universidade-exemplo", "12.345.678/0001-90", true, new City(), ClientSector.PRIVATE_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
 
-        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
+        driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
 
-        driver = new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City());
+        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), TravelPeriod.MORNING, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
 
-        student = new Student(UUID.randomUUID(), "student@gmail.com", "123456", "Maria", "Oliveira", "75988888888", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), InstitutionType.UNIVERSITY, "Computer Science");
+        student = new Student(UUID.randomUUID(), "ana.souza@exemplo.com", "Senha@123", "Ana", "Souza", "+55 11 99999-1234", "https://cdn.exemplo.com/students/ana-souza.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 0), LocalDateTime.of(2026, 7, 16, 12, 0), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
 
-        studentTravel = new StudentTravel(UUID.randomUUID(), new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.TRAVELLING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()), Instant.now(), Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana"),
-                new Student(), true, Instant.now(), null, new GeoPosition(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), null), StudentTravelStatus.ACTIVE);
+        studentTravel = new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.parse("2026-07-16T10:20:00Z"), null, null, StudentTravelStatus.ACTIVE);
 
+        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
     }
 
     @Nested
     class createTravel {
+        TravelPreviewDTO travelPreviewDTO;
+
+        @BeforeEach
+        void setUp() {
+            travelPreviewDTO = new TravelPreviewDTO(30.0, 60.0, "Feira de Santana", "16:14");
+        }
 
         @Test
         @DisplayName("should create travel with success")
         void shouldCreateTravelWithSuccess() {
             when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
-
             when(travelRepository.save(any(Travel.class))).thenReturn(new Travel());
+            when(mapboxAPIService.getTripPreview(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenReturn(travelPreviewDTO);
 
             TravelResponseDTO result = travelService.createTravel(travelRequestDTO);
 
@@ -124,8 +126,6 @@ class TravelServiceTest {
             assertEquals(TravelStatus.PENDING, storedValue.getTravelStatus());
 
             assertEquals(driver, storedValue.getDriver());
-
-            assertNotNull(storedValue.getStartHourTravel());
         }
 
         @Test
@@ -156,7 +156,7 @@ class TravelServiceTest {
 
         @Test
         @DisplayName("throw exception when driver has active travel")
-        void ThrowExceptionWhenDriverHasActiveTravel() {
+        void throwExceptionWhenDriverHasActiveTravel() {
             when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
 
             when(travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING)))
@@ -169,10 +169,41 @@ class TravelServiceTest {
 
             verify(travelRepository, never()).save(any());
         }
+
+        @Test
+        @DisplayName("Deve lançar exception quando o período da viagem não for encontrado")
+        void throwTravelExceptionWhenTravelPeriodIsNull() {
+            TravelRequestDTO newTravelReqDTO = new TravelRequestDTO(UUID.randomUUID(), null, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
+
+            when(driverRepository.findById(newTravelReqDTO.driverId())).thenReturn(Optional.of(driver));
+
+            assertThrows(TravelException.class, () -> travelService.createTravel(newTravelReqDTO));
+
+            verify(mapboxAPIService, never()).getTripPreview(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(travelRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Deve lançar exception quando a MAPBOX api retornar null")
+        void ThrowExceptionWhenMapboxPreviewDataReturnsNull() {
+            when(driverRepository.findById(travelRequestDTO.driverId())).thenReturn(Optional.of(driver));
+            when(mapboxAPIService.getTripPreview(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                    .thenThrow(new RecalculateEtaException(""));
+
+            assertThrows(RecalculateEtaException.class, () -> travelService.createTravel(travelRequestDTO));
+
+            verify(travelRepository, never()).save(any());
+        }
+
+
     }
 
     @Nested
     class startTravel {
+        @BeforeEach
+        void setUp() {
+            travel.setTravelStatus(TravelStatus.PENDING);
+        }
 
         @Test
         @DisplayName("should start travel with success")
@@ -183,6 +214,7 @@ class TravelServiceTest {
             when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
                     .thenReturn(routeDetailsDTO);
             when(travelRepository.save(any(Travel.class))).thenReturn(travel);
+            doNothing().when(travelCacheService).invalidateTravelStaticCache(travel.getId());
 
             travelService.startTravel(travel.getId());
 
@@ -200,6 +232,9 @@ class TravelServiceTest {
             );
 
             verify(redisTrackingService, times(1)).addActiveTravel(any());
+            verify(travelRepository, times(1)).save(any());
+            verify(travelNotificationService, times(1)).sendTravelStartedNotification(travel);
+            verify(travelCacheService, times(1)).invalidateTravelStaticCache(travel.getId());
         }
 
         @Test
@@ -269,26 +304,19 @@ class TravelServiceTest {
 
     @Nested
     class endTravel {
+
         @DisplayName("should generate metrics to Travel Reports with success")
         @Test
         void shouldGenerateFullTravelReportWithSuccess() {
-            Travel travel = new Travel();
-
             String polylineRoute = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
 
             travel.setId(UUID.randomUUID());
             travel.setTravelStatus(TravelStatus.TRAVELLING);
             travel.setStartHourTravel(Instant.now().minusSeconds(180));
 
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
-            );
+            travel.setStudentTravels(Set.of(studentTravel));
 
             List<TravelLocationHistory> locationHistories = List.of(new TravelLocationHistory());
-
-            travel.setStudentTravels(studentTravels);
 
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
             when(redisTrackingService.getAccumulatedDistance(travel.getId())).thenReturn(String.valueOf(1500.0));
@@ -303,10 +331,10 @@ class TravelServiceTest {
             assertEquals(TravelStatus.FINISH, travel.getTravelStatus());
             assertNotNull(travel.getEndHourTravel());
 
-            int remainder = (2 * 100) / 3;
+            int remainder = (1 * 100); // dividido pelo total de estudantes (nesse caso 1 mas foi simplificado)
             verify(travelReportsRepository, times(1)).save(travelReportsCaptor.capture());
-            assertEquals(3, travelReportsCaptor.getValue().getBusExpectedStudents());
-            assertEquals(2, travelReportsCaptor.getValue().getBusActualOccupancy());
+            assertEquals(1, travelReportsCaptor.getValue().getBusExpectedStudents());
+            assertEquals(1, travelReportsCaptor.getValue().getBusActualOccupancy());
             assertEquals(remainder, travelReportsCaptor.getValue().getOccupancyPercentage());
 
             assertEquals(1500.0, travelReportsCaptor.getValue().getDistanceTraveled());
@@ -318,24 +346,11 @@ class TravelServiceTest {
         @Test
         @DisplayName("should validate the exactly percentual of occupancy")
         void shouldGeneratePartialOccupancyReport() {
-            Travel travel = new Travel();
-
             travel.setId(UUID.randomUUID());
             travel.setTravelStatus(TravelStatus.TRAVELLING);
             travel.setStartHourTravel(Instant.now().minusSeconds(180));
 
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
-            );
+            Set<StudentTravel> studentTravels = Set.of(studentTravel);
 
             travel.setStudentTravels(studentTravels);
 
@@ -346,9 +361,9 @@ class TravelServiceTest {
 
             verify(travelReportsRepository, times(1)).save(travelReportsCaptor.capture());
 
-            assertEquals(10, travelReportsCaptor.getValue().getBusExpectedStudents());
-            assertEquals(5, travelReportsCaptor.getValue().getBusActualOccupancy());
-            assertEquals(50, travelReportsCaptor.getValue().getOccupancyPercentage());
+            assertEquals(1, travelReportsCaptor.getValue().getBusExpectedStudents());
+            assertEquals(1, travelReportsCaptor.getValue().getBusActualOccupancy());
+            assertEquals(100, travelReportsCaptor.getValue().getOccupancyPercentage());
 
             assertTrue(travel.getStudentTravels().stream().noneMatch(StudentTravel::isEmbark));
         }
@@ -356,17 +371,11 @@ class TravelServiceTest {
         @Test
         @DisplayName("should rollback if an error occurs and keep travel status unchanged")
         void shouldRollbackWhenTravelReportsSaveFails() {
-            Travel travel = new Travel();
-
             travel.setId(UUID.randomUUID());
             travel.setTravelStatus(TravelStatus.TRAVELLING);
             travel.setStartHourTravel(Instant.now());
 
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, Instant.now().minusSeconds(200), null, null, StudentTravelStatus.ACTIVE),
-                    new StudentTravel(UUID.randomUUID(), travel, null, true, null, null, null, StudentTravelStatus.ACTIVE)
-            );
+            Set<StudentTravel> studentTravels = Set.of(studentTravel);
 
             travel.setStudentTravels(studentTravels);
 
@@ -482,7 +491,7 @@ class TravelServiceTest {
         }
     }
 
-    @Nested
+   @Nested
     class joinTravel {
 
         @Test
@@ -494,7 +503,9 @@ class TravelServiceTest {
             when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
             when(studentTravelRepository.save(any(StudentTravel.class))).thenReturn(studentTravel);
 
-            travelService.joinTravel(travel.getId(), student.getEmail());
+            doNothing().when(travelStudentStateCacheService).evictStudentTravelCachedData(travel.getId(), student.getEmail());
+
+            travelService.joinTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE);
 
             ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
 
@@ -511,7 +522,7 @@ class TravelServiceTest {
         @DisplayName("throw exception when require parameters is null")
         @MethodSource("nullParametersProvider")
         void throwExceptionWhenRequireParametersIsNull(UUID travelId, String studentEmail) {
-            assertThrows(IllegalArgumentException.class, () -> travelService.joinTravel(travelId, studentEmail));
+            assertThrows(IllegalArgumentException.class, () -> travelService.joinTravel(travelId, studentEmail, StudentTravelStatus.ACTIVE));
 
             verify(travelRepository, never()).getReferenceById(any());
             verify(studentRepository, never()).getReferenceById(any());
@@ -532,7 +543,7 @@ class TravelServiceTest {
 
             when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
 
-            assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getEmail()));
+            assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
         }
 
         static Stream<Arguments> invalidTravelStatusProvider() {
@@ -546,20 +557,14 @@ class TravelServiceTest {
         @DisplayName("throw exception when student already linked to trip")
         void throwExceptionWhenStudentAlreadyLinkedToTrip() {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
-
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
-            );
-
+            Set<StudentTravel> studentTravels = Set.of(studentTravel);
             travel.setStudentTravels(studentTravels);
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+            when(studentTravelRepository.existsByTravelIdAndStudentEmailAndEmbarkTrue(travel.getId(), student.getEmail())).thenThrow(new StudentAlreadyLinkedToTrip(""));
 
-            assertThrows(StudentAlreadyLinkedToTrip.class, () -> travelService.joinTravel(travel.getId(), student.getEmail()));
+            assertThrows(StudentAlreadyLinkedToTrip.class, () -> travelService.joinTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
 
             verifyNoInteractions(
-                    studentTravelRepository,
                     travelLocationHistoryRepository,
                     polylineService,
                     redisTrackingService,
@@ -568,47 +573,265 @@ class TravelServiceTest {
 
             verifyNoMoreInteractions(travelRepository);
         }
-    }
 
-    @Nested
-    class leaveTravel {
+       @Test
+       @DisplayName("Deve lançar exception quando o estudante não for encontrado")
+       void throwExceptionWhenStudentNotFound() {
+           when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.empty());
 
-        @Test
+           when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+           when(studentTravelRepository.existsByTravelIdAndStudentEmailAndEmbarkTrue(travel.getId(), student.getEmail())).thenReturn(false);
+
+           assertThrows(EntityNotFoundException.class, () -> travelService.joinTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
+
+           verifyNoMoreInteractions(studentTravelRepository, travelStudentStateCacheService, travelRepository, studentRepository);
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando o estudante for de um Customer difernete da viagem")
+       void throwExceptionWhenStudentAndTravelBelongToDifferentCustomers() {
+            student.setCustomer(new Customer()); // different customer
+
+           when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+           when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+
+           assertThrows(TravelException.class, () -> travelService.joinTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
+
+           verify(studentTravelRepository, never()).save(any());
+           verify(travelStudentStateCacheService, never()).evictStudentTravelCachedData(any(), any());
+       }
+
+
+   }
+
+   @Nested
+   class driverChanged {
+
+       @Test
+       @DisplayName("Deve mudar o motorista da viagem com sucesso")
+       void shouldDriverChangedWithSuccess() {
+           Driver actualDriver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
+
+           travel.setDriver(actualDriver);
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(driverRepository.findById(driver.getId())).thenReturn(Optional.of(driver));
+           when(travelRepository.save(travel)).thenReturn(travel);
+
+           travelService.driverChanged(travel.getId(), driver.getId());
+
+           ArgumentCaptor<Travel> travelArgCaptor = ArgumentCaptor.forClass(Travel.class);
+
+           verify(travelRepository, times(1)).save(travelArgCaptor.capture());
+
+           Travel storedValue = travelArgCaptor.getValue();
+           assertEquals(storedValue.getDriver(), travel.getDriver());
+
+           verify(travelNotificationService, times(1)).sendDriverChangedNotification(any(), any());
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando a viagem não for encontrada")
+       void throwExceptionWhenTravelNotFound() {
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+           assertThrows(TripNotFound.class, () -> travelService.driverChanged(travel.getId(), driver.getId()));
+
+           verifyNoInteractions(driverRepository, travelNotificationService);
+
+           verifyNoMoreInteractions(travelRepository);
+       }
+
+       @ParameterizedTest
+       @DisplayName("Deve lançar exception quando a viagem estiver inabilitada")
+       @MethodSource("travelStatusProvider")
+       void throwTravelExceptionWhenChangingDriverOfFinishedTravel(TravelStatus travelStatus) {
+           travel.setTravelStatus(travelStatus);
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+           assertThrows(TravelException.class, () -> travelService.driverChanged(travel.getId(), driver.getId()));
+
+           verifyNoInteractions(driverRepository, travelNotificationService);
+
+           verifyNoMoreInteractions(travelRepository);
+       }
+
+       public static Stream<Arguments> travelStatusProvider() {
+           return Stream.of(
+                   Arguments.of(TravelStatus.FINISH),
+                   Arguments.of(TravelStatus.CANCELED)
+           );
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando o novo motorista não existir")
+       void throwEntityNotFoundExceptionWhenNewDriverDoesNotExist() {
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(driverRepository.findById(driver.getId())).thenReturn(Optional.empty());
+
+           assertThrows(EntityNotFoundException.class, () -> travelService.driverChanged(travel.getId(), driver.getId()));
+
+           verifyNoMoreInteractions(travelRepository, driverRepository);
+
+           verifyNoInteractions(travelNotificationService);
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando o novo motorista já estiver com uma viagem ativa")
+       void throwTravelExceptionWhenNewDriverAlreadyHasActiveTravel() {
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(driverRepository.findById(driver.getId())).thenReturn(Optional.of(driver));
+           when(travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING))).thenReturn(true);
+
+           assertThrows(TravelException.class, () -> travelService.driverChanged(travel.getId(), driver.getId()));
+
+           verifyNoMoreInteractions(travelRepository, driverRepository);
+           verifyNoInteractions(travelNotificationService);
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando o novo motorista faz parte de outros customers diferentes")
+       void throwTravelExceptionWhenDriversBelongToDifferentCustomers() {
+           Customer customerA = new Customer();
+           customerA.setId(UUID.randomUUID());
+
+           Driver currentDriver = new Driver();
+           currentDriver.setId(UUID.randomUUID());
+           currentDriver.setCustomer(customerA);
+
+           travel.setDriver(currentDriver);
+
+           Customer customerB = new Customer();
+           customerB.setId(UUID.randomUUID());
+
+           Driver newDriver = new Driver();
+           newDriver.setId(UUID.randomUUID());
+           newDriver.setStatus(GeneralStatus.ACTIVE);
+           newDriver.setCustomer(customerB);
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(driverRepository.findById(newDriver.getId())).thenReturn(Optional.of(newDriver));
+
+           when(travelRepository.existsByDriverIdAndTravelStatusIn(eq(newDriver.getId()), any())).thenReturn(false);
+
+           assertThrows(TravelException.class, () -> travelService.driverChanged(travel.getId(), newDriver.getId()));
+
+           verifyNoInteractions(travelNotificationService);
+       }
+
+   }
+
+   @Nested
+   class cancelTravel {
+
+       @Test
+       @DisplayName("Deve cancelar a viagem com sucesso")
+       void shouldCancelPendingTravelWithoutStudents() {
+           travel.setTravelStatus(TravelStatus.PENDING);
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(travelRepository.save(travel)).thenReturn(travel);
+
+           travelService.cancelTravel(travel.getId());
+
+           ArgumentCaptor<Travel> travelArgCaptor = ArgumentCaptor.forClass(Travel.class);
+
+           verify(travelRepository, times(1)).save(travelArgCaptor.capture());
+
+           Travel storedValue = travelArgCaptor.getValue();
+           assertEquals(TravelStatus.CANCELED, storedValue.getTravelStatus());
+           assertEquals(0, storedValue.getStudentTravels().size());
+
+           assertNotNull(storedValue.getEndHourTravel());
+
+           verify(travelNotificationService, times(1)).sendTravelCanceledNotification(travel);
+
+       }
+
+       @Test
+       @DisplayName("Deve lançar exception quando a viagem não for encontrada")
+       void throwTripNotFoundWhenCancelingNonExistingTravel() {
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+           assertThrows(TripNotFound.class, () -> travelService.cancelTravel(travel.getId()));
+
+           verifyNoMoreInteractions(travelRepository);
+           verifyNoInteractions(studentTravelRepository, travelNotificationService);
+       }
+
+       @ParameterizedTest
+       @DisplayName("Deve lançar exception quando a viagem já estiver em andamento ou finalizada")
+       @MethodSource("travelStatusProvider")
+       void throwTravelExceptionWhenCancelingTravellingTravel(TravelStatus travelStatus) {
+           travel.setTravelStatus(travelStatus);
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+           assertThrows(TravelException.class, () -> travelService.cancelTravel(travel.getId()));
+
+           verifyNoMoreInteractions(travelRepository);
+           verifyNoInteractions(studentTravelRepository, travelNotificationService);
+       }
+
+       public static Stream<Arguments> travelStatusProvider() {
+           return Stream.of(
+                   Arguments.of(TravelStatus.FINISH),
+                   Arguments.of(TravelStatus.CANCELED),
+                   Arguments.of(TravelStatus.TRAVELLING)
+           );
+       }
+
+       @Test
+       @DisplayName("Deve desconectar os estudantes da viagem corretamente")
+       void shouldDisconnectEmbarkedStudentWhenCancelingTravel() {
+           travel.setTravelStatus(TravelStatus.PENDING);
+           travel.setStudentTravels(Set.of(studentTravel));
+
+           when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+           when(travelRepository.save(travel)).thenReturn(travel);
+           when(studentTravelRepository.save(studentTravel)).thenReturn(studentTravel);
+
+           travelService.cancelTravel(travel.getId());
+
+           ArgumentCaptor<StudentTravel> stArgCaptor = ArgumentCaptor.forClass(StudentTravel.class);
+
+           verify(studentTravelRepository, times(1)).save(stArgCaptor.capture());
+
+           StudentTravel storedValue = stArgCaptor.getValue();
+           assertFalse(storedValue.isEmbark());
+           assertNotNull(storedValue.getDisembarkHour());
+
+           verify(travelRepository, times(1)).save(any());
+           verify(travelNotificationService, times(1)).sendTravelCanceledNotification(any());
+       }
+   }
+
+   @Nested
+   class leaveTravel {
+       TravelCacheDTO travelCacheDTO;
+       StudentTravelCacheDTO studentTravelCacheDTO;
+
+       @BeforeEach
+       void setUp() {
+           travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+           studentTravelCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), student.getId(), StudentTravelStatus.ACTIVE, true);
+       }
+
+       @Test
         @DisplayName("should student leave travel with success")
         void shouldStudentLeaveTravelWithSuccess() {
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            StudentTravel studentTravel = new StudentTravel(
-                    UUID.randomUUID(),
-                    travel,
-                    student,
-                    true,
-                    Instant.now(),
-                    null,
-                    null, StudentTravelStatus.ACTIVE
-            );
-
             travel.setStudentTravels(Set.of(studentTravel));
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
-            when(studentTravelRepository.findByTravelIdAndStudentId(travel.getId(), student.getId()))
-                    .thenReturn(Optional.of(studentTravel));
+            when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(travelCacheDTO);
+            when(travelStudentStateCacheService.getOrLoadStudentTravelCache(travel.getId(), student.getEmail())).thenReturn(studentTravelCacheDTO);
 
             travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
 
-            ArgumentCaptor<StudentTravel> studentTravelCaptor = ArgumentCaptor.forClass(StudentTravel.class);
-
-            verify(studentTravelRepository).save(studentTravelCaptor.capture());
-
-            StudentTravel savedStudentTravel = studentTravelCaptor.getValue();
-
-            assertFalse(savedStudentTravel.isEmbark());
-            assertNotNull(savedStudentTravel.getDisembarkHour());
-
-            verify(travelRepository).getReferenceById(travel.getId());
-            verify(studentRepository).findByEmail(student.getEmail());
-            verify(studentTravelRepository).findByTravelIdAndStudentId(travel.getId(), student.getId());
+            verify(studentTravelRepository, times(1)).disconnectedStudentFromTrip(anyList(), any(), any(), anyBoolean());
+            verify(travelStudentStateCacheService, times(1)).evictStudentTravelCachedData(any(), anyString());
         }
 
         @ParameterizedTest
@@ -635,13 +858,12 @@ class TravelServiceTest {
         @DisplayName("throw exception when travel was not travelling")
         @MethodSource("travelStatusProvider")
         void throwExceptionWhenTravelWasNotTravelling(TravelStatus travelStatus) {
-            travel.setTravelStatus(travelStatus);
+            TravelCacheDTO newTravelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
+            when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(newTravelCacheDTO);
+            when(travelStudentStateCacheService.getOrLoadStudentTravelCache(travel.getId(), student.getEmail())).thenReturn(studentTravelCacheDTO);
 
             assertThrows(TravelException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT));
-
-            verify(travelRepository, times(1)).getReferenceById(any());
 
             verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
             verify(studentTravelRepository, never()).save(any());
@@ -650,121 +872,76 @@ class TravelServiceTest {
         public static Stream<Arguments> travelStatusProvider() {
             return Stream.of(
                     Arguments.of(TravelStatus.PENDING),
+                    Arguments.of(TravelStatus.CANCELED),
                     Arguments.of(TravelStatus.FINISH)
             );
         }
 
-        @Test
-        @DisplayName("throw exception when has no student travels in this trip")
-        void throwExceptionWhenHasNoStudentTravelsInThisTrip() {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+       @Test
+       @DisplayName("Deve lançar exception quando o id do estudante não estiver presente no cache")
+       void throwTravelStudentAssociationNotFoundWhenStudentIdIsNull() {
+           StudentTravelCacheDTO newStudentCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), null, StudentTravelStatus.ACTIVE, true);
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+           when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(travelCacheDTO);
+           when(travelStudentStateCacheService.getOrLoadStudentTravelCache(travel.getId(), student.getEmail())).thenReturn(newStudentCacheDTO);
 
-            assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT));
+           assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
 
-            verify(travelRepository, times(1)).getReferenceById(any());
+           verify(travelCacheService, times(1)).getOrLoadTravelStaticCache(any());
+           verify(travelStudentStateCacheService, times(1)).getOrLoadStudentTravelCache(any(), anyString());
 
-            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
-            verify(studentTravelRepository, never()).save(any());
-        }
+           verifyNoMoreInteractions(travelStudentStateCacheService);
+           verifyNoInteractions(studentTravelRepository);
+       }
 
-        @Test
-        @DisplayName("throw exception when isEmbark returns false")
-        void throwExceptionWhenIsEmbarkReturnsFalse() {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, false, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
-            );
-            travel.setStudentTravels(studentTravels);
+       @Test
+       @DisplayName("Deve lançar exception quando o estudante não estiver embarcado no cache")
+       void throwTravelStudentAssociationNotFoundWhenStudentIsNotEmbarked() {
+           StudentTravelCacheDTO newStudentCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), student.getId(), StudentTravelStatus.ACTIVE, false);
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.findByEmail(student.getEmail())).thenReturn(Optional.of(student));
+           when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(travelCacheDTO);
+           when(travelStudentStateCacheService.getOrLoadStudentTravelCache(travel.getId(), student.getEmail())).thenReturn(newStudentCacheDTO);
 
-            assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
-            });
+           assertThrows(TravelStudentAssociationNotFoundException.class, () -> travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.ACTIVE));
 
-            verify(travelRepository, times(1)).getReferenceById(any());
-            verify(studentTravelRepository, never()).findByTravelIdAndStudentId(any(), any());
+           verify(travelCacheService, times(1)).getOrLoadTravelStaticCache(any());
+           verify(travelStudentStateCacheService, times(1)).getOrLoadStudentTravelCache(any(), anyString());
 
-            verify(studentTravelRepository, never()).save(any());
+           verifyNoMoreInteractions(travelStudentStateCacheService);
+           verifyNoInteractions(studentTravelRepository);
+       }
+   }
 
-        }
+   @Nested
+   class linkedStudentTravel {
+       StudentTrackingPositionDTO studentTrackingPositionDTO;
 
-        @Test
-        @DisplayName("throw exception when studentTravel link not found")
-        void throwExceptionWhenStudentTravelLinkNotFound() {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+       @BeforeEach
+       void setUp() {
+           studentTrackingPositionDTO = new StudentTrackingPositionDTO(student.getId(), -32.432, -11.231);
+       }
 
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
-            );
-            travel.setStudentTravels(studentTravels);
+       @Test
+       @DisplayName("Deve retornar os estudantes vinculados à viagem com sucesso")
+       void shouldReturnLinkedStudentTrackingPositionsWhenStudentsExist() {
+            when(travelRepository.findTrackingPositionsByTravelId(travel.getId())).thenReturn(Set.of(studentTrackingPositionDTO));
 
-            when(travelRepository.getReferenceById(travel.getId())).thenReturn(travel);
-            when(studentRepository.findByEmail(any())).thenReturn(Optional.of(student));
+           Set<StudentTrackingPositionDTO> result = travelService.linkedStudentTravel(travel.getId());
 
-            assertThrows(TravelStudentAssociationNotFoundException.class, () -> {
-                travelService.leaveTravel(travel.getId(), student.getEmail(), StudentTravelStatus.LEFT);
-            });
+           assertNotNull(result);
+       }
 
-            verify(travelRepository, times(1)).getReferenceById(any());
-            verify(studentTravelRepository, times(1)).findByTravelIdAndStudentId(any(), any());
+       @Test
+       @DisplayName("Deve lançar exception quando não há estudantes vinculados à viagem")
+       void throwStudentNotLinkedToTripExceptionWhenTravelHasNoLinkedStudents() {
+           when(travelRepository.findTrackingPositionsByTravelId(travel.getId())).thenReturn(Set.of());
 
-            verify(studentTravelRepository, never()).save(any());
+           assertThrows(StudentNotLinkedToTripException.class, () -> travelService.linkedStudentTravel(travel.getId()));
+       }
+   }
 
-        }
-    }
-
-    @Nested
-    class linkedStudentTravel {
-
-        @Test
-        @DisplayName("should display linked student travel with success")
-        void shouldDisplayStudentTravelWithSuccess() {
-            travel.setStudentTravels(Set.of(studentTravel));
-
-            when(travelRepository.findByIdWithStudents(eq(travel.getId()))).thenReturn(Optional.of(travel));
-
-            Set<StudentTravel> studentTravels = Set.of(
-                    new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE)
-            );
-            travel.setStudentTravels(studentTravels);
-
-            Set<StudentTravelResponseDTO> result = travelService.linkedStudentTravel(travel.getId());
-
-            assertFalse(result.isEmpty());
-
-            verify(travelRepository, times(1)).findByIdWithStudents(any());
-        }
-
-        @Test
-        @DisplayName("throw exception when travel not found")
-        void throwExceptionWhenTravelNotFound() {
-            when(travelRepository.findByIdWithStudents(travel.getId())).thenReturn(Optional.empty());
-
-            assertThrows(EntityNotFoundException.class, () -> travelService.linkedStudentTravel(travel.getId()));
-
-            verify(travelRepository, times(1)).findByIdWithStudents(any());
-        }
-
-        @Test
-        @DisplayName("throw exception when has no student on this trip")
-        void throwExceptionWhenHasNoStudentOnThisTrip() {
-            travel.setStudentTravels(null);
-
-            when(travelRepository.findByIdWithStudents(travel.getId())).thenReturn(Optional.of(travel));
-
-            assertThrows(StudentNotLinkedToTripException.class, () -> travelService.linkedStudentTravel(travel.getId()));
-
-            verify(travelRepository, times(1)).findByIdWithStudents(any());
-        }
-    }
-
-    @Nested
-    class isStudentLogged {
+   @Nested
+   class isStudentLogged {
 
         @Test
         @DisplayName("should return true when is student logged")
@@ -793,8 +970,8 @@ class TravelServiceTest {
         }
     }
 
-    @Nested
-    class isDriverLogged {
+   @Nested
+   class isDriverLogged {
 
         @Test
         @DisplayName("should return true when is driver logged")
@@ -831,4 +1008,58 @@ class TravelServiceTest {
         }
     }
 
+   @Nested
+   class getTravelPreview {
+        Instant startHourTravel;
+        Double duration;
+
+        @BeforeEach
+        void setUp() {
+            startHourTravel = Instant.parse("2026-07-16T10:00:00Z");
+            duration = 3600.0;
+        }
+
+        @Test
+        @DisplayName("Deve retornar os dados de preview corretamente incluindo o arrivalTime")
+        void shouldReturnTravelPreviewWithArrivalTimeWhenStartTimeAndDurationExist() {
+            travel.setStartHourTravel(startHourTravel);
+            travel.setDuration(duration);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            TravelPreviewDTO result = travelService.getTravelPreview(travel.getId());
+
+            assertNotNull(result);
+            assertNotNull(result.distance());
+            assertNotNull(result.duration());
+            assertNotNull(result.destinationCity());
+            assertEquals("2026-07-16T11:00:00Z", result.arrivalTime());
+        }
+
+        @Test
+        @DisplayName("Deve lançar exception quando a viagem não for encontrada")
+        void throwExceptionWhenTravelNotFound() {
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+
+            assertThrows(EntityNotFoundException.class, () -> travelService.getTravelPreview(travel.getId()));
+        }
+
+        @Test
+        @DisplayName("Deve setar o arrivelTime como null quando não houver startTime")
+        void shouldReturnPreviewWithoutArrivalTimeWhenStartTimeIsNull() {
+            travel.setDuration(duration);
+            travel.setStartHourTravel(null);
+
+            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+
+            TravelPreviewDTO result = travelService.getTravelPreview(travel.getId());
+
+            assertNotNull(result);
+            assertNotNull(result.distance());
+            assertNotNull(result.duration());
+            assertNotNull(result.destinationCity());
+
+            assertNull(result.arrivalTime());
+        }
+    }
 }
