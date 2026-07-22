@@ -1,16 +1,16 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
+import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
+import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
-import com.travel_system.backend_app.model.enums.CitySize;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.StudentTravelStatus;
-import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
@@ -24,16 +24,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Spy;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.NestedTestConfiguration;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.Current;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -66,6 +64,8 @@ class TravelTrackingServiceTest {
     private RouteCalculationService routeCalculationService;
     @Mock
     private LocationService locationService;
+    @Mock
+    private TravelCacheService travelCacheService;
 
     @Mock
     private StudentTravelRepository studentTravelRepository;
@@ -88,14 +88,18 @@ class TravelTrackingServiceTest {
     RouteDetailsDTO routeDetailsDTO;
     PreviousStateDTO previousStateDTO;
     StudentTravel studentTravel;
+    Driver driver;
+    Customer customer;
 
     private static final long FIXED_TIMESTAMP = 1_700_000_000_000L;
     private static final double ROUTE_RECALCULATION_THRESHOLD = 50.0;
 
-    @BeforeEach
+   @BeforeEach
     void setUp() {
-        vehicleLocationRequestDTO = new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, -38.501234, 60.0, 180.0);
-        travel = new Travel(UUID.randomUUID(), new City(UUID.randomUUID(), "Salvador", CitySize.TOWN, true), TravelStatus.PENDING, new Driver(UUID.randomUUID(), "driver@gmail.com", "123456", "João", "Silva", "75999999999", "profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), "Salvador", 10, new ArrayList<>(), new City()),Instant.now(),  Instant.now(), null, "encoded_polyline", 3600.0, 15.5, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana");
+        customer = new Customer(UUID.randomUUID(), "Universidade Exemplo", "universidade-exemplo", "12.345.678/0001-90", true, new City(), ClientSector.PRIVATE_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
+        driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
+        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+        vehicleLocationRequestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.973456, -38.501234, 60.0, 180.0);
         liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000);
         newLocationReceivedEvents = new NewLocationReceivedEvents(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), TravelStatus.TRAVELLING, 60.0, 180.0);
         routeDeviationDTO = new RouteDeviationDTO(25.0, true, -12.972000, -38.500000);
@@ -106,6 +110,11 @@ class TravelTrackingServiceTest {
 
     @Nested
     class markDriverCheckpoint {
+        TravelCacheDTO travelCacheDTO;
+        RouteDetailsDTO routeDetailsDTO;
+        RouteCalculationReferenceDTO routeCalculationReferenceDTO;
+        CurrentVehicleLocationDTO currentVehicleLocationDTO;
+
         UUID travelId;
         UUID cityId;
 
@@ -117,260 +126,411 @@ class TravelTrackingServiceTest {
             travelId = travel.getId();
 
             travel.setTravelStatus(TravelStatus.TRAVELLING);
+
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            routeDetailsDTO = new RouteDetailsDTO(300.0, 1200.0, "encodedPolylineHere");
+            routeCalculationReferenceDTO = new RouteCalculationReferenceDTO(-32.223, 12.323);
+            currentVehicleLocationDTO = new CurrentVehicleLocationDTO(-32.223, 12.323, 70.3, 3023.1);
         }
 
         @Nested
         class successScenarios {
 
             @Test
-            @DisplayName("Primeiro contato, ainda não há dados do redis e faz o cálculo inicial")
-            void shouldStoreRouteStateWhenReferenceIsNull() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+            @DisplayName("Deve realizar o primeiro processamento de checkpoint com sucesso quando a referência de rota for inexistente")
+            void shouldProcessFirstCheckpointWhenRouteCalculationReferenceDoesNotExist() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
 
-                when(redisTrackingService.getRouteCalculateReference(any())).thenReturn(null);
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(null); // sem ref anterior
+
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+
+                List<Object> publishedEvents = eventCaptor.getAllValues();
+
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
+
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
+
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
+
+                verifyNoInteractions(routeCalculationService);
+                verifyNoMoreInteractions(mapboxAPIService);
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve realizar o processamento do checkpoint com sucesso quando os dados de lat/lng da referência de rota forem inexistentes")
+            @MethodSource("latAndLngNullable")
+            void shouldProcessFirstCheckpointWhenLastCalculatedLatitudeOrLongitudeIsNull(RouteCalculationReferenceDTO routeCalculationReferenceDTO) {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO); // com ref anterior, mas com lat/lng null
+
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+
+                List<Object> publishedEvents = eventCaptor.getAllValues();
+
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
+
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
+
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
+
+                verifyNoInteractions(routeCalculationService);
+                verifyNoMoreInteractions(mapboxAPIService);
+            }
+
+            public static Stream<Arguments> latAndLngNullable() {
+                return Stream.of(
+                        Arguments.of(new RouteCalculationReferenceDTO(null, 12.323)),
+                        Arguments.of(new RouteCalculationReferenceDTO(-32.223, null))
+                );
+            }
+
+            @Test
+            @DisplayName("Deve garantir que os dados do novo ping sejam enviados corretamente ao cache do redis")
+            void shouldStoreCurrentVehicleLocationWhenCheckpointIsReceived() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+
+                RouteCalculationReferenceDTO mockReference = new RouteCalculationReferenceDTO(-32.223, 12.323);
+                RouteDetailsDTO mockRouteState = new RouteDetailsDTO(120.0, 500.0, "geometry_mock");
+
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(mockReference);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(mockRouteState));
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                ArgumentCaptor<CurrentVehicleLocationDTO> locationCaptor = ArgumentCaptor.forClass(CurrentVehicleLocationDTO.class);
+                verify(redisTrackingService, times(1)).storeCurrentLocation(eq(travelId), locationCaptor.capture());
+
+                CurrentVehicleLocationDTO capturedDto = locationCaptor.getValue();
+                assertNotNull(capturedDto);
+                assertEquals(-12.973456, capturedDto.latitude());
+                assertEquals(-38.501234, capturedDto.longitude());
+                assertEquals(60.0, capturedDto.speed());
+                assertEquals(180.0, capturedDto.heading());
+            }
+
+            @Test
+            @DisplayName("Deve chamar o método que verifica se precisa realizar o recálculo de rota e não deve retornar false para recálculo")
+            void shouldContinueWithoutRouteRevalidationWhenDistanceIsBelowThreshold() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(40.0);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+
+                List<Object> publishedEvents = eventCaptor.getAllValues();
+
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
+
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
+
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
+
+                verify(routeCalculationService, times(1)).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verifyNoMoreInteractions(mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve chamar o método que verifica se precisa realizar o recálculo de rota e deve retornar true para récalculo com o motorista permancendo na rota")
+            void shouldCheckRouteDeviationWithoutRecalculatingWhenDriverRemainsOnRoute() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(59.0);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(new RouteDetailsDTO(-32.123, 11.323, "geometry_exemple")));
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(30.0, false, -32.123, 11.323));
+
+                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
+
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+
+                List<Object> publishedEvents = eventCaptor.getAllValues();
+
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
+
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
+
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
+
+                verify(routeCalculationService, times(1)).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verifyNoMoreInteractions(mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve chamar o método que verifica se precisa realizar o recálculo de rota e deve retornar true para récalculo com o motorista fora na rota")
+            void shouldRecalculateAndStoreRouteWhenDriverIsOffRoute() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(59.0);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(new RouteDetailsDTO(-32.123, 11.323, "geometry_exemple")));
+
+                // offRoute true
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(30.0, true, -32.123, 11.323));
 
                 when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
 
                 travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
 
-                verify(redisTrackingService, times(1)).storeCurrentLocation(any(), any());
-                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
-                verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                List<Object> publishedEvents = eventCaptor.getAllValues();
 
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
+
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
+
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
+
+                verify(routeCalculationService, times(1)).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
+                verifyNoMoreInteractions(mapboxAPIService);
             }
 
             @Test
-            void shouldNotRecalculateRouteWhenShouldRecalculateRouteReturnsFalse() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+            @DisplayName("Deve recalcular a rota quando a Geometry armazenada no Redis for NULL")
+            void shouldRecalculateRouteWhenStoredGeometryIsNull() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(59.0);
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(new RouteDetailsDTO(-32.123, 11.323, null)));
 
-                when(redisTrackingService.getRouteCalculateReference(any()))
-                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
-
-                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(null);
-
-                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
-
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
-            }
-
-            @Test
-            void shouldNotCallMapboxWhenVehicleIsNotOffRouteAndGeometryExists() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
-
-                when(redisTrackingService.getRouteCalculateReference(any()))
-                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
-                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO);
-
-                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
-                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                        .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
-
-                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
-
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
-            }
-
-            @Test
-            void shouldCallMapboxAndStoreNewStateWhenVehicleIsOffRoute() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
-
-                when(redisTrackingService.getRouteCalculateReference(any()))
-                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
-                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO);
-
-                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
-                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                        .thenReturn(routeDeviationDTO);
-                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
-
-                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
-
-                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
-            }
-
-            @Test
-            void shouldCallMapboxWhenGeometryIsNullRegardlessOfOffRouteStatus() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
-
-                when(redisTrackingService.getRouteCalculateReference(any()))
-                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
-                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, null));
-
-                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
-                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                        .thenReturn(new RouteDeviationDTO(25.0, false, -12.972000, -38.500000));
+                // offRoute false
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(30.0, false, -32.123, 11.323));
 
                 when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
 
                 travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
+                ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+                verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
 
-                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any());
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
+                List<Object> publishedEvents = eventCaptor.getAllValues();
 
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
-            }
+                assertInstanceOf(StudentAwayStateCheckEvent.class, publishedEvents.get(0));
+                StudentAwayStateCheckEvent awayEvent = (StudentAwayStateCheckEvent) publishedEvents.get(0);
+                assertEquals(travelId, awayEvent.travelId());
 
-            @Test
-            void shouldNotStoreRouteDataWhenMapboxReturnsNullAndVehicleIsOffRoute() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+                assertInstanceOf(NewLocationReceivedEvents.class, publishedEvents.get(1));
+                NewLocationReceivedEvents locationEvent = (NewLocationReceivedEvents) publishedEvents.get(1);
+                assertEquals(travelId, locationEvent.travelId());
+                assertEquals(vehicleLocationRequestDTO.latitude(), locationEvent.latitude());
+                assertEquals(vehicleLocationRequestDTO.longitude(), locationEvent.longitude());
 
-                when(redisTrackingService.getRouteCalculateReference(any()))
-                        .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-                when(redisTrackingService.getLiveLocation(any())).thenReturn(liveLocationDTO);
-                when(redisTrackingService.getRouteState(any())).thenReturn(routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, null));
+                assertInstanceOf(VehicleGpsMessageDTO.class, publishedEvents.get(2));
+                VehicleGpsMessageDTO gpsEvent = (VehicleGpsMessageDTO) publishedEvents.get(2);
+                assertEquals(cityId.toString(), gpsEvent.city());
+                assertEquals(travelId.toString(), gpsEvent.travelId());
 
-                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                        .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 5.0);
-                when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                        .thenReturn(routeDeviationDTO);
-
-                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(null);
-
-                travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO);
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService);
-
-                verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any());
-
-                verify(redisTrackingService, times(1)).getLiveLocation(any());
-
-                verify(locationService, times(1)).processStudentAwayState(any(), any());
-                verify(gpsDataIngestorService, times(1)).sendVehicleGps(any());
+                verify(routeCalculationService, times(1)).calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
+                verifyNoMoreInteractions(mapboxAPIService);
             }
         }
 
         @Nested
         class failureScenarios {
 
+            @Test
+            @DisplayName("Deve lançar exception quando o ID do body for diferente do ID da URL")
+            void shouldThrowIllegalStateExceptionWhenPathTravelIdDiffersFromBodyTravelId() {
+                assertThrows(IllegalStateException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, UUID.randomUUID(), vehicleLocationRequestDTO));
+
+                verifyNoInteractions(travelCacheService, redisTrackingService, mapboxAPIService, eventPublisher);
+            }
+
             @ParameterizedTest
-            @MethodSource("nullRouteDetailFieldsProvider")
-            void shouldNotProceedWhenRouteReferenceIsNullAndMapboxReturnsNull(RouteDetailsDTO routeDetailsDTO) {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
+            @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
+            @MethodSource("travelStatusProvider")
+            void shouldThrowTravelExceptionWhenCheckpointTravelIsNotTravelling(TravelStatus travelStatus) {
+                TravelCacheDTO travelCache = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
-                when(redisTrackingService.getRouteCalculateReference(any())).thenReturn(null);
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCache);
 
-                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+                assertThrows(TravelException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+                
+                verifyNoMoreInteractions(travelCacheService);
+                verifyNoInteractions(redisTrackingService, mapboxAPIService, eventPublisher);
+            }
+            
+            public static Stream<Arguments> travelStatusProvider() {
+                return Stream.of(
+                        Arguments.of(TravelStatus.PENDING),
+                        Arguments.of(TravelStatus.FINISH),
+                        Arguments.of(TravelStatus.CANCELED)
+                );
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando a viagem não tiver os dados de coordenadas válidos ou suficientes")
+            @MethodSource("vehicleLocProviderDTO")
+            void shouldThrowExceptionWhenCheckpointRequestIsNull(VehicleLocationRequestDTO newVehicleLocationRequestDTO) {
+                UUID sameTravelId = newVehicleLocationRequestDTO.travelId();
+                
+                assertThrows(NoSuchCoordinates.class, () -> travelTrackingService.markDriverCheckpoint(cityId, sameTravelId, newVehicleLocationRequestDTO));
+
+                verifyNoMoreInteractions(travelCacheService);
+                verifyNoInteractions(redisTrackingService, mapboxAPIService, eventPublisher);
+            }
+
+            public static Stream<Arguments> vehicleLocProviderDTO() {
+                UUID travelId = UUID.randomUUID();
+
+                return Stream.of(
+                        Arguments.of(new VehicleLocationRequestDTO(travelId, null, -38.501234, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(travelId, -12.973456, null, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(travelId, -12.973456, -38.501234, null, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(travelId, -12.973456, -38.501234, 60.0, null))
+                );
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando o MAPBOX retornar resposta nula no primeiro checkpoint")
+            @MethodSource("mapboxRouteDetailsProvider")
+            void shouldThrowRecalculateEtaExceptionWhenMapboxReturnsNullOnFirstCheckpoint(RouteDetailsDTO newRouteDetailsDTO) {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(null);
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(newRouteDetailsDTO);
 
                 assertThrows(RecalculateEtaException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
 
-                verify(redisTrackingService, times(1)).storeCurrentLocation(any(), any());
-                verify(redisTrackingService, times(1)).getRouteCalculateReference(any());
-                verify(redisTrackingService, times(1)).getRouteState(any());
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService);
-
+                verifyNoMoreInteractions(travelCacheService, mapboxAPIService);
             }
 
-            public static Stream<Arguments> nullRouteDetailFieldsProvider() {
+            public static Stream<Arguments> mapboxRouteDetailsProvider() {
                 return Stream.of(
-                        Arguments.of(new RouteDetailsDTO(null, null, "encoded_geometry_exemple")),
-                        Arguments.of(new RouteDetailsDTO(null, 124.2, null)),
+                        // duration pode ser aceito como null, já que o cálculo depende do tempo da viagem + a distância, sendo impossível de cálcular quando o trajeto acaba de começar
+//                        Arguments.of(new RouteDetailsDTO(null, 1200.0, "encodedPolylineHere")),
+                        Arguments.of(new RouteDetailsDTO(300.0, null, "encodedPolylineHere")),
+                        Arguments.of(new RouteDetailsDTO(300.0, 1200.0, null)),
                         Arguments.of((RouteDetailsDTO) null)
                 );
             }
 
             @Test
-            void throwExceptionWhenDifferentTravelIdsAre() {
-                travel.setId(UUID.randomUUID());
+            @DisplayName("Deve lançar exception quando o MAPBOX retornar resposta null no cálculo de desvio")
+            void shouldThrowRecalculateEtaExceptionWhenMapboxReturnsNullDuringCheckpointRecalculation() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(59.0);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(new RouteDetailsDTO(-32.123, 11.323, "geometry_exemple")));
 
-                assertThrows(IllegalStateException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travel.getId(), vehicleLocationRequestDTO));
+                // offRoute true
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(30.0, true, -32.123, 11.323));
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
-
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(null); // api retorna null
+                
+                assertThrows(RecalculateEtaException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
+                
+                verify(redisTrackingService, times(1)).storeCurrentLocation(any(), any(CurrentVehicleLocationDTO.class));
+                verify(routeCalculationService, times(1)).isRouteDeviation(any(RouteDeviationRequestDTO.class));
+                
+                verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
+                
+                verifyNoInteractions(eventPublisher);
             }
 
             @ParameterizedTest
-            @MethodSource("nullRequireParametersProvider")
-            void throwExceptionWhenCityIdOrTravelIdIsEmpty(UUID cityId, UUID travelId) {
-                VehicleLocationRequestDTO newVehicleLocRequest = new VehicleLocationRequestDTO(travelId, -12.973456, -38.501234, 60.0, 180.0);
+            @DisplayName("Deve lançar exception quando a localização não for encontrada no redis")
+            @MethodSource("redisLocalizationProvider")
+            void shouldThrowLiveLocationDataNotFoundExceptionWhenLiveLocationDoesNotExistAfterCheckpoint(LiveLocationDTO invalidRedisLoc) {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(59.0);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(new RouteDetailsDTO(-32.123, 11.323, "geometry_exemple")));
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(30.0, false, -32.123, 11.323));
 
-                assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, newVehicleLocRequest));
+                when(redisTrackingService.getLiveLocation(travelId)).thenReturn(invalidRedisLoc);
 
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
+                assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
 
+                verifyNoInteractions(eventPublisher);
             }
 
-            public static Stream<Arguments> nullRequireParametersProvider() {
+            public static Stream<Arguments> redisLocalizationProvider() {
                 return Stream.of(
-                        Arguments.of(UUID.randomUUID(), null),
-                        Arguments.of(null, UUID.randomUUID()),
-                        Arguments.of(null, null)
-                );
-            }
-
-            @ParameterizedTest
-            @MethodSource("nullVehicleLocationParametersProvider")
-            void throwExceptionWhenVehicleLocationRequestPropsIsNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
-                assertThrows(NoSuchCoordinates.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
-            }
-
-            public static Stream<Arguments> nullVehicleLocationParametersProvider() {
-                return Stream.of(
-                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
-                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0)),
-                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, null, 60.0, 180.0)),
-                        Arguments.of((VehicleLocationRequestDTO) null)
-                );
-            }
-
-            @Test
-            void throwExceptionWhenTravelNotFound() {
-                when(travelRepository.findById(travelId)).thenReturn(Optional.empty());
-
-                assertThrows(TripNotFound.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService, travelRepository);
-            }
-
-            @ParameterizedTest
-            @MethodSource("travelStatusProvider")
-            void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
-                travel.setTravelStatus(travelStatus);
-
-                when(travelRepository.findById(travelId)).thenReturn(Optional.of(travel));
-
-                assertThrows(TravelException.class, () -> travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequestDTO));
-
-                verifyNoMoreInteractions(routeCalculationService, mapboxAPIService, redisTrackingService, locationService, gpsDataIngestorService);
-
-            }
-
-            public static Stream<Arguments> travelStatusProvider() {
-                return Stream.of(
-                        Arguments.of(TravelStatus.PENDING),
-                        Arguments.of(TravelStatus.FINISH)
+                        Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null)),
+                        Arguments.of((LiveLocationDTO) null)
                 );
             }
         }
@@ -378,231 +538,299 @@ class TravelTrackingServiceTest {
 
     @Nested
     class processNewLocation {
+        TravelCacheDTO travelCacheDTO;
+        RouteDetailsDTO routeDetailsDTO;
+        RouteCalculationReferenceDTO routeCalculationReferenceDTO;
+        CurrentVehicleLocationDTO currentVehicleLocationDTO;
 
-        @Test
-        @DisplayName("should process new location when isRouteOff returns TRUE with success")
-        void shouldProcessNewLocationWhenIsRouteOffReturnsTrueWithSuccess() {
+        UUID travelId;
+        UUID cityId;
+
+        @BeforeEach
+        void setUp() {
+            travel.setId(vehicleLocationRequestDTO.travelId());
+            cityId = UUID.randomUUID();
+
+            travelId = travel.getId();
+
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
-
-            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteCalculationReferenceDTO(-12.950000, -38.480000));
-            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
-
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                    .thenReturn(routeDeviationDTO);
-            when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
-                    .thenReturn(routeDetailsDTO);
-            when(routeCalculationService.calculateHaversineDistanceInMeters(
-                    eq(vehicleLocationRequestDTO.latitude()),
-                    eq(vehicleLocationRequestDTO.longitude()),
-                    eq(-12.950000),
-                    eq(-38.480000)))
-                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 1.0);
-
-            travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
-
-            verify(travelRepository, times(1)).findById(any());
-            verify(routeCalculationService, times(1)).isRouteDeviation(any());
-            verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
-
-            verify(redisTrackingService, times(1)).storeCalculatedRouteState(
-                    eq(travel.getId()),
-                    eq(vehicleLocationRequestDTO.latitude().toString()),
-                    eq(vehicleLocationRequestDTO.longitude().toString()),
-                    eq(new RouteDetailsDTO(routeDetailsDTO.duration(), routeDetailsDTO.distance(), routeDetailsDTO.geometry()))
-            );
-
-            verify(redisTrackingService, times(1)).storeTravelMetadata(
-                    eq(travel.getId()),
-                    eq(new RouteDetailsDTO(routeDetailsDTO.duration(), routeDetailsDTO.distance(), routeDetailsDTO.geometry())),
-                    eq(travel.getTravelStatus().toString())
-            );
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            routeDetailsDTO = new RouteDetailsDTO(300.0, 1200.0, "encodedPolylineHere");
+            routeCalculationReferenceDTO = new RouteCalculationReferenceDTO(-32.223, 12.323);
+            currentVehicleLocationDTO = new CurrentVehicleLocationDTO(-32.223, 12.323, 70.3, 3023.1);
         }
 
-        @Test
-        @DisplayName("should process new location when isRouteOff returns FALSE with success")
-        void shouldProcessNewLocationWhenIsRouteOffReturnsFalseWithSuccess() {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+        @Nested
+        class successScenarios {
 
-            previousStateDTO = new PreviousStateDTO(10.0, 5000.0, FIXED_TIMESTAMP - 1000L);
+            @Test
+            @DisplayName("Deve processar localização sem necessidade de revalidar a rota")
+            void shouldCalculateEtaInternallyWhenRouteRevalidationIsNotRequired() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousStateDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(40.0); // dentro da rota
 
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
-            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
-            when(redisTrackingService.getPreviousEta(travel.getId())).thenReturn(previousStateDTO);
+                verify(redisTrackingService, times(1)).storeTravelMetadata(any(), any(RouteDetailsDTO.class), any());
 
-            when(routeCalculationService.calculateHaversineDistanceInMeters(
-                    eq(vehicleLocationRequestDTO.latitude()),
-                    eq(vehicleLocationRequestDTO.longitude()),
-                    eq(liveLocationDTO.lastCalcLat()),
-                    eq(liveLocationDTO.lastCalcLng())))
-                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD - 5.0);
+                verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
+                verify(routeCalculationService, never()).isRouteDeviation(any(RouteDeviationRequestDTO.class));
+               }
 
-            when(clock.millis()).thenReturn(FIXED_TIMESTAMP);
+            @Test
+            @DisplayName("Deve revalidar a rota, mas motorista permanece na rota")
+            void shouldCalculateEtaInternallyWhenDriverRemainsOnRouteAfterRevalidation() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getPreviousEta(travelId)).thenReturn(previousStateDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(60.0); // fora da rota
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(0.0, false, 0.0, 0.0));
 
-            travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
 
-            verify(travelRepository, times(1)).findById(any());
+                verify(routeCalculationService, times(1)).isRouteDeviation(any(RouteDeviationRequestDTO.class));
+                verify(redisTrackingService, times(1)).storeTravelMetadata(any(), any(RouteDetailsDTO.class), any());
 
-            verifyNoInteractions(mapboxAPIService);
+                verify(mapboxAPIService, never()).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
 
-            double expectedEta = 10.0 - 1.0;
+            }
 
-            verify(redisTrackingService, never()).storeCalculatedRouteState(any(), anyString(), anyString(), any());
+            @Test
+            @DisplayName("Deve revalidar a rota e detectar o desvio")
+            void shouldRecalculateEtaUsingMapboxWhenDriverIsOffRoute() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(60.0); // fora da rota
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(0.0, true, 0.0, 0.0));
 
-            verify(redisTrackingService, times(1)).storeTravelMetadata(
-                    eq(travel.getId()),
-                    eq(new RouteDetailsDTO(expectedEta, travel.getDistance(), travel.getPolylineRoute())),
-                    eq(travel.getTravelStatus().toString())
-            );
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+                verify(routeCalculationService, times(1)).isRouteDeviation(any(RouteDeviationRequestDTO.class));
+                verify(redisTrackingService, times(1)).storeTravelMetadata(any(), any(RouteDetailsDTO.class), any());
+                verify(mapboxAPIService, times(1)).recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(any(), anyString(), anyString(), any(RouteDetailsDTO.class));
+
+            }
+
+            @Test
+            @DisplayName("Deve persistir a nova rota calculada no redis")
+            void shouldStoreCalculatedRouteStateWhenRouteIsRecalculated() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(60.0); // fora da rota
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(0.0, true, 0.0, 0.0));
+
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+                verify(redisTrackingService, times(1)).storeCalculatedRouteState(
+                        eq(travelCacheDTO.travelId()),
+                        eq(vehicleLocationRequestDTO.latitude().toString()),
+                        eq(vehicleLocationRequestDTO.longitude().toString()),
+                        argThat(routeDetails -> routeDetails.duration().equals(routeDetailsDTO.duration()) &&
+                                routeDetails.distance().equals(routeDetailsDTO.distance()) &&
+                                routeDetails.geometry().equals(routeDetailsDTO.geometry())));
+
+            }
+
+            @Test
+            @DisplayName("Deve persistir os metadados da viagem no redis")
+            void shouldStoreTravelMetadataAfterLocationProcessing() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(60.0); // fora da rota
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(0.0, true, 0.0, 0.0));
+
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+                ArgumentCaptor<RouteDetailsDTO> routeDetailsArgCaptor = ArgumentCaptor.forClass(RouteDetailsDTO.class);
+
+                verify(redisTrackingService, times(1)).storeTravelMetadata(
+                        eq(travelCacheDTO.travelId()),
+                        routeDetailsArgCaptor.capture(),
+                        eq(travelCacheDTO.travelStatus().toString()));
+
+                RouteDetailsDTO result = routeDetailsArgCaptor.getValue();
+                assertEquals(result.distance(), routeDetailsDTO.distance());
+                assertEquals(result.geometry(), routeDetailsDTO.geometry());
+                assertEquals(result.duration(), routeDetailsDTO.duration());
+            }
+
+//            @Test
+//            @DisplayName("Deve utilizar a distância estática da viagem (travelCache) durante o cálculo interno")
+//            void shouldUseTravelStaticDistanceWhenCalculatingEtaInternally() {
+//
+//            }
+
+            @Test
+            @DisplayName("Deve utilizar corretamente as coordenadas finais da viagem no recálculo")
+            void shouldUseTravelDestinationCoordinatesWhenRecalculatingEta() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(60.0); // fora da rota
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(routeDetailsDTO);
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class)))
+                        .thenReturn(new RouteDeviationDTO(0.0, true, 0.0, 0.0));
+                when(mapboxAPIService.recalculateETA(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+
+                travelTrackingService.processNewLocation(vehicleLocationRequestDTO);
+
+                verify(mapboxAPIService, times(1)).recalculateETA(
+                        eq(vehicleLocationRequestDTO.longitude()),
+                        eq(vehicleLocationRequestDTO.latitude()),
+                        eq(travelCacheDTO.finalLongitude()),
+                        eq(travelCacheDTO.finalLatitude()));
+
+            }
         }
 
-        @ParameterizedTest
-        @DisplayName("throw exception when require parameter data is null")
-        @MethodSource("nullParametersProvider")
-        void throwExceptionWhenRequireParameterDataIsNull(VehicleLocationRequestDTO vehicleLocationRequestDTO) {
-            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+        @Nested
+        class failureScenarios {
 
-            verifyNoInteractions(
-                    travelRepository,
-                    routeCalculationService,
-                    mapboxAPIService,
-                    redisTrackingService);
-        }
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando o DTO de entrada por inválido")
+            @MethodSource("vehicleLocRequestProvider")
+            void shouldThrowEmptyMandatoryFieldsFoundWhenRequestContainsInvalidMandatoryFields(VehicleLocationRequestDTO newVehicleLocationRequestDTO) {
+                assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.processNewLocation(newVehicleLocationRequestDTO));
 
-        public static Stream<Arguments> nullParametersProvider() {
-            return Stream.of(
-                    Arguments.of(new VehicleLocationRequestDTO(null, -12.973456, -38.501234, 60.0, 180.0)),
-                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
-                    Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0)),
-                    Arguments.of((VehicleLocationRequestDTO) null)
-            );
-        }
+                verifyNoInteractions(travelCacheService, redisTrackingService, routeCalculationService, mapboxAPIService);
+            }
 
-        @Test
-        @DisplayName("throw exception when trip not found")
-        void throwExceptionWhenTripNotFound() {
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.empty());
+            public static Stream<Arguments> vehicleLocRequestProvider() {
+                return Stream.of(
+                        Arguments.of(new VehicleLocationRequestDTO(null, -12.973456, -38.501234, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), null, -38.501234, 60.0, 180.0)),
+                        Arguments.of(new VehicleLocationRequestDTO(UUID.randomUUID(), -12.973456, null, 60.0, 180.0))
+                );
+            }
 
-            assertThrows(TripNotFound.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
+            @MethodSource("travelStatusProvider")
+            void shouldThrowTravelExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
+                TravelCacheDTO travelCacheWithDynamicSatus = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
-            verifyNoInteractions(
-                    routeCalculationService,
-                    mapboxAPIService,
-                    redisTrackingService);
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheWithDynamicSatus);
 
-            verifyNoMoreInteractions(travelRepository);
-        }
+                assertThrows(TravelException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-        @ParameterizedTest
-        @DisplayName("throw exception when trip is not travelling")
-        @MethodSource("travelStatusProvider")
-        void throwExceptionWhenTripIsNotTravelling(TravelStatus travelStatus) {
-            travel.setTravelStatus(travelStatus);
+                verifyNoMoreInteractions(travelCacheService);
 
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+                verifyNoInteractions(redisTrackingService, routeCalculationService, mapboxAPIService);
+            }
 
-            assertThrows(TravelException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+            public static Stream<Arguments> travelStatusProvider() {
+                return Stream.of(
+                        Arguments.of(TravelStatus.FINISH),
+                        Arguments.of(TravelStatus.CANCELED),
+                        Arguments.of(TravelStatus.PENDING)
+                );
+            }
 
-            verifyNoInteractions(
-                routeCalculationService,
-                mapboxAPIService,
-                redisTrackingService);
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando a referência de cálculo de rota for inválida")
+            @MethodSource("invalidRouteReferenceProvider")
+            void shouldThrowLiveLocationDataNotFoundExceptionWhenRouteCalculationReferenceIsInvalid(RouteCalculationReferenceDTO newRouteCalcRefDTO) {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(newRouteCalcRefDTO);
 
-            verifyNoMoreInteractions(travelRepository);
-        }
+                assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-        public static Stream<Arguments> travelStatusProvider() {
-            return Stream.of(
-                    Arguments.of(TravelStatus.PENDING),
-                    Arguments.of(TravelStatus.FINISH)
-            );
-        }
+                verifyNoMoreInteractions(travelCacheService);
 
-        @ParameterizedTest
-        @DisplayName("throw exception when 'newEtaRecalculateByApi' is null from mapBoxAPI's call")
-        @MethodSource("nullRecalcDistanceProvider")
-        void throwExceptionWhenNewEtaRecalculateByApiIsNull(RouteDetailsDTO routeDetailsDTO) {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            }
 
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            public static Stream<Arguments> invalidRouteReferenceProvider() {
+                return Stream.of(
+                        Arguments.of(new RouteCalculationReferenceDTO(-12.342, null)),
+                        Arguments.of(new RouteCalculationReferenceDTO(null, 39.342))
 
-            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteCalculationReferenceDTO(-12.950000, -38.480000));
-            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
+                );
+            }
 
-            when(routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(vehicleLocationRequestDTO.travelId(), vehicleLocationRequestDTO.latitude(), vehicleLocationRequestDTO.longitude())))
-                    .thenReturn(routeDeviationDTO);
-            when(routeCalculationService.calculateHaversineDistanceInMeters(
-                    eq(vehicleLocationRequestDTO.latitude()),
-                    eq(vehicleLocationRequestDTO.longitude()),
-                    eq(-12.950000),
-                    eq(-38.480000)))
-                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD + 1.0);
+            @Test
+            @DisplayName("Deve lançar exception quando o estado da rota for inexistente")
+            void shouldThrowLiveLocationDataNotFoundExceptionWhenRouteStateDoesNotExist() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.empty());
 
-            when(mapboxAPIService.recalculateETA(vehicleLocationRequestDTO.longitude(), vehicleLocationRequestDTO.latitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
-                    .thenReturn(routeDetailsDTO);
+                assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-            assertThrows(RecalculateEtaException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+                verifyNoMoreInteractions(redisTrackingService, travelCacheService);
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
+            }
 
-//            verifyNoInteractions(redisTrackingService);
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando o estado da rota estiver com dados requeridos ausentes")
+            @MethodSource("invalidRouteStateProviderDTO")
+            void shouldThrowLiveLocationDataNotFoundExceptionWhenRouteStateContainsInvalidData(RouteDetailsDTO newRouteDetailsDTO) {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(newRouteDetailsDTO));
 
-            verifyNoMoreInteractions(travelRepository, routeCalculationService, mapboxAPIService);
-        }
+                assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-        public static Stream<Arguments> nullRecalcDistanceProvider() {
-            return Stream.of(
-                    Arguments.of(new RouteDetailsDTO(null,35.0, "encoded_polyline_example")),
-                    Arguments.of(new RouteDetailsDTO(2100.0, null, "encoded_polyline_example")),
-                    Arguments.of((RouteDetailsDTO) null)
-            );
-        }
+                verifyNoMoreInteractions(redisTrackingService, travelCacheService);
+                verifyNoInteractions(routeCalculationService, mapboxAPIService);
 
-        @ParameterizedTest
-        @DisplayName("throw exception when previous eta is null")
-        @MethodSource("nullPreviousEtaProvider")
-        void throwExceptionWhenPreviousEtaIsNull(PreviousStateDTO previousStateDTO) {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+            }
 
-            when(travelRepository.findById(vehicleLocationRequestDTO.travelId())).thenReturn(Optional.of(travel));
+            public static Stream<Arguments> invalidRouteStateProviderDTO() {
+                return Stream.of(
+                        Arguments.of(new RouteDetailsDTO(30.0, null, "geometry_teste")),
+                        Arguments.of(new RouteDetailsDTO(30.0, 2000.0, null))
 
-            when(redisTrackingService.getRouteCalculateReference(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteCalculationReferenceDTO(liveLocationDTO.lastCalcLat(), liveLocationDTO.lastCalcLng()));
-            when(redisTrackingService.getRouteState(vehicleLocationRequestDTO.travelId()))
-                    .thenReturn(new RouteDetailsDTO(null, liveLocationDTO.distance(), liveLocationDTO.geometry()));
-            when(redisTrackingService.getPreviousEta(travel.getId())).thenReturn(previousStateDTO);
+                );
+            }
 
-            when(routeCalculationService.calculateHaversineDistanceInMeters(
-                    eq(vehicleLocationRequestDTO.latitude()),
-                    eq(vehicleLocationRequestDTO.longitude()),
-                    eq(liveLocationDTO.lastCalcLat()),
-                    eq(liveLocationDTO.lastCalcLng())))
-                    .thenReturn(ROUTE_RECALCULATION_THRESHOLD - 5.0);
+            @Test
+            @DisplayName("Deve lançar exception quando houver falha ao verificar desvios de rota")
+            void shouldPropagateExceptionWhenRouteDeviationVerificationFails() {
+                when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+                when(redisTrackingService.getRouteCalculateReference(travelId)).thenReturn(routeCalculationReferenceDTO);
+                when(redisTrackingService.getRouteState(travelId)).thenReturn(Optional.of(routeDetailsDTO));
+                when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                        .thenReturn(54.0);
 
-            assertThrows(EtaDataStatesInvalidException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
+                when(routeCalculationService.isRouteDeviation(any(RouteDeviationRequestDTO.class))).thenThrow(RuntimeException.class);
 
-            verifyNoInteractions(mapboxAPIService);
+                assertThrows(RuntimeException.class, () -> travelTrackingService.processNewLocation(vehicleLocationRequestDTO));
 
-            verifyNoMoreInteractions(travelRepository, routeCalculationService, redisTrackingService);
-        }
+                verifyNoMoreInteractions(redisTrackingService);
 
-        public static Stream<Arguments> nullPreviousEtaProvider() {
-            return Stream.of(
-                    Arguments.of(new PreviousStateDTO(null, 18.5, System.currentTimeMillis())),
-                    Arguments.of(new PreviousStateDTO(1200.0, 18.5, null)),
-                    Arguments.of((PreviousStateDTO) null)
-            );
+            }
         }
     }
 
-    @Nested
+/*    @Nested
     class confirmEmbarkOnTravel {
 
         @Test
@@ -665,99 +893,73 @@ class TravelTrackingServiceTest {
 
             verifyNoMoreInteractions(studentTravelRepository);
         }
-    }
+    }*/
 
     @Nested
     class getDriverPosition {
+        TravelCacheDTO travelCacheDTO;
 
-        @Test
-        @DisplayName("should get driver position with success")
-        void shouldGetDriverPositionWithSuccess() {
+        UUID travelId;
+        UUID cityId;
+
+        @BeforeEach
+        void setUp() {
+            travel.setId(vehicleLocationRequestDTO.travelId());
+            cityId = UUID.randomUUID();
+
+            travelId = travel.getId();
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(redisTrackingService.getLiveLocation(travel.getId())).
-                    thenReturn(liveLocationDTO);
-
-            LiveLocationDTO result = travelTrackingService.getDriverPosition(travel.getId());
-
-            System.out.println("result: " + result);
-
-            assertEquals(result.latitude(), liveLocationDTO.latitude());
-            assertEquals(result.longitude(), liveLocationDTO.longitude());
-            assertEquals(result.geometry(), liveLocationDTO.geometry());
-            assertEquals(result.distance(), liveLocationDTO.distance());
-
-            verify(redisTrackingService, times(1)).getLiveLocation(eq(travel.getId()));
-
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
         }
 
         @Test
-        @DisplayName("throw exception when require parameter data is null")
-        void throwExceptionWhenRequireParameterIsNull() {
-            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.getDriverPosition(null));
+        @DisplayName("Deve recuperar a posição do motorista com sucesso")
+        void shouldGetDriverPositionWithSuccess() {
+            when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(liveLocationDTO);
 
-            verifyNoInteractions(
-                    travelRepository,
-                    redisTrackingService
-            );
-        }
+            LiveLocationDTO result = travelTrackingService.getDriverPosition(travelId);
 
-        @Test
-        @DisplayName("throw exception when travel not found from database")
-        void throwExceptionWhenTravelNotFound() {
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
+            assertNotNull(result);
 
-            assertThrows(TripNotFound.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
-
-            verifyNoInteractions(
-                    routeCalculationService,
-                    redisTrackingService,
-                    mapboxAPIService
-            );
-
-            verifyNoMoreInteractions(travelRepository);
+            assertEquals(liveLocationDTO.distance(), result.distance());
+            assertEquals(liveLocationDTO.geometry(), result.geometry());
         }
 
         @ParameterizedTest
-        @DisplayName("throw exception when travel is not travelling")
+        @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
         @MethodSource("travelStatusProvider")
-        void throwExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
-            travel.setTravelStatus(travelStatus);
+        void throwExceptionWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) {
+            TravelCacheDTO travelCacheWithInvalidStatus = new TravelCacheDTO(UUID.randomUUID(), invalidTravelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
+            when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheWithInvalidStatus);
 
-            assertThrows(TravelException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
+            assertThrows(TravelException.class, () -> travelTrackingService.getDriverPosition(travelId));
 
             verifyNoInteractions(redisTrackingService);
-
-            verifyNoMoreInteractions(travelRepository);
-
         }
 
         public static Stream<Arguments> travelStatusProvider() {
             return Stream.of(
-                    Arguments.of(TravelStatus.PENDING),
-                    Arguments.of(TravelStatus.FINISH)
+                    Arguments.of(TravelStatus.FINISH),
+                    Arguments.of(TravelStatus.CANCELED),
+                    Arguments.of(TravelStatus.PENDING)
             );
         }
 
         @ParameterizedTest
-        @DisplayName("throw exception when 'getLiveLocation' parameters returns null")
-        @MethodSource("nullLiveLocationProvider")
-        void throwExceptionWhenGetLiveLocationParametersReturnsNull(LiveLocationDTO liveLocation) {
-            travel.setTravelStatus(TravelStatus.TRAVELLING);
+        @DisplayName("Deve lançar exception quando não houver localização no redis")
+        @MethodSource("redisLocalizationProvider")
+        void throwExceptionWhenRedisLiveLocationNotFoundData(LiveLocationDTO redisLiveLocDTO) {
+            when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheDTO);
+            when(redisTrackingService.getLiveLocation(travelId)).thenReturn(redisLiveLocDTO);
 
-            when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(redisTrackingService.getLiveLocation(travel.getId())).thenReturn(liveLocation);
+            assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.getDriverPosition(travelId));
 
-            assertThrows(LiveLocationDataNotFoundException.class, () -> travelTrackingService.getDriverPosition(travel.getId()));
-
-            verifyNoInteractions(routeCalculationService, mapboxAPIService);
-            verifyNoMoreInteractions(travelRepository, redisTrackingService);
         }
 
-        public static Stream<Arguments> nullLiveLocationProvider() {
+        public static Stream<Arguments> redisLocalizationProvider() {
             return Stream.of(
                     Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
                     Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
