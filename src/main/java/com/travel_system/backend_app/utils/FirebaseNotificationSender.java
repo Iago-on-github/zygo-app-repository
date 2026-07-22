@@ -32,19 +32,28 @@ import static java.util.stream.Collectors.toList;
 public class FirebaseNotificationSender {
 
     private final DeviceTokenRepository deviceTokenRepository;
+    private final UserRepository userRepository;
     private final NotificationRecipientResolver notificationRecipientResolver;
     private final FirebaseMessaging firebaseMessaging;
+
     private static final Logger logger = LoggerFactory.getLogger(FirebaseNotificationSender.class);
 
-    public FirebaseNotificationSender(DeviceTokenRepository deviceTokenRepository, NotificationRecipientResolver notificationRecipientResolver, FirebaseMessaging firebaseMessaging) {
+    public FirebaseNotificationSender(DeviceTokenRepository deviceTokenRepository, UserRepository userRepository, NotificationRecipientResolver notificationRecipientResolver, FirebaseMessaging firebaseMessaging) {
         this.deviceTokenRepository = deviceTokenRepository;
+        this.userRepository = userRepository;
         this.notificationRecipientResolver = notificationRecipientResolver;
         this.firebaseMessaging = firebaseMessaging;
     }
 
     // registra/atualiza os tokens do usuário
-    public void manageUserToken(UserModel user, String token, Platform platform) {
-        if (user == null || token == null || token.isBlank() || platform == null) throw new DomainValidationException("Token is null");
+    public void manageUserToken(String userEmail, String token, Platform platform) {
+        if (userEmail == null || token == null || token.isBlank() || platform == null) throw new DomainValidationException("Parâmetros inválidos");
+
+        UserModel user = userRepository.findUserByEmail(userEmail);
+
+        if (user == null) {
+            throw new EntityNotFoundException("user com o email " + userEmail + " não encontrado");
+        }
 
         Optional<DeviceToken> existingDeviceToken = deviceTokenRepository.findDeviceTokenByToken(token);
 
