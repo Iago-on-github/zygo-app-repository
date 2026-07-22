@@ -168,15 +168,15 @@ public class RedisTrackingService {
     }
 
     // retorna os dados de estado calculado da rota
-    public RouteDetailsDTO getRouteState(UUID travelId) {
-        if (travelId == null) return null;
+    public Optional<RouteDetailsDTO> getRouteState(UUID travelId) {
+        if (travelId == null) return Optional.empty();
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
 
         Map<String, String> data = hashOperations.entries(routeKey);
 
         if (data == null || data.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
 
         try {
@@ -184,10 +184,11 @@ public class RedisTrackingService {
             Double distanceRemaining = toDoubleOrNull(data.get("distanceRemaining"));
             String geometry = data.get("geometry");
 
-            return new RouteDetailsDTO(durationRemaining, distanceRemaining, geometry);
+            return Optional.of(new RouteDetailsDTO(durationRemaining, distanceRemaining, geometry));
         } catch (NumberFormatException e) {
+            // distinguir de "a rota ainda não foi calculada" e "os dados armazenados estão inválidos
             logger.warn("[getRouteState] ocorreu um erro durante o retorno dos dados. Viagem: {} ", travelId);
-            return null;
+            return Optional.empty();
         }
     }
 
