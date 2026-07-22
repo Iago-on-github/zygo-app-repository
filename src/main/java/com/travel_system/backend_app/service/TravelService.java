@@ -106,6 +106,10 @@ public class TravelService {
                 travelRequestDTO.finalLongitude(),
                 travelRequestDTO.finalLatitude());
 
+        if (tripPreview == null || tripPreview.distance() == null || tripPreview.duration() == null) {
+            throw new RecalculateEtaException("Falha ao buscar dados de Preview da API");
+        }
+
         // armazena dados 'preview' da viagem
         travel.setDistance(tripPreview.distance());
         travel.setDuration(tripPreview.duration());
