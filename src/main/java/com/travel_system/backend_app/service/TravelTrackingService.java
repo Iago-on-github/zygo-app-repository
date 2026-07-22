@@ -85,6 +85,10 @@ public class TravelTrackingService {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
 
+        if (vehicleLocationRequest.latitude() == null || vehicleLocationRequest.longitude() == null || vehicleLocationRequest.speed() == null || vehicleLocationRequest.heading() == null) {
+            throw new NoSuchCoordinates("Coordenadas inválidas ou incompletas para o processamento");
+        }
+
         // busca por cache da viagem, caso não haja, faz requisição e armazena os dados em cache para utilizar aqui
         TravelCacheDTO travelCached = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
@@ -102,7 +106,8 @@ public class TravelTrackingService {
 
         // salva no redis como última posição conhecida matendo a distance e o geometry antigos
         RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
-        RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
+
+        Optional<RouteDetailsDTO> routeState = redisTrackingService.getRouteState(travelId);
 
         String strLatitude = String.valueOf(latitude);
         String strLongitude = String.valueOf(longitude);
@@ -130,7 +135,11 @@ public class TravelTrackingService {
             if (isShouldRecalculateRoute) {
                 RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, latitude, longitude));
 
-                if (routeState.geometry() == null || routeDeviation.isOffRoute()) {
+                // valida com base no geometry do redis e no isRouteOff se deve recalcular a rota
+                boolean shouldRecalculate = routeState.map(state -> state.geometry() == null)
+                        .orElse(true) || routeDeviation.isOffRoute();
+
+                if (shouldRecalculate) {
                     logger.info("[markDriverCheckpoint] - chamado API para recalculo de rota para a viagem: {} ", travelId);
                     RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
 
@@ -186,11 +195,15 @@ public class TravelTrackingService {
         }
 
         RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
-        RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
+        Optional<RouteDetailsDTO> routeStateOpt = redisTrackingService.getRouteState(travelId);
 
-        if (routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || routeState == null || routeState.distance() == null) {
+        boolean missingRequiredRouteData = routeStateOpt.map(state -> state.geometry() == null || state.distance() == null).orElse(true);
+
+        if (routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || missingRequiredRouteData) {
             throw new LiveLocationDataNotFoundException("[processNewLocation] Dados obrigatórios do liveLocation são null ou inválidos. Viagem: " + travelId);
         }
+
+        RouteDetailsDTO validRouteState = routeStateOpt.get();
 
         boolean shouldRevalidateRoute = shouldRevalidateRoute(currentLat, currentLng, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
 
@@ -202,7 +215,7 @@ public class TravelTrackingService {
             routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, currentLat, currentLng));
 
             if (routeDeviation.isOffRoute()) {
-                currentRouteDetails = calculateEtaFromMapbox(currentLat, currentLng, travelStaticCache.finalLatitude(), travelStaticCache.finalLongitude(), routeState.distance(), routeState.geometry());
+                currentRouteDetails = calculateEtaFromMapbox(currentLat, currentLng, travelStaticCache.finalLatitude(), travelStaticCache.finalLongitude(), validRouteState.distance(), validRouteState.geometry());
             }
             else {
                 // precisa recalcular, mas sem desvio de rota
