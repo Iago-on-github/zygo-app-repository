@@ -24,10 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -267,10 +264,10 @@ public class PushNotificationService {
         Double longitude = vehicleLocationRequest.longitude();
 
         RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
-        RouteDetailsDTO routeState = redisTrackingService.getRouteState(travelId);
+        Optional<RouteDetailsDTO> routeStateOpt = redisTrackingService.getRouteState(travelId);
 
         LastLocationDTO lastLocation = redisTrackingService.getLastLocation(travelId);
-        LiveLocationDTO actuallyPosition = getLiveLocationDTO(latitude, longitude, routeCalculateReference, routeState);
+        LiveLocationDTO actuallyPosition = getLiveLocationDTO(latitude, longitude, routeCalculateReference, routeStateOpt);
 
         VelocityAnalysisDTO result;
 
@@ -375,9 +372,10 @@ public class PushNotificationService {
         return result;
     }
 
-    private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, RouteCalculationReferenceDTO routeCalculateReference, RouteDetailsDTO routeState) {
-        String geometry = routeState != null ? routeState.geometry() : null;
-        double distance = (routeState != null && routeState.distance() != null) ? routeState.distance() : 0.0;
+    private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, RouteCalculationReferenceDTO routeCalculateReference, Optional<RouteDetailsDTO> routeState) {
+        String geometry = routeState.map(RouteDetailsDTO::geometry).orElse(null);
+        Double distance = routeState.map(RouteDetailsDTO::distance).orElse(null);
+
         double lastCalcLat = (routeCalculateReference != null && routeCalculateReference.lastCalcLat() != null) ? routeCalculateReference.lastCalcLat() : 0.0;
         double lastCalcLng = (routeCalculateReference != null && routeCalculateReference.lastCalcLng() != null) ? routeCalculateReference.lastCalcLng() : 0.0;
 
