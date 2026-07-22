@@ -368,9 +368,11 @@ class RedisTrackingServiceTest {
 
             when(hashOperations.entries(routeKey)).thenReturn(redisData);
 
-            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
+            Optional<RouteDetailsDTO> routeDetailsDTO = redisTrackingService.getRouteState(travelId);
 
-            assertNotNull(result);
+            assertTrue(routeDetailsDTO.isPresent());
+
+            RouteDetailsDTO result = routeDetailsDTO.get();
 
             assertEquals(12.43, result.duration());
             assertEquals(700.3, result.distance());
@@ -379,9 +381,9 @@ class RedisTrackingServiceTest {
 
         @Test
         void shouldReturnSilentlyWhenTravelIdIsNull() {
-            RouteDetailsDTO result = redisTrackingService.getRouteState(null);
+            Optional<RouteDetailsDTO> routeDetailsDTO = redisTrackingService.getRouteState(null);
 
-            assertNull(result);
+            assertTrue(routeDetailsDTO.isEmpty());
 
             verifyNoInteractions(hashOperations);
         }
@@ -391,9 +393,9 @@ class RedisTrackingServiceTest {
         void shouldReturnSilentlyWhenNotFoundAnyDataInRedis() {
             when(hashOperations.entries(eq(routeKey))).thenReturn(null);
 
-            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
+            Optional<RouteDetailsDTO> result = redisTrackingService.getRouteState(travelId);
 
-            assertNull(result);
+            assertTrue(result.isEmpty());
         }
 
         @Test
@@ -406,9 +408,9 @@ class RedisTrackingServiceTest {
 
             when(hashOperations.entries(eq(routeKey))).thenReturn(redisData);
 
-            RouteDetailsDTO result = redisTrackingService.getRouteState(travelId);
+            Optional<RouteDetailsDTO> result = redisTrackingService.getRouteState(travelId);
 
-            assertNull(result);
+            assertTrue(result.isEmpty());
         }
     }
 
