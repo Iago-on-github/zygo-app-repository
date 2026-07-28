@@ -226,7 +226,7 @@ public class TravelStudentStateCacheService {
     }
 
     // remove o campo individual de cada key correspondente
-    protected void evictStudentTravelCachedData(UUID travelId, String studentEmail) {
+    public void evictStudentTravelCachedData(UUID travelId, String studentEmail) {
         removeStudentTravelStatus(travelId, studentEmail);
         removeStudentTravelEmbark(travelId, studentEmail);
         removeStudentId(travelId, studentEmail);
