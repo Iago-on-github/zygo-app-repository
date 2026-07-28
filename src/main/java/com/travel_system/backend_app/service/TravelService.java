@@ -84,6 +84,9 @@ public class TravelService {
             throw new TravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
         }
 
+        // customer da viagem é herdado diretamente do driver
+        travel.setCustomer(driver.getCustomer());
+
         travel.setOriginLongitude(travelRequestDTO.originLongitude());
         travel.setOriginLatitude(travelRequestDTO.originLatitude());
         travel.setFinalLongitude(travelRequestDTO.finalLongitude());
@@ -129,10 +132,10 @@ public class TravelService {
         Travel actualTrip = travelRepository.findById(travelId)
                 .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
 
-        if (actualTrip.getTravelStatus() == TravelStatus.FINISH) {
-            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já foi finalizada.");
-        } if (actualTrip.getTravelStatus() == TravelStatus.TRAVELLING) {
-            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já está em andamento.");
+        if (actualTrip.getTravelStatus() == TravelStatus.FINISH ||
+                actualTrip.getTravelStatus() == TravelStatus.TRAVELLING ||
+                actualTrip.getTravelStatus() == TravelStatus.CANCELED) {
+            throwTravelException("Não é possível iniciar a viagem " + travelId + " por conta do status: " + actualTrip.getTravelStatus());
         }
 
         // chama o mapboxservice para calcular a rota
@@ -183,13 +186,13 @@ public class TravelService {
         actualTrip.setTravelStatus(TravelStatus.FINISH);
         actualTrip.setEndHourTravel(Instant.now());
 
-        int studentSize = actualTrip.getStudentTravels().size();
-        long totalOccupancy = actualTrip.getStudentTravels().stream()
-                .filter(student -> student.getEmbarkHour() != null).count();
+        int totalStudentsCount = actualTrip.getStudentTravels().size();
+        long embarkedStudentsCount = actualTrip.getStudentTravels().stream()
+                .filter(student -> student.getEmbarkHour() != null && student.isEmbark()).count();
 
         long percentual = 0;
-        if (studentSize != 0 && totalOccupancy != 0) {
-            percentual = totalOccupancy * 100 / studentSize;
+        if (totalStudentsCount != 0 && embarkedStudentsCount != 0) {
+            percentual = embarkedStudentsCount * 100 / totalStudentsCount;
         }
 
         UUID baseCustomerId = actualTrip.getCustomer().getId();
@@ -234,8 +237,8 @@ public class TravelService {
                 formattedDurationInMinutes,
                 polylineEncoded,
                 Instant.now(),
-                studentSize,
-                (int) totalOccupancy,
+                totalStudentsCount, // expectativa de estudantes na viagem
+                (int) embarkedStudentsCount, // ocupação total de estudantes embarcados
                 (int) percentual);
 
         travelReportsRepository.save(travelReports);
