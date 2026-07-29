@@ -392,7 +392,9 @@ public class TravelService {
         Set<StudentTrackingPositionDTO> linkedStudents = travelRepository.findTrackingPositionsByTravelId(travelId);
 
         if (linkedStudents.isEmpty()) {
-            throw new StudentNotLinkedToTripException("Nenhum estudante vincualado à viagem: " + travelId);
+            log.debug("[linkedStudentTravel] Nenhum estudante vinculado à viagem {}", travelId);
+            return Collections.emptySet();
+//            throw new StudentNotLinkedToTripException("Nenhum estudante vincualado à viagem: " + travelId);
         }
 
         long executingTime = System.currentTimeMillis() - start;
