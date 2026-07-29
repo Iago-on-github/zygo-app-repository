@@ -21,7 +21,7 @@ public class StudentTravel {
     private boolean embark = false;
     private Instant embarkHour;
     private Instant disembarkHour;
-    @OneToOne
+    @OneToOne(mappedBy = "studentTravel")
     private GeoPosition position;
     @Enumerated(EnumType.STRING)
     private StudentTravelStatus studentTravelStatus;

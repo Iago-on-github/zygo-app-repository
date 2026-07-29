@@ -16,7 +16,7 @@ public class GeoPosition {
     private Double longitude;
     private Instant timeStamp;
     @OneToOne
-    @JoinColumn(name = "student_id")
+    @JoinColumn(name = "student_travel_id")
     private StudentTravel studentTravel;
 
 
