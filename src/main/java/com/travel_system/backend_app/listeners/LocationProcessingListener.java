@@ -40,8 +40,8 @@ public class LocationProcessingListener {
                     locationReceivedEvents.travelId(), e.getMessage());
         }
 
-        // 2. Processa Alertas de Proximidade e Movimento (O "cérebro" das notificações)
-        // Note: o checkProximityAlerts agora será disparado a cada novo ping de GPS
+        // Processa alertas de proximidade e movimento
+        // usa políticas de retry padrões do Spring
         pushNotificationService.checkProximityAlerts(vehicleLocationRequest);
         pushNotificationService.processVehicleMovement(vehicleLocationRequest);
     }
