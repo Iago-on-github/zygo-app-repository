@@ -20,6 +20,9 @@ import com.travel_system.backend_app.repository.TravelRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -52,6 +55,12 @@ public class PushNotificationService {
       gera pushs de notificações por distância <aluno - ônibus>
       ex.: Ônibus está há 200M de você
     */
+
+    @Retryable(
+            retryFor = Exception.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
     public void checkProximityAlerts(VehicleLocationRequestDTO vehicleLocationRequest) {
         UUID travelId = vehicleLocationRequest.travelId();
         Double latitude = vehicleLocationRequest.latitude();
@@ -147,6 +156,16 @@ public class PushNotificationService {
         });
     }
 
+    @Recover
+    public void recoverCheckProximityAlerts(Exception e, VehicleLocationRequestDTO request) {
+        logger.error("[FALLBACK] Falha definitiva em checkProximityAlerts. Viagem: {}", request.travelId());
+    }
+
+    @Retryable(
+            retryFor = Exception.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
     public void processVehicleMovement(VehicleLocationRequestDTO vehicleLocationRequest) {
         UUID traceId = UUID.randomUUID();
 
@@ -172,6 +191,11 @@ public class PushNotificationService {
                 velocityAnalysis,
                 decision,
                 traceId));
+    }
+
+    @Recover
+    public void recoverProcessVehicleMovement(Exception e, VehicleLocationRequestDTO request) {
+        logger.error("[PushNotificationService] Fallback: falha definitiva em processVehicleMovement. Viagem: {}", request.travelId());
     }
 
     // usa analyzeVehicleMovement e decide se deve notificar
