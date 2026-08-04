@@ -213,19 +213,19 @@ public class RedisTrackingService {
         }
     }
 
-    // retorna o último ETA armazenado + a distância
+    // retorna o último ETA armazenado + a distância (provider = updateTripEtaState)
     public PreviousStateDTO getPreviousEta(UUID travelId) {
         if (travelId == null) return null;
 
         String routeKey = ROUTE_KEY_PREFIX + travelId;
 
-        List<String> consultData = hashOperations.multiGet(routeKey, Arrays.asList("durationRemaining", "distanceRemaining", "etaTimestamp"));
+        List<String> consultData = hashOperations.multiGet(routeKey, Arrays.asList("durationRemaining", "distanceRemaining", "etaLastUpdatedAt"));
 
         String durationRemaining = consultData.get(0);
         String distance = consultData.get(1);
         String timestampLastPing = consultData.get(2);
 
-        logger.info("[getPreviousETA] - durationRemaining: {} {} {}", durationRemaining + " distanceRemaining: ", distance + " etaTimestamp: ", timestampLastPing);
+        logger.info("[getPreviousETA] - durationRemaining: {} {} {}", durationRemaining + " distanceRemaining: ", distance + " etaLastUpdatedAt: ", timestampLastPing);
 
         return new PreviousStateDTO(
                 durationRemaining != null ? Double.parseDouble(durationRemaining) : null,
