@@ -145,6 +145,8 @@ public class LocationService {
                     long timeNow = Instant.now().toEpochMilli();
                     long awayTimeMillis = timeNow - studentAwayTimestamp;
 
+                    log.info("[processStudentAwayState] - debug de time: redisTimestamP: {}, awayTimeMillisResult: {}, AUTO_DISCONNECT_TIME: {}", studentAwayTimestamp, awayTimeMillis, AUTO_DISCONNECT_TIME);
+
                     if (awayTimeMillis >= AUTO_DISCONNECT_TIME) {
                         log.info("[processStudentAwayState] - estudante desembarcou. Começando desvinculação automática dele");
                         studentTravelsToAutoDisconnect.add((student.studentTravelId()));
