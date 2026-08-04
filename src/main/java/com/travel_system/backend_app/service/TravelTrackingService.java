@@ -199,7 +199,7 @@ public class TravelTrackingService {
 
         boolean missingRequiredRouteData = routeStateOpt.map(state -> state.geometry() == null || state.distance() == null).orElse(true);
 
-        if (routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || missingRequiredRouteData) {
+        if (routeCalculateReference == null || routeCalculateReference.lastCalcLat() == null || routeCalculateReference.lastCalcLng() == null || missingRequiredRouteData) {
             throw new LiveLocationDataNotFoundException("[processNewLocation] Dados obrigatórios do liveLocation são null ou inválidos. Viagem: " + travelId);
         }
 
