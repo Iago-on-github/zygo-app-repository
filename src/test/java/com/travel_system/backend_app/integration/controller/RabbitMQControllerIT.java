@@ -5,16 +5,10 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.InstitutionType;
-import com.travel_system.backend_app.model.enums.StudentTravelStatus;
-import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.TravelService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -54,16 +48,26 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
     private StudentRepository studentRepository;
     @Autowired
     private StudentTravelRepository studentTravelRepository;
+    @Autowired
+    private CustomerRepository customerRepository;
+    @Autowired
+    private CityRepository cityRepository;
 
     @Value("${rabbitmq_user}")
     private String rabbitmq_user;
     @Value("${rabbitmq_password}")
     private String rabbitmq_password;
 
-    @BeforeEach
-    void setUp() {
-        // limpa a cada teste
-        userRepository.deleteAll();
+    @AfterEach
+    void tearDown() {
+        //limpa os repos a cada teste realiazado
+
+        studentTravelRepository.deleteAllInBatch();
+        travelRepository.deleteAllInBatch();
+        studentRepository.deleteAllInBatch();
+        driverRepository.deleteAllInBatch();
+        customerRepository.deleteAllInBatch();
+        cityRepository.deleteAllInBatch();
     }
 
     @Nested
@@ -238,6 +242,8 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
 
     @Nested
     class authenticateTopic {
+        City city;
+        Customer customer;
         Travel travel;
         Driver driver;
         StudentTravel studentTravel;
@@ -245,43 +251,26 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
 
         @BeforeEach
         void setUp() {
-            driver = new Driver(
-                    null, "driver@test.com", "encoded_pass",
-                    "João", "Silva", "71999999999",
-                    null, GeneralStatus.ACTIVE,
-                    LocalDateTime.now(), LocalDateTime.now(),
-                    "Salvador", 0, new ArrayList<>(), null);
+            city = new City(null, "feira de santana", CitySize.CITY, true);
+            cityRepository.save(city);
+
+            customer = new Customer(null, "Universidade Cruz", "universidade-cruz", "32.345.678/0001-90", true, city, ClientSector.PUBLIC_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
+            customerRepository.save(customer);
+
+            driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(
-                    null, null, TravelStatus.TRAVELLING, driver, Instant.now(),
-                    Instant.now(), null, "~shnC~_rcL_@v@m@p@y@r@",
-                    3600.0, 15000.0,
-                    -12.9714, -38.5016,
-                    -12.8000, -38.4000, "Feira de Santana"
-            );
-            travelRepository.save(travel);
+            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = travelRepository.saveAndFlush(travel);
 
-            student = new Student(
-                    null,
-                    "student@gmail.com",
-                    "senhaSegura123",
-                    "Student",
-                    "Teste",
-                    "75999999999",
-                    "teste_img",
-                    GeneralStatus.ACTIVE,
-                    LocalDateTime.now(),
-                    LocalDateTime.now(),
-                    InstitutionType.UNIVERSITY,
-                    "Ciência da Computação"
-            );
+            student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
             studentRepository.save(student);
 
             studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
             travel.setStudentTravels(Set.of(studentTravel));
+            travelRepository.saveAndFlush(travel);
         }
 
         @Test
