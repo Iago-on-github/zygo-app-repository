@@ -113,7 +113,7 @@ public class CustomerController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
-    public ResponseEntity<List<CustomerResponseDTO>> findAllByActive(@RequestParam(required = false) boolean enabled) {
+    public ResponseEntity<List<CustomerResponseDTO>> findAllByActive(@RequestParam(required = false) Boolean enabled) {
         return ResponseEntity.ok().body(customerService.findAllByActive(enabled));
     }
 
