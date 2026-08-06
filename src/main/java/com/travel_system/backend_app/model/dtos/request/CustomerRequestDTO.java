@@ -18,7 +18,7 @@ public record CustomerRequestDTO(
         String cnpj,
         @NotNull(message = "cityId is required")
         UUID cityId,
-        Set<UserModel> users,
+        Set<UUID> userIds,
         @NotNull(message = "clientSector is required")
         ClientSector clientSector,
         String profilePicture) {
