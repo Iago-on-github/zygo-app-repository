@@ -6,11 +6,13 @@ import com.travel_system.backend_app.exceptions.InactiveAccountModificationExcep
 import com.travel_system.backend_app.interfaces.mappers.CustomerMapper;
 import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
+import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.request.CustomerRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerResponseDTO;
 import com.travel_system.backend_app.repository.CityRepository;
 import com.travel_system.backend_app.repository.CustomerRepository;
+import com.travel_system.backend_app.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
@@ -20,19 +22,19 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class CustomerService {
     private final CustomerRepository customerRepository;
     private final CityRepository cityRepository;
+    private final UserRepository userRepository;
     private final CustomerMapper customerMapper;
 
-    public CustomerService(CustomerRepository customerRepository, CityRepository cityRepository, CustomerMapper customerMapper) {
+    public CustomerService(CustomerRepository customerRepository, CityRepository cityRepository, UserRepository userRepository, CustomerMapper customerMapper) {
         this.customerRepository = customerRepository;
         this.cityRepository = cityRepository;
+        this.userRepository = userRepository;
         this.customerMapper = customerMapper;
     }
 
@@ -71,12 +73,24 @@ public class CustomerService {
         validateRequireFields(customerRequestDTO); // valida preenchimento de campos obrigatórios
 
         City city = cityRepository.findById(customerRequestDTO.cityId()).orElseThrow(() -> new EntityNotFoundException("City não encontrada."));
+
+        Set<UserModel> users = new HashSet<>();
+        if (customerRequestDTO.userIds() != null && !customerRequestDTO.userIds().isEmpty()) {
+            users = new HashSet<>(userRepository.findAllById(customerRequestDTO.userIds()));
+
+            // verifica se houve resultado retornado no banco
+            if (users.size() != customerRequestDTO.userIds().size()) {
+                throw new EntityNotFoundException("Nenhum usuário encontrado");
+            }
+        }
+
         boolean isCnpjAlreadyExists = customerRepository.findByCnpj(customerRequestDTO.cnpj()).isPresent();
 
         if (isCnpjAlreadyExists) throw new DuplicateResourceException("Customer com o CNPJ " + customerRequestDTO.cnpj() + " já existe na base de dados.");
 
-        Customer customer = customerMapper(customerRequestDTO);
+        Customer customer = customerMapper(customerRequestDTO, users);
         customer.setCity(city);
+        customer.setUsers(users);
 
         customerRepository.save(customer);
 
@@ -103,13 +117,13 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Customer com o id '" + id + "' não encontrado"));
 
-        if (!customer.isActive() && !isEnabled) throw new InactiveAccountModificationException("Customer já inativo no sistema");
+        if (customer.isActive() == isEnabled) throw new InactiveAccountModificationException("Customer já inativo no sistema");
 
         customer.setActive(isEnabled);
     }
 
     private void validateRequireFields(CustomerRequestDTO customerRequestDTO) {
-        if (customerRequestDTO.name() == null || customerRequestDTO.slug() == null || customerRequestDTO.cityId() == null || customerRequestDTO.users() == null
+        if (customerRequestDTO.name() == null || customerRequestDTO.slug() == null || customerRequestDTO.cityId() == null || customerRequestDTO.userIds() == null
         || customerRequestDTO.clientSector() == null) {
             throw new EmptyMandatoryFieldsFound("Preencha todos os campos obrigatórios");
         }
@@ -129,14 +143,18 @@ public class CustomerService {
         );
     }
 
-    private Customer customerMapper(CustomerRequestDTO customerRequestDTO) {
+    private Customer customerMapper(CustomerRequestDTO customerRequestDTO, Set<UserModel> users) {
         Customer customer = new Customer();
+
+        // relaciona customer com UserModel
+        for (UserModel user : users) {
+            user.setCustomer(customer);
+        }
 
         customer.setName(customerRequestDTO.name());
         customer.setSlug(customerRequestDTO.slug());
         customer.setCnpj(customerRequestDTO.cnpj());
         customer.setActive(true);
-        customer.setUsers(customerRequestDTO.users());
         customer.setClientSector(customerRequestDTO.clientSector());
         customer.setProfilePicture(customerRequestDTO.profilePicture());
         customer.setCreatedAt(Instant.now());
