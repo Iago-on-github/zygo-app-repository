@@ -258,7 +258,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("Deve lançar exception quando o motorista já estiver com alguma viagem ativa no momento da criação da viagem")
             void shouldRejectTravelCreationWhenDriverAlreadyHasActiveTravel() throws Exception {
-                Travel travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+                Travel travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
                 travelRepository.save(travel);
 
                 driver.setTravels(List.of(new Travel()));
@@ -331,7 +331,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
@@ -344,7 +344,7 @@ public class TravelControllerIT extends IntegrationTestBase {
        @Test
        @DisplayName("Deve validar todo o fluxo de início de uma viagem já criada (status = pending)")
        void shouldStartTravelSuccessfully() throws Exception {
-            when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+            when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList())).thenReturn(routeDetailsDTO);
 
             mockMvc.perform(post(completePathController).with(user(AUTH_USER).authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
                     .contentType(MediaType.APPLICATION_JSON))
@@ -370,7 +370,7 @@ public class TravelControllerIT extends IntegrationTestBase {
        @Test
        @DisplayName("Deve persistir corretamente os dados da rota")
        void shouldPersistCalculatedRouteInformationWhenTravelStarts() throws Exception {
-            when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+            when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList())).thenReturn(routeDetailsDTO);
 
            mockMvc.perform(post(completePathController).with(user(AUTH_USER).authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
                            .contentType(MediaType.APPLICATION_JSON))
@@ -387,7 +387,7 @@ public class TravelControllerIT extends IntegrationTestBase {
        @Test
        @DisplayName("Deve garantir que o horário de início da viagem seja registrado")
        void shouldSetTravelStartTimeWhenTravelStarts() throws Exception {
-           when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(routeDetailsDTO);
+           when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList())).thenReturn(routeDetailsDTO);
 
            mockMvc.perform(post(completePathController).with(user(AUTH_USER).authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
                            .contentType(MediaType.APPLICATION_JSON))
@@ -414,7 +414,7 @@ public class TravelControllerIT extends IntegrationTestBase {
 
            assertNull(persistedTrip.getStartHourTravel());
 
-           verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+           verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
        }
 
        @ParameterizedTest
@@ -435,7 +435,7 @@ public class TravelControllerIT extends IntegrationTestBase {
            assertEquals(invalidTravelStatus, persistedTrip.getTravelStatus());
            assertNull(persistedTrip.getStartHourTravel());
 
-           verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+           verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
 
        }
 
@@ -451,7 +451,7 @@ public class TravelControllerIT extends IntegrationTestBase {
        @DisplayName("Deve lançãr exception quando o mapbox retornar null ou dados incompletos")
        @MethodSource("invalidRouteDetailsProvider")
        void shouldFailWhenMapboxReturnsNullRouteDetailsOrInvalidData(RouteDetailsDTO invalidRouteDetailsDTO) throws Exception {
-           when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(invalidRouteDetailsDTO);
+           when(mapboxAPIService.calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList())).thenReturn(invalidRouteDetailsDTO);
 
            mockMvc.perform(post(completePathController).with(user(AUTH_USER).authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
                            .contentType(MediaType.APPLICATION_JSON))
@@ -509,7 +509,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             studentTravel = new StudentTravel(null, travel, student, true, Instant.now().minusSeconds(20), null, null, StudentTravelStatus.ACTIVE);
@@ -882,7 +882,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
@@ -1091,7 +1091,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driverCandidate = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 10);
             driverRepository.save(driverCandidate);
 
-            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
@@ -1187,7 +1187,7 @@ public class TravelControllerIT extends IntegrationTestBase {
         @Test
         @DisplayName("Deve lançar exception quando o motorista já estiver com outra viagem ativa")
         void shouldReturnConflictWhenDriverAlreadyHasActiveTravel() throws Exception {
-            Travel travelTwo = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            Travel travelTwo = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelTwo.setDriver(driverCandidate);
             travelRepository.save(travelTwo);
 
@@ -1247,7 +1247,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
@@ -1392,7 +1392,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
@@ -1542,7 +1542,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             Driver driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:05:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
