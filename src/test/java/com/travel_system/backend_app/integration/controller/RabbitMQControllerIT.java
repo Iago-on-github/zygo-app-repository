@@ -260,7 +260,7 @@ public class RabbitMQControllerIT extends IntegrationTestBase {
             driver = new Driver(null, "rafael.silva@test.com", "Senha@123", "Rafael", "Silva", "11999998888", "drivers/rafael-silva.jpg", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 15, 10, 30), null, customer, "CITY", 12);
             driverRepository.save(driver);
 
-            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+            travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travel = travelRepository.saveAndFlush(travel);
 
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
