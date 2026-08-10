@@ -46,12 +46,14 @@ public class Travel {
     private Double finalLatitude;
     private Double finalLongitude;
 
-    // os dados real-time serão armazenados in cache (redis)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "standard_route_id")
+    private StandardRoute standardRoute;
 
     public Travel() {
     }
 
-    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity, Customer customer) {
+    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity, Customer customer, StandardRoute standardRoute) {
         this.id = id;
         this.travelStatus = travelStatus;
         this.driver = driver;
@@ -68,6 +70,7 @@ public class Travel {
         this.finalLongitude = finalLongitude;
         this.destinationCity = destinationCity;
         this.customer = customer;
+        this.standardRoute = standardRoute;
     }
 
     public UUID getId() {
@@ -204,5 +207,13 @@ public class Travel {
 
     public void setCustomer(Customer customer) {
         this.customer = customer;
+    }
+
+    public StandardRoute getStandardRoute() {
+        return standardRoute;
+    }
+
+    public void setStandardRoute(StandardRoute standardRoute) {
+        this.standardRoute = standardRoute;
     }
 }
