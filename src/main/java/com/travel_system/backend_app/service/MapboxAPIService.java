@@ -18,6 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import javax.validation.constraints.NotNull;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 @Service
 public class MapboxAPIService implements MapboxAPICalling {
@@ -37,7 +42,7 @@ public class MapboxAPIService implements MapboxAPICalling {
 
     // chamada bruta da api
     @Override
-    public RouteDetailsDTO calculateRoute(Double originLong, Double originLat, Double destLong, Double destLat) {
+    public RouteDetailsDTO calculateRoute(Double originLong, Double originLat, Double destLong, Double destLat, List<Point> waypoint) {
         if (originLong == null || originLat == null || destLong == null || destLat == null) {
             logger.debug("[calculateRoute] dados de coordenada inválidos ou insuficientes:{}, {}, {}, {}", originLong, originLat, destLong, destLat);
             return null;
@@ -45,7 +50,26 @@ public class MapboxAPIService implements MapboxAPICalling {
 
         logger.info("[calculateRoute] dados de coordenadas validados, criando waypoints e fazendo chamada à api...");
 
-        String waypoints = originLong + "," + originLat + ";" + destLong + "," + destLat;
+        if (waypoint.isEmpty()) {
+            waypoint = List.of();
+        }
+
+        String originCoords = originLong + "," + originLat;
+        String destinationCoords = destLong + "," + destLat;
+
+        List<String> waypointCoordinates = waypoint.stream()
+                .map(point -> point.longitude() + "," + point.latitude()).toList();
+
+        // combina ambos os fluxos de coordenadas (waypoints + originCoords/destinationCoords) mantendo a ordem dos elementos
+        String waypoints = Stream.concat(
+                Stream.of(originCoords),
+                Stream.concat(
+                        waypointCoordinates.stream(),
+                        Stream.of(destinationCoords)
+                )
+        ).collect(Collectors.joining(";"));
+
+        logger.info("[calculateRoute] calculando rota com {} pontos intermediários", waypointCoordinates.size());
 
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -67,7 +91,7 @@ public class MapboxAPIService implements MapboxAPICalling {
             return null;
         }
 
-        return calculateRoute(currentLng, currentLat, finalLong, finalLat);
+        return calculateRoute(currentLng, currentLat, finalLong, finalLat, null);
     }
 
     // retorna dados de preview para a viagem
@@ -102,9 +126,18 @@ public class MapboxAPIService implements MapboxAPICalling {
             return;
         }
 
-        RouteDetailsDTO staticRouteDetails = calculateRoute(originLong, originLat, destLong, destLat);
+        RouteDetailsDTO staticRouteDetails = calculateRoute(originLong, originLat, destLong, destLat, null);
 
         travelRepository.save(travelMapper(staticRouteDetails));
+    }
+
+    public RouteDetailsDTO calculateStandardRoute(Double originLong, Double originLat, Double destinationLong,  Double destinationLat, List<Point> waypoint) {
+        if (originLong == null || originLat == null || destinationLong == null || destinationLat == null || waypoint.isEmpty()) {
+            logger.debug("[calculateStandardRoute] dados de coordenada inválidos ou insuficientes: {}, {}, {}, {}, {} ", originLong, originLat, destinationLong, destinationLat, waypoint);
+            return null;
+        }
+
+        return calculateRoute(originLong, originLat, destinationLong, destinationLat, waypoint);
     }
 
     // padroniza a decodificação do polyline
@@ -153,4 +186,5 @@ public class MapboxAPIService implements MapboxAPICalling {
                 null
         );
     }
+
 }
