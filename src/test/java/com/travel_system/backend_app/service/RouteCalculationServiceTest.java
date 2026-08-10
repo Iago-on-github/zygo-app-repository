@@ -56,7 +56,7 @@ class RouteCalculationServiceTest {
                     -12.8000,
                     -38.4000,
                     "Feira de Santana",
-                    new Customer()
+                    new Customer(), null
             );
             travel.setPolylineRoute(POLYLINE_MOCK);
         }

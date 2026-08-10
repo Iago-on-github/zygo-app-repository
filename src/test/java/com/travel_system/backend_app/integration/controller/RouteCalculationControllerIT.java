@@ -3,6 +3,8 @@ package com.travel_system.backend_app.integration.controller;
 import com.mapbox.geojson.Point;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.Customer;
+import com.travel_system.backend_app.model.Driver;
+import com.travel_system.backend_app.model.StandardRoute;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
@@ -45,16 +47,7 @@ public class RouteCalculationControllerIT extends IntegrationTestBase {
 
         @BeforeEach
         void setUp() {
-            travel = new Travel(UUID.fromString("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), TravelStatus.TRAVELLING, null, Instant.now().minusSeconds(1800), Instant.now().minusSeconds(900), TravelPeriod.AFTERNOON, null, "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
-                    2400.0, // Duração estimada em segundos (40 min)
-                    25000.0, // Distância estimada em metros (25 km)
-                    -12.9714, // Latitude de origem (Ex: Salvador)
-                    -38.5016, // Longitude de origem
-                    -12.8000, // Latitude final (Ex: Feira de Santana)
-                    -38.4000, // Longitude final
-                    "Feira de Santana",
-                    new Customer()
-            );
+            travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, new Driver(), Instant.now(), Instant.now(), TravelPeriod.MORNING, null, "encodedPolyline", 35.5, 18.2, -12.9714, -38.5014, -12.9800, -38.4900, "Salvador", new Customer(), new StandardRoute());
 
             travelRepository.save(travel);
 
