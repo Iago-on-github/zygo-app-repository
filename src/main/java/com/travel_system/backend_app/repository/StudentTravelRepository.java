@@ -2,12 +2,15 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
+import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
+import com.travel_system.backend_app.model.enums.TravelStatus;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.keyvalue.repository.config.QueryCreatorType;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -53,4 +56,41 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
     Optional<StudentTravel> findByTravelIdAndStudentEmail(@Param("travelId") UUID travelId, @Param("studentEmail") String studentEmail);
 
     boolean existsByTravelIdAndStudentEmailAndEmbarkTrue(UUID travelId, String studentEmail);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(st) > 0 THEN TRUE ELSE FALSE END
+                FROM StudentTravel st     \s
+                WHERE st.student.email = :studentEmail
+                AND st.embark = TRUE
+                AND st.travel.id <> :travelId
+                AND st.travel.travelStatus = :travelStatus
+           \s""")
+    boolean existsByStudentEmailAndEmbarkTrue(@Param("studentEmail") String studentEmail, @Param("travelStatus") TravelStatus travelStatus, @Param("travelId") UUID travelId);
+
+    @Query("""
+    SELECT new com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO(
+        st.id,
+        st.travel.id,
+        st.travel.standardRoute.id,
+        st.travel.standardRoute.routeName,
+        st.travel.standardRoute.routeDescription,
+        st.travel.driver.id,
+        st.travel.driver.name,
+        st.travel.travelPeriod,
+        st.travel.customer.city.id,
+        st.travel.customer.city.name
+        )
+        FROM StudentTravel st
+        JOIN st.travel t
+        JOIN st.student s
+        WHERE s.email = :studentEmail
+        AND st.studentTravelStatus = :status
+        AND t.travelStatus = :travelStatus
+        AND st.embark = true
+           """)
+    Optional<ActiveStudentTravelDTO> findActiveTravelByStudentTravelId(
+            @Param("studentEmail") String studentEmail,
+            @Param("status") StudentTravelStatus status,
+            @Param("travelStatus") TravelStatus travelStatus);
+
 }
