@@ -179,9 +179,9 @@ public class AdministratorService {
     public void updateAdministrator(UUID id, GeneralStatus newStatus) {
         boolean platformAdmin = currentUserService.isPlatformAdmin();
 
-        if (!platformAdmin) {
+/*        if (!platformAdmin) {
             throw new NotAuthorizedException("Administrador sem permissão necessária para alterar Administratores de Plataforma.");
-        }
+        }*/
 
         Administrator expectedAdministrator = administratorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado: " + id));
