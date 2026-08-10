@@ -2,6 +2,7 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
@@ -212,6 +213,13 @@ public class TravelController {
 
         travelService.leaveTravel(travelId, studentEmail, StudentTravelStatus.LEFT);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/activeTrips")
+    public ResponseEntity<ActiveStudentTravelDTO> getActiveTravelByStudent(Authentication auth) {
+        String studentEmail = auth.getName();
+
+        return ResponseEntity.ok().body(travelService.getActiveTravelByStudent(studentEmail));
     }
 
     @Operation(
