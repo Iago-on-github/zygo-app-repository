@@ -17,6 +17,13 @@ public class Student extends UserModel {
     private String course;
     @OneToMany(mappedBy = "student")
     private Set<StudentTravel> studentTravels = new HashSet<>();
+    @ManyToMany
+    @JoinTable(
+            name = "route_stop_point",
+            joinColumns = @JoinColumn(name = "student_id"),
+            inverseJoinColumns = @JoinColumn(name = "route_stop_id")
+    )
+    private Set<RouteStop> routeStops = new HashSet<>();
 
     public Student() {
     }
