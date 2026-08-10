@@ -143,7 +143,8 @@ public class TravelService {
                 actualTrip.getOriginLongitude(),
                 actualTrip.getOriginLatitude(),
                 actualTrip.getFinalLongitude(),
-                actualTrip.getFinalLatitude());
+                actualTrip.getFinalLatitude(),
+                List.of());
 
         if (routeDetailsDTO == null ||
                 routeDetailsDTO.duration() == null ||
@@ -268,6 +269,13 @@ public class TravelService {
 
         boolean isAlreadyActive = studentTravelRepository.existsByTravelIdAndStudentEmailAndEmbarkTrue(travelId, studentEmail);
 
+        // verfica se o estudante já está embarcado em outra viagem, ignorando a viagem atual emq ele quer embarcar
+        boolean isAlreadyInAnotherTrip = studentTravelRepository.existsByStudentEmailAndEmbarkTrue(studentEmail, TravelStatus.TRAVELLING, travelId);
+
+        if (isAlreadyInAnotherTrip) {
+            throw new TravelException("Estudante " + studentEmail + " está vinculado em outra viagem no momento");
+        }
+
         if (isAlreadyActive) {
             throw new StudentAlreadyLinkedToTrip("Estudante " + studentEmail + " já vinculado à viagem:" + travelId);
         }
@@ -384,6 +392,15 @@ public class TravelService {
         }
 
         deactivateStudentLink(travelId, studentTravelCache, studentTravelStatus);
+    }
+
+    // responsável por obter apenas a viagem onde o estudante está atualmente embarcado
+    public ActiveStudentTravelDTO getActiveTravelByStudent(String studentEmail) {
+        // retorna os dados com base na viagem que o estudante está vinculado
+
+        return studentTravelRepository
+                .findActiveTravelByStudentTravelId(studentEmail, StudentTravelStatus.ACTIVE, TravelStatus.TRAVELLING)
+                .orElseThrow(() -> new StudentNotLinkedToTripException("Estudante " + studentEmail + " não está ativo em nenhuma viagem"));
     }
 
     public Set<StudentTrackingPositionDTO> linkedStudentTravel(UUID travelId) {
