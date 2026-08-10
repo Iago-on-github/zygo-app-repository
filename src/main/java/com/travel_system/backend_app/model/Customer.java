@@ -6,9 +6,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "customer_table")
@@ -25,6 +23,10 @@ public class Customer {
     private City city;
     @OneToMany(mappedBy = "customer")
     private Set<UserModel> users = new HashSet<>();
+    @OneToMany(mappedBy = "customer")
+    private List<StandardRoute> standardRoutes = new ArrayList<>();
+    @OneToMany(mappedBy = "customer")
+    private Set<RouteStop> routeStops = new HashSet<>();
     @Enumerated(EnumType.STRING)
     private ClientSector clientSector;
     @OneToMany(mappedBy = "customer")
@@ -105,6 +107,22 @@ public class Customer {
 
     public void setUsers(Set<UserModel> users) {
         this.users = users;
+    }
+
+    public List<StandardRoute> getStandardRoutes() {
+        return standardRoutes;
+    }
+
+    public void setStandardRoutes(List<StandardRoute> standardRoutes) {
+        this.standardRoutes = standardRoutes;
+    }
+
+    public Set<RouteStop> getRouteStops() {
+        return routeStops;
+    }
+
+    public void setRouteStops(Set<RouteStop> routeStops) {
+        this.routeStops = routeStops;
     }
 
     public ClientSector getClientSector() {
