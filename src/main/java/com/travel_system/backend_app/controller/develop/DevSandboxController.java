@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -62,7 +63,7 @@ public class DevSandboxController {
             @RequestParam double originLat,
             @RequestParam double destLong,
             @RequestParam double destLat) {
-        return ResponseEntity.ok().body(mapboxAPIService.calculateRoute(originLong, originLat, destLong, destLat));
+        return ResponseEntity.ok().body(mapboxAPIService.calculateRoute(originLong, originLat, destLong, destLat, List.of()));
     }
 
     @PostMapping("/{travelId}")
