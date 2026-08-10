@@ -88,7 +88,7 @@ class TravelServiceTest {
 
         studentTravel = new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.parse("2026-07-16T10:20:00Z"), null, null, StudentTravelStatus.ACTIVE);
 
-        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
     }
 
     @Nested
@@ -211,7 +211,7 @@ class TravelServiceTest {
             RouteDetailsDTO routeDetailsDTO = new RouteDetailsDTO(3600.0, 15.5, "encoded_polyline_example");
 
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
-            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude(), anyList()))
                     .thenReturn(routeDetailsDTO);
             when(travelRepository.save(any(Travel.class))).thenReturn(travel);
             doNothing().when(travelCacheService).invalidateTravelStaticCache(travel.getId());
@@ -246,7 +246,7 @@ class TravelServiceTest {
 
             verify(travelRepository, times(1)).findById(any());
 
-            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
             verify(travelRepository, never()).save(any());
             verify(redisTrackingService, never()).addActiveTravel(any());
         }
@@ -262,7 +262,7 @@ class TravelServiceTest {
 
             verify(travelRepository, times(1)).findById(any());
 
-            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
             verify(travelRepository, never()).save(any());
             verify(redisTrackingService, never()).addActiveTravel(any());
         }
@@ -278,7 +278,7 @@ class TravelServiceTest {
 
             verify(travelRepository, times(1)).findById(any());
 
-            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(mapboxAPIService, never()).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
             verify(travelRepository, never()).save(any());
             verify(redisTrackingService, never()).addActiveTravel(any());
         }
@@ -288,13 +288,13 @@ class TravelServiceTest {
         void throwExceptionWhenMapBoxAPIReturnsNullFromRouteDetails() {
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.of(travel));
 
-            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude()))
+            when(mapboxAPIService.calculateRoute(travel.getOriginLongitude(), travel.getOriginLatitude(), travel.getFinalLongitude(), travel.getFinalLatitude(), anyList()))
                     .thenReturn(null);
 
             assertThrows(RecalculateEtaException.class, () -> travelService.startTravel(travel.getId()));
 
             verify(travelRepository, times(1)).findById(any());
-            verify(mapboxAPIService, times(1)).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+            verify(mapboxAPIService, times(1)).calculateRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList());
 
             verify(travelRepository, never()).save(any());
             verify(redisTrackingService, never()).addActiveTravel(any());

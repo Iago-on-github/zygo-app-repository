@@ -98,7 +98,7 @@ class TravelTrackingServiceTest {
     void setUp() {
         customer = new Customer(UUID.randomUUID(), "Universidade Exemplo", "universidade-exemplo", "12.345.678/0001-90", true, new City(), ClientSector.PRIVATE_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
         driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
-        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
+        travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
         vehicleLocationRequestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.973456, -38.501234, 60.0, 180.0);
         liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000);
         newLocationReceivedEvents = new NewLocationReceivedEvents(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), TravelStatus.TRAVELLING, 60.0, 180.0);

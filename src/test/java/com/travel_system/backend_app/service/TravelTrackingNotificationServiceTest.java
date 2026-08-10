@@ -48,7 +48,7 @@ class TravelTrackingNotificationServiceTest {
 
             driver = new Driver(UUID.randomUUID(), "joao.silva@email.com", "senha123", "João", "Silva", "+55 11 99999-9999", "https://example.com/profile.jpg", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, "São Paulo - Capital", 1250);
 
-            travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, driver, Instant.now(), Instant.now().plusSeconds(5000), TravelPeriod.AFTERNOON, null, "polylineRouteExemple", 3032.3, 40.0, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana", customer);
+            travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, driver, Instant.now(), Instant.now().plusSeconds(5000), TravelPeriod.AFTERNOON, null, "polylineRouteExemple", 3032.3, 40.0, -12.973456, -38.501234, -12.985678, -38.512345, "Feira de Santana", customer, null);
 
             velocityAnalysis = new VelocityAnalysisDTO(75.3, 231L, null, null, MovementState.SLOW);
 
