@@ -9,6 +9,7 @@ import java.util.UUID;
 @Table(name = "TRAVEL_DATA_REPORT")
 public class TravelReports {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @OneToOne
     @MapsId
