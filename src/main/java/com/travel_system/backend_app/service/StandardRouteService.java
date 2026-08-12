@@ -248,19 +248,30 @@ public class StandardRouteService {
         // devem ser do mesmo Customer
         validateSameCustomer(standardRoute.getCustomer().getId(), authenticatedUser.getCustomer().getId());
 
-        Double originLat = standardRouteUpdateDTO.originLatitude() != null ? standardRouteUpdateDTO.originLatitude() : standardRoute.getOriginLatitude();
-        Double originLng = standardRouteUpdateDTO.originLongitude() != null ? standardRouteUpdateDTO.originLongitude() : standardRoute.getOriginLongitude();
+        /*
+        * valida o input das coordenadas de origem e destino
+        * */
+        boolean originLatitudeFromDTO = standardRouteUpdateDTO.originLatitude() != null;
+        boolean originLongitudeFromDTO = standardRouteUpdateDTO.originLongitude() != null;
 
-        Double destinationLat = standardRouteUpdateDTO.destinationLatitude() != null ? standardRouteUpdateDTO.destinationLatitude() : standardRoute.getDestinationLatitude();
-        Double destinationLng = standardRouteUpdateDTO.destinationLongitude() != null ? standardRouteUpdateDTO.destinationLongitude() : standardRoute.getDestinationLongitude();
-
-        if ((originLat == null) != (originLng == null)) {
-            throw new NoSuchCoordinates("Latitude e longitude de origem devem ser informadas juntas");
+        // verifica se informou ambas as coordenadas de origem
+        if (originLatitudeFromDTO != originLongitudeFromDTO) {
+            throw new NoSuchCoordinates("As coordenadas de Latitude e Longitude da origem devem ser informadas juntas");
         }
 
-        if ((destinationLat == null) != (destinationLng == null)) {
-            throw new NoSuchCoordinates("Latitude e longitude do destino devem ser informadas juntas");
+        Double originLat = originLatitudeFromDTO ? standardRouteUpdateDTO.originLatitude() : standardRoute.getOriginLatitude();
+        Double originLng = originLongitudeFromDTO ? standardRouteUpdateDTO.originLongitude() : standardRoute.getOriginLongitude();
+
+        boolean destinationLatitudeFromDTO = standardRouteUpdateDTO.destinationLatitude() != null;
+        boolean destinationLongitudeFromDTO = standardRouteUpdateDTO.destinationLongitude() != null;
+
+        // verifica se informou ambas as coordenadas de destino
+        if (destinationLatitudeFromDTO != destinationLongitudeFromDTO) {
+            throw new NoSuchCoordinates("Latitude e longitude de destino devem ser informadas juntas");
         }
+
+        Double destinationLat = destinationLatitudeFromDTO ? standardRouteUpdateDTO.destinationLatitude() : standardRoute.getDestinationLatitude();
+        Double destinationLng = destinationLongitudeFromDTO ? standardRouteUpdateDTO.destinationLongitude() : standardRoute.getDestinationLongitude();
 
         List<RouteStopAssignment> routeStopAssignments = standardRoute.getRouteStopAssignments().stream()
                 .sorted(Comparator.comparing(RouteStopAssignment::getSequence)).toList();
