@@ -99,7 +99,7 @@ class StandardRouteServiceTest {
 
         standardRoute = new StandardRoute(UUID.randomUUID(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", TravelPeriod.MORNING, customer, GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
 
-        routeStop = new RouteStop(UUID.randomUUID(), "RouteStopName", "RouteStop Description", -45.324, -11.342, customer, GeneralStatus.ACTIVE);
+        routeStop = new RouteStop(UUID.randomUUID(), "RouteStopName", "RouteStop Description", -45.324, -11.342, customer, GeneralStatus.ACTIVE, Instant.now(), null);
 
         standardRouteResponseDTO = new StandardRouteResponseDTO(standardRoute.getId(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", TravelPeriod.MORNING, Set.of(new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 1 - Praça Central", 1, false), new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 2 - Biblioteca", 2, true)), UUID.randomUUID(), GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
         standardRouteRequestDTO = new StandardRouteRequestDTO(
@@ -870,6 +870,275 @@ class StandardRouteServiceTest {
                 assertThrows(RecalculateEtaException.class, () -> standardRouteService.updateStandardRoute(standardRoute.getId(), user.getEmail(), standardRouteUpdateDTO));
 
                 verify(standardRouteRepository, never()).save(any());
+            }
+        }
+    }
+
+    @Nested
+    class updateRouteStopPoints {
+        StandardRouteStopsUpdateDTO standardRouteStopsUpdateDTO;
+
+        @BeforeEach
+        void setUp() {
+            standardRouteStopsUpdateDTO = new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(routeStop.getId(), 1, false)));
+        }
+
+        @Nested
+        class successScenarios {
+
+            @Test
+            @DisplayName("Deve realizar o update do Route Stop Point com sucesso")
+            void shouldUpdateRouteStopPointsAndReturnDtoWhenDataIsValid() {
+                List<UUID> routeStopIds = standardRouteStopsUpdateDTO.routeStops().stream().map(RouteStopAssignmentRequestDTO::routeStopId).toList();
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+                when(routeStopRepository.findAllById(routeStopIds)).thenReturn(List.of(routeStop));
+                when(mapboxAPIService.calculateStandardRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyList()))
+                        .thenReturn(new RouteDetailsDTO(14.4, 5000.3, "encoded_geometry"));
+                when(standardRouteRepository.save(standardRoute)).thenReturn(standardRoute);
+
+                StandardRouteResponseDTO result = standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO);
+
+                assertNotNull(result);
+
+                ArgumentCaptor<StandardRoute> standardRouteArgCaptor = ArgumentCaptor.forClass(StandardRoute.class);
+
+                verify(standardRouteRepository, times(1)).save(standardRouteArgCaptor.capture());
+
+                StandardRoute storageValue = standardRouteArgCaptor.getValue();
+
+                assertNotNull(result.updatedAt());
+
+                assertEquals(storageValue.getStandardGeometry(), result.standardGeometry());
+                assertEquals(storageValue.getRouteStopAssignments().stream().map(id -> id.getRouteStop().getId()).toList(),
+                        result.routeStopAssignments().stream().map(RouteStopAssignmentResponseDTO::routeStopId).toList());
+            }
+        }
+
+        @Nested
+        class failureScenarios {
+
+            @Test
+            @DisplayName("Deve lançar exception quando o usuário não for encontrado")
+            void shouldThrowEntityNotFoundExceptionWhenUserNotFound() {
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(null);
+
+                assertThrows(EntityNotFoundException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verifyNoInteractions(standardRouteRepository, standardRouteRepository, mapboxAPIService);
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception se o usuário não tiver a ROLE de ADMIN ou PLATFORM_ADMIN")
+            @MethodSource("invalidUserRoleProvider")
+            void shouldThrowExceptionWhenUserIsNotAdmin(String permission) {
+                Permissions invalidPerms = new Permissions(permission);
+                user.setPermissions(List.of(invalidPerms));
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+
+                assertThrows(NotAuthorizedException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(standardRouteRepository, routeStopRepository, mapboxAPIService);
+            }
+
+            public static Stream<Arguments> invalidUserRoleProvider() {
+                return Stream.of(
+                        Arguments.of("ROLE_DRIVER"),
+                        Arguments.of("ROLE_USER")
+                );
+            }
+
+            @Test
+            void shouldThrowExceptionWhenAdminIsWithoutCustomer() {
+                user.setCustomer(null);
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+
+                assertThrows(DomainValidationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(standardRouteRepository, routeStopRepository, mapboxAPIService);
+            }
+
+            @Test
+            void shouldThrowExceptionWhenAdminIsInactive() {
+                user.setStatus(GeneralStatus.INACTIVE);
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+
+                assertThrows(InactiveAccountModificationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(standardRouteRepository, routeStopRepository, mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve lançar exception quando o Customer da rota padrão for diferente do Customer do usuário autenticado")
+            void shouldThrowExceptionWhenRouteBelongsToDifferentCustomer() {
+                Customer differentCustomer = new Customer();
+                standardRoute.setCustomer(differentCustomer);
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+
+                assertThrows(CustomerMismatchException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(routeStopRepository, mapboxAPIService);
+
+            }
+
+            @Test
+            @DisplayName("Deve lançar exception quando a Rota Padrão não for encontrada")
+            void shouldThrowEntityNotFoundExceptionWhenStandardRouteNotFound() {
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.empty());
+
+                assertThrows(EntityNotFoundException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(routeStopRepository, mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve lançar exception quando não encontrar o(s) RouteStop(s)")
+            void shouldThrowEntityNotFoundExceptionWhenNoRouteStopsFound() {
+                List<UUID> routeStopIds = standardRouteStopsUpdateDTO.routeStops().stream().map(RouteStopAssignmentRequestDTO::routeStopId).toList();
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+                when(routeStopRepository.findAllById(routeStopIds)).thenReturn(List.of());
+
+                assertThrows(EntityNotFoundException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+                verify(routeStopRepository, times(1)).findAllById(eq(routeStopIds));
+
+                verifyNoMoreInteractions(userRepository);
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando RouteStop é inválida ou vazio")
+            @MethodSource("invalidStandardRouteStopsUpdateDTOProvider")
+            void shouldThrowDomainValidationExceptionWhenRouteStopsIsInvalidOrEmpty(StandardRouteStopsUpdateDTO invalidStandardRouteStopsUpdateDTO) {
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+
+                assertThrows(DomainValidationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), invalidStandardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+            }
+
+            public static Stream<Arguments> invalidStandardRouteStopsUpdateDTOProvider() {
+                return Stream.of(
+                        Arguments.of(new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, null, true)))),
+                        Arguments.of( (StandardRouteStopsUpdateDTO) null)
+                );
+            }
+
+            @ParameterizedTest
+            @DisplayName("Deve lançar exception quando a List ordenada pela Sequence estiver com dados inválidos")
+            @MethodSource("invalidSequenceProvider")
+            void shouldThrowDomainValidationExceptionWhenStopSequenceIsNull(StandardRouteStopsUpdateDTO invalidStandardRouteStopsUpdateDTO) {
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+
+                assertThrows(DomainValidationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), invalidStandardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+            }
+
+            public static Stream<Arguments> invalidSequenceProvider() {
+                return Stream.of(
+                        Arguments.of(new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, null, true)))),
+                        Arguments.of(new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, 0, true)))),
+                        Arguments.of(new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, 1, true)))),
+                        Arguments.of(new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, 1, true))))
+
+                );
+            }
+
+            @Test
+            @DisplayName("Deve lançar exception quando o RouteStop possuir ID null")
+            void shouldThrowDomainValidationExceptionWhenRouteStopIdIsNull() {
+                StandardRouteStopsUpdateDTO invalidStandardRouteStopsUpdateDTO = new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(null, 1, false)));
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+
+                assertThrows(DomainValidationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), invalidStandardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(routeStopRepository, mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve lançar exception quando o mesmo RouteStop aparecer repetidamente")
+            void shouldThrowDomainValidationExceptionWhenRouteStopIdIsDuplicated() {
+                StandardRouteStopsUpdateDTO invalidStandardRouteStopsUpdateDTO = new StandardRouteStopsUpdateDTO(Set.of(new RouteStopAssignmentRequestDTO(routeStop.getId(),1, false), new RouteStopAssignmentRequestDTO(routeStop.getId(), 2, false)));
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+
+                assertThrows(DomainValidationException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), invalidStandardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+
+                verifyNoMoreInteractions(userRepository);
+
+                verifyNoInteractions(routeStopRepository, mapboxAPIService);
+            }
+
+            @Test
+            @DisplayName("Deve lançar excepton quando houver tentativa de vínculo de RouteStop inativo")
+            void shouldThrowIllegalArgumentExceptionWhenRouteStopIsInactive() {
+                routeStop.setStatus(GeneralStatus.INACTIVE);
+
+                List<UUID> routeStopIds = standardRouteStopsUpdateDTO.routeStops().stream().map(RouteStopAssignmentRequestDTO::routeStopId).toList();
+
+                when(userRepository.findUserByEmail(user.getEmail())).thenReturn(user);
+                when(standardRouteRepository.findById(standardRoute.getId())).thenReturn(Optional.of(standardRoute));
+                when(routeStopRepository.findAllById(routeStopIds)).thenReturn(List.of(routeStop));
+
+                assertThrows(IllegalArgumentException.class, () -> standardRouteService.updateRouteStopPoints(standardRoute.getId(), user.getEmail(), standardRouteStopsUpdateDTO));
+
+                verify(userRepository, times(1)).findUserByEmail(eq(user.getEmail()));
+                verify(standardRouteRepository, times(1)).findById(eq(standardRoute.getId()));
+                verify(routeStopRepository, times(1)).findAllById(eq(routeStopIds));
+
+                verifyNoMoreInteractions(userRepository);
             }
         }
     }
