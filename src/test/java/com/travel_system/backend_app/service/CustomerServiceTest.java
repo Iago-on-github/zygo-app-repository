@@ -65,7 +65,7 @@ class CustomerServiceTest {
 
         customer = new Customer(UUID.randomUUID(), "Prefeitura X", "prefeitura-x", "093203/42-33", true, city, ClientSector.PUBLIC_CLIENT, null, Instant.now(), null);
 
-        customerRequestDTO = new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", city.getId(), Set.of(new UserModel()), ClientSector.PUBLIC_CLIENT, null);
+        customerRequestDTO = new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", city.getId(), Set.of(UUID.randomUUID()), ClientSector.PUBLIC_CLIENT, null);
 
         customerUpdateDTO = new CustomerUpdateDTO("NewCustomerName", "NewProfilePicture");
     }
@@ -220,10 +220,10 @@ class CustomerServiceTest {
 
         public static Stream<Arguments> nullRequireFieldsProvider() {
             return Stream.of(
-                    Arguments.of(new CustomerRequestDTO(null, "prefeitura-y", "093203/42-33", UUID.randomUUID(), Set.of(new UserModel()), ClientSector.PUBLIC_CLIENT, null)),
-                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", null, "093203/42-33", UUID.randomUUID(), Set.of(new UserModel()), ClientSector.PUBLIC_CLIENT, null)),
-                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", null, Set.of(new UserModel()), ClientSector.PUBLIC_CLIENT, null)),
-                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", UUID.randomUUID(), Set.of(new UserModel()), null, null)),
+                    Arguments.of(new CustomerRequestDTO(null, "prefeitura-y", "093203/42-33", UUID.randomUUID(), Set.of(UUID.randomUUID()), ClientSector.PUBLIC_CLIENT, null)),
+                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", null, "093203/42-33", UUID.randomUUID(), Set.of(UUID.randomUUID()), ClientSector.PUBLIC_CLIENT, null)),
+                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", null, Set.of(UUID.randomUUID()), ClientSector.PUBLIC_CLIENT, null)),
+                    Arguments.of(new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", UUID.randomUUID(), Set.of(UUID.randomUUID()), null, null)),
                     Arguments.of(new CustomerRequestDTO("Prefeitura Y", "prefeitura-y", "093203/42-33", UUID.randomUUID(), null, ClientSector.PUBLIC_CLIENT, null))
             );
         }
