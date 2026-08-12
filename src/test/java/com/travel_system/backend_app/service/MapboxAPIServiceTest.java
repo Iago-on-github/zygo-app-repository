@@ -22,6 +22,7 @@ import org.junit.rules.ExternalResource.*;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -98,7 +99,7 @@ class MapboxAPIServiceTest {
                     .addHeader("Content-Type", "application/json"));
 
             // act
-            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000);
+            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000, List.of());
 
             // assert
             assertNotNull(result, "api response must never be null");
@@ -130,7 +131,7 @@ class MapboxAPIServiceTest {
                     .addHeader("Content-Type", "application/json"));
 
             // act
-            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000);
+            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000, List.of());
 
             // aaserts
             RecordedRequest recordedRequest = mockWebServer.takeRequest();
@@ -163,7 +164,7 @@ class MapboxAPIServiceTest {
                     .addHeader("Content-Type", "application/json"));
 
             // act
-            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000);
+            RouteDetailsDTO result = mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000, List.of());
 
             // assert
             assertNull(result);
@@ -192,7 +193,7 @@ class MapboxAPIServiceTest {
 
 
             // act & assert
-            assertThrows(WebClientResponseException.class, () -> mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000));
+            assertThrows(WebClientResponseException.class, () -> mapboxAPIService.calculateRoute(-38.5014, -12.9714, -38.4500, -12.9000, List.of()));
         }
 
         @ParameterizedTest
@@ -201,7 +202,7 @@ class MapboxAPIServiceTest {
         void shouldSilentlyReturnNullWhenRequireFieldsAreNull(Double originLong, Double originLat, Double destLong, Double destLat) {
             int countBefore = mockWebServer.getRequestCount();
 
-            RouteDetailsDTO result = mapboxAPIService.calculateRoute(originLong, originLat, destLong, destLat);
+            RouteDetailsDTO result = mapboxAPIService.calculateRoute(originLong, originLat, destLong, destLat, List.of());
 
             assertNull(result);
             int countAfter = mockWebServer.getRequestCount();
