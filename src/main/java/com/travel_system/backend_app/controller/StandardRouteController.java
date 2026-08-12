@@ -63,40 +63,4 @@ public class StandardRouteController {
         return ResponseEntity.ok().body(standardRouteService.updateStandardRoute(standardRouteId, authenticatedEmail, standardRouteUpdateDTO));
     }
 
-    @PatchMapping("/{standardRouteId}/update-route-stop")
-    public ResponseEntity<StandardRouteResponseDTO> updateRouteStopPoints(@PathVariable UUID standardRouteId, Authentication auth, @RequestBody StandardRouteStopsUpdateDTO standardRouteStopsUpdateDTO) {
-        String authenticatedEmail = auth.getName();
-
-        return ResponseEntity.ok().body(standardRouteService.updateRouteStopPoints(standardRouteId, authenticatedEmail, standardRouteStopsUpdateDTO));
-    }
-
-    @PatchMapping("/{standardRouteId}/route-stop-status")
-    public ResponseEntity<Void> updateRouteStopStatus(@PathVariable UUID standardRouteId, Authentication auth, @RequestParam GeneralStatus status) {
-        String authenticatedEmail = auth.getName();
-
-        standardRouteService.updateRouteStopStatus(standardRouteId, authenticatedEmail, status);
-
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("/{standardRouteId}/associate/{routeStopId}")
-    public ResponseEntity<Void> associateRouteStopWithStandardRoute(@PathVariable UUID standardRouteId, @PathVariable UUID routeStopId, @RequestParam int sequence, @RequestParam boolean isOptionalSpot) {
-        standardRouteService.associateRouteStopWithStandardRoute(standardRouteId, routeStopId, sequence, isOptionalSpot);
-
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("/{standardRouteId}/remove/{routeStopId}")
-    public ResponseEntity<Void> removeRouteStopWithStandardRoute(@PathVariable UUID standardRouteId, @PathVariable UUID routeStopId) {
-        standardRouteService.removeRouteStopWithStandardRoute(standardRouteId, routeStopId);
-
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("/{standardRouteId}/reorder/{routeStopId}")
-    public ResponseEntity<StandardRouteResponseDTO> reorderRouteStops(@PathVariable UUID standardRouteId, @RequestBody List<RouteStopReorderRequestDTO> routeStopsReorder) {
-        return ResponseEntity.ok().body(standardRouteService.reorderRouteStops(standardRouteId, routeStopsReorder));
-    }
-
-
 }
