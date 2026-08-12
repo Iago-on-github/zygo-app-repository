@@ -2,7 +2,10 @@ package com.travel_system.backend_app.model;
 
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
+import java.time.Instant;
 import java.util.*;
 
 @Entity
@@ -28,11 +31,15 @@ public class RouteStop {
     private List<RouteStopAssignment> routeStopAssignment = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private GeneralStatus status;
+    @CreatedDate
+    private Instant createdAt;
+    @LastModifiedDate
+    private Instant updatedAt;
 
     public RouteStop() {
     }
 
-    public RouteStop(UUID id, String name, String description, Double latitude, Double longitude, Customer customer, GeneralStatus status) {
+    public RouteStop(UUID id, String name, String description, Double latitude, Double longitude, Customer customer, GeneralStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -40,6 +47,8 @@ public class RouteStop {
         this.longitude = longitude;
         this.customer = customer;
         this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() {
@@ -112,5 +121,21 @@ public class RouteStop {
 
     public void setStatus(GeneralStatus status) {
         this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
