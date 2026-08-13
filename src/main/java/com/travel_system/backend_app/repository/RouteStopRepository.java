@@ -18,5 +18,5 @@ public interface RouteStopRepository extends JpaRepository<RouteStop, UUID> {
 
     Optional<RouteStop> findByName(String routeName);
 
-    boolean findByNameAndCustomerId(@NotNull String name, UUID customerId);
+    boolean existsByNameAndCustomerId(@NotNull String name, UUID customerId);
 }
