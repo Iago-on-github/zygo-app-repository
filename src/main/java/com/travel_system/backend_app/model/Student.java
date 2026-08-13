@@ -57,4 +57,12 @@ public class Student extends UserModel {
     public void setStudentTravels(Set<StudentTravel> studentTravels) {
         this.studentTravels = studentTravels;
     }
+
+    public Set<RouteStop> getRouteStops() {
+        return routeStops;
+    }
+
+    public void setRouteStops(Set<RouteStop> routeStops) {
+        this.routeStops = routeStops;
+    }
 }
