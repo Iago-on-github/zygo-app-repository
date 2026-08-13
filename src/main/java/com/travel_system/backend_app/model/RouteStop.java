@@ -21,11 +21,7 @@ public class RouteStop {
     private Double latitude;
     private Double longitude;
     @ManyToOne
-    @JoinTable(
-            name = "route_stop_point",
-            joinColumns = @JoinColumn(name = "route_stop_id"),
-            inverseJoinColumns = @JoinColumn(name = "customer_id")
-    )
+    @JoinColumn(name = "customer_id")
     private Customer customer;
     @OneToMany(mappedBy = "routeStop")
     private List<RouteStopAssignment> routeStopAssignment = new ArrayList<>();
@@ -49,6 +45,18 @@ public class RouteStop {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+    }
+
+    // add estudante de forma sincronizada em ambos os lados
+    public void addStudent(Student student) {
+        this.students.add(student);
+        student.getRouteStops().add(this);
+    }
+
+    // remove estudante de forma sincronizada em ambos os lados
+    public void removeStudent(Student student) {
+        this.students.remove(student);
+        student.getRouteStops().remove(this);
     }
 
     public UUID getId() {
