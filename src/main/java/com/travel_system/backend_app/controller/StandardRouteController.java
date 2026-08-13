@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +48,7 @@ public class StandardRouteController {
     }
 
     @PostMapping("/new")
-    public ResponseEntity<StandardRouteResponseDTO> createStandardRoute(Authentication auth, @RequestBody StandardRouteRequestDTO standardRouteRequestDTO, UriComponentsBuilder uriComponentsBuilder) {
+    public ResponseEntity<StandardRouteResponseDTO> createStandardRoute(Authentication auth, @Valid @RequestBody StandardRouteRequestDTO standardRouteRequestDTO, UriComponentsBuilder uriComponentsBuilder) {
         String userAuthenticatedEmail = auth.getName();
         StandardRouteResponseDTO newStandardRoute = standardRouteService.createStandardRoute(userAuthenticatedEmail, standardRouteRequestDTO);
 
@@ -57,10 +58,17 @@ public class StandardRouteController {
     }
 
     @PatchMapping("/{standardRouteId}/update")
-    public ResponseEntity<StandardRouteResponseDTO> updateStandardRoute(Authentication auth, @PathVariable UUID standardRouteId, @RequestBody StandardRouteUpdateDTO standardRouteUpdateDTO) {
+    public ResponseEntity<StandardRouteResponseDTO> updateStandardRoute(Authentication auth, @PathVariable UUID standardRouteId, @Valid @RequestBody StandardRouteUpdateDTO standardRouteUpdateDTO) {
         String authenticatedEmail = auth.getName();
 
         return ResponseEntity.ok().body(standardRouteService.updateStandardRoute(standardRouteId, authenticatedEmail, standardRouteUpdateDTO));
+    }
+
+    @PatchMapping("/{standardRouteId}/update/stop-points")
+    public ResponseEntity<StandardRouteResponseDTO> updateRouteStopPoints(@PathVariable UUID standardRouteId, Authentication auth, @Valid @RequestBody StandardRouteStopsUpdateDTO standardRouteStopsUpdateDTO) {
+        String authenticatedEmail = auth.getName();
+
+        return ResponseEntity.ok().body(standardRouteService.updateRouteStopPoints(standardRouteId, authenticatedEmail, standardRouteStopsUpdateDTO));
     }
 
 }

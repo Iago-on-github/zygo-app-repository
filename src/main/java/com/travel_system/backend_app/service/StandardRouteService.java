@@ -11,6 +11,7 @@ import com.travel_system.backend_app.model.UserModel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.RouteStopRepository;
@@ -134,7 +135,7 @@ public class StandardRouteService {
 
         boolean isDuplicatedName = standardRouteRepository.existsByRouteNameAndCustomerId(standardRouteRequestDTO.routeName(), authenticatedUser.getCustomer().getId());
 
-        if (isDuplicatedName) throw new IllegalArgumentException("Já existe uma rota com o nome: " + standardRouteRequestDTO.routeName());
+        if (isDuplicatedName) throw new DuplicateResourceException("Já existe uma rota com o nome: " + standardRouteRequestDTO.routeName());
 
         // valida a ordem de parada não deixando ela se repetir (ex.: parada 1 (0), parada 4(0) e não deixando ser null
         List<Integer> stopSequence = standardRouteRequestDTO.routeStops().stream()
@@ -297,6 +298,117 @@ public class StandardRouteService {
 
         return standardRouteResponseMapper.toDTO(savedStandardRoute);
     }
+
+    @Transactional
+    public StandardRouteResponseDTO updateRouteStopPoints(UUID standardRouteId, String authenticatedEmail, StandardRouteStopsUpdateDTO standardRouteStopsUpdateDTO) {
+        UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
+
+        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+
+        // verifica se é um ADMIN
+        checkAdminPrivileges(authenticatedUser);
+        checkValidAdmin(authenticatedUser); // verifca se o user é válido (status, customer existe)
+
+        StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
+                .orElseThrow(() -> new EntityNotFoundException("Entidade standardRoute não encontrada"));
+
+        validateSameCustomer(authenticatedUser.getCustomer().getId(), standardRoute.getCustomer().getId());
+
+        if (standardRouteStopsUpdateDTO == null || standardRouteStopsUpdateDTO.routeStops() == null || standardRouteStopsUpdateDTO.routeStops().isEmpty()) {
+            throw new DomainValidationException("A rota padrão deve possuir ao menos um ponto de parada");
+        }
+
+        List<RouteStopAssignmentRequestDTO> requestedStops = standardRouteStopsUpdateDTO.routeStops().stream().toList();
+
+        List<Integer> sequence = requestedStops.stream().map(RouteStopAssignmentRequestDTO::stopSequence).toList();
+
+        if (sequence.stream().anyMatch(Objects::isNull)) {
+            throw new DomainValidationException("A sequência de RouteStops não pode ser null");
+        }
+
+        if (sequence.stream().anyMatch(value -> value <= 0)) {
+            throw new DomainValidationException("A sequência de RouteStops deve ser maior que zero");
+        }
+
+        if (new HashSet<>(sequence).size() != sequence.size()) {
+            throw new DomainValidationException("Não pode haver stopSequence duplicado");
+        }
+
+        List<UUID> routeStopIds = requestedStops.stream().map(RouteStopAssignmentRequestDTO::routeStopId).toList();
+
+        if (routeStopIds.stream().anyMatch(Objects::isNull)) {
+            throw new DomainValidationException("O RouteStop não pode possuir ID nulo");
+        }
+
+        if (new HashSet<>(routeStopIds).size() != routeStopIds.size()) {
+            throw new DomainValidationException("Um mesmo RouteStop não pode ser utilizado mais de uma vez na mesma rota");
+        }
+
+        List<RouteStop> routeStops = routeStopRepository.findAllById(routeStopIds);
+
+        if (routeStops.isEmpty()) {
+            throw new EntityNotFoundException("Nenhum RouteStop encontrado");
+        }
+
+        boolean hasInactiveRouteStop = routeStops.stream()
+                .anyMatch(routeStop -> routeStop.getStatus() == GeneralStatus.INACTIVE);
+
+        if (hasInactiveRouteStop) {
+            throw new IllegalArgumentException("Não é possível adicionar RouteStops inativos à rota padrão");
+        }
+
+        // indexa os RouteStops pelo ID para reconstruir os assignments
+        Map<UUID, RouteStop> routeStopById = routeStops.stream()
+                .collect(Collectors.toMap(
+                        RouteStop::getId,
+                        Function.identity() // próprio objeto
+                ));
+
+        // evita que os routeStops requisitados não venham
+        if (routeStops.size() != routeStopIds.size()) {
+            throw new EntityNotFoundException("Um ou mais RouteStops não foram encontrados");
+        }
+
+        for (RouteStop routeStop : routeStops) {
+            validateSameCustomer(routeStop.getCustomer().getId(), authenticatedUser.getCustomer().getId());
+        }
+
+        // cria os novos RouteStopAssignments
+        List<RouteStopAssignment> assignments = requestedStops.stream().map(request -> {
+                    RouteStop routeStop = routeStopById.get(request.routeStopId());
+
+                    RouteStopAssignment assignment = new RouteStopAssignment();
+
+                    assignment.setStandardRoute(standardRoute);
+                    assignment.setRouteStop(routeStop);
+                    assignment.setSequence(request.stopSequence());
+                    assignment.setOptionalSpot(request.isOptionalStop());
+
+                    return assignment;
+                }).sorted(Comparator.comparing(RouteStopAssignment::getSequence))
+                .toList();
+
+        // monta os waypoints
+        List<Point> waypoints = buildWaypoints(assignments);
+
+        RouteDetailsDTO routeDetailsDTO = calculateStandardRouteGeometry(standardRoute.getOriginLongitude(),
+                standardRoute.getOriginLatitude(),
+                standardRoute.getDestinationLongitude(),
+                standardRoute.getDestinationLatitude(),
+                waypoints);
+
+        standardRoute.setStandardGeometry(routeDetailsDTO.geometry()); // armazena o geometry recalculado
+
+        standardRoute.getRouteStopAssignments().clear(); // limpa os registros antigos (orphanRemoval da entidade)
+        standardRoute.getRouteStopAssignments().addAll(assignments); // persiste através do cascade
+        standardRoute.setUpdatedAt(Instant.now());
+
+        StandardRoute savedStandardRoute = standardRouteRepository.save(standardRoute);
+
+        // verificar retorno para routeStop
+        return standardRouteResponseMapper.toDTO(savedStandardRoute);
+    }
+
 
     // MÉTODOS AUXILIARES
     private List<Point> buildWaypoints(List<RouteStopAssignment> assignmentsOrderedBySequence) {
