@@ -81,32 +81,36 @@ public class RouteStopService {
 
         RouteStop routeStop = routeStopRequestMapper.toEntity(routeStopRequestDTO);// mapper DTO converte para entidade
 
+        routeStop.setCustomer(authenticatedUser.getCustomer()); // mesmo customer do user autenticado
+
         // valida mesmo Customer
         validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
 
         // duplicidade de "name"
-        boolean isAlreadyExistsRouteStopName = routeStopRepository.findByNameAndCustomerId(routeStopRequestDTO.name(), authenticatedUser.getCustomer().getId());
+        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopRequestDTO.name(), authenticatedUser.getCustomer().getId());
 
         if (isAlreadyExistsRouteStopName) throw new DuplicateResourceException("Já existe um RouteStop com esse nome: " + routeStopRequestDTO.name());
 
-        routeStop.setCustomer(authenticatedUser.getCustomer()); // mesmo customer do user autenticado
         routeStop.setCreatedAt(Instant.now());
         routeStop.setStatus(GeneralStatus.ACTIVE);
 
         // opcional: adicionar estudantes enquanto criar a rota
-        if (!routeStopRequestDTO.studentIds().isEmpty()) {
+        if (routeStopRequestDTO.studentIds() != null && !routeStopRequestDTO.studentIds().isEmpty()) {
             Set<UUID> studentIds = routeStopRequestDTO.studentIds();
 
             List<Student> students = studentRepository.findAllById(studentIds);
 
             for (Student student : students) {
-                if (student == null) throw new EntityNotFoundException("Algum dos estudantes não foi encontrado");
+                if (students.size() != studentIds.size()) {
+                    throw new EntityNotFoundException("Um ou mais estudantes não foram encontrados");
+                }
                 if (student.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountException("Estudante Inativo no sistema: " + student.getId());
 
                 // devem ser do mesmo customer
                 validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
 
-                routeStop.getStudents().add(student);
+                // utiliza helper para adicionar o estudante
+                routeStop.addStudent(student);
             }
         }
 
@@ -119,10 +123,10 @@ public class RouteStopService {
     public RouteStopResponseDTO updateRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopUpdateDTO routeStopUpdateDTO) {
         UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
 
+        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
 
         // verifica se o user é válido (admin, platform_admin)
         checkValidAdmin(authenticatedUser);
@@ -132,7 +136,7 @@ public class RouteStopService {
         validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
 
         // duplicidade de "name"
-        boolean isAlreadyExistsRouteStopName = routeStopRepository.findByNameAndCustomerId(routeStopUpdateDTO.name(), authenticatedUser.getCustomer().getId());
+        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopUpdateDTO.name(), authenticatedUser.getCustomer().getId());
 
         if (isAlreadyExistsRouteStopName) throw new DuplicateResourceException("Já existe um RouteStop com esse nome: " + routeStopUpdateDTO.name());
 
@@ -144,12 +148,9 @@ public class RouteStopService {
             throw new NoSuchCoordinates("As coordenadas de Latitude e Longitude da origem devem ser informadas juntas");
         }
 
-        routeStop.setLatitude(routeStopUpdateDTO.latitude());
-        routeStop.setLongitude(routeStopUpdateDTO.longitude());
-
         routeStop.setUpdatedAt(Instant.now());
 
-        routeStopRequestMapper.routeStopUpdateDTO(routeStopUpdateDTO);// mapper DTO converte para entidade
+        routeStopRequestMapper.routeStopUpdateDTO(routeStopUpdateDTO, routeStop);// mapper DTO converte para entidade
 
         RouteStop savedRouteStop = routeStopRepository.save(routeStop);
 
@@ -160,10 +161,10 @@ public class RouteStopService {
     public RouteStopResponseDTO addStudentsToRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
         UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
 
+        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
 
         // verifica se o user é válido (admin, platform_admin)
         checkValidAdmin(authenticatedUser);
@@ -179,14 +180,16 @@ public class RouteStopService {
         List<Student> students = studentRepository.findAllById(routeStopStudentsRequestDTO.studentIds());
 
         for (Student student : students) {
-            if (student == null) throw new EntityNotFoundException("Algum estudante inserido não foi encontrado");
+            if (students.size() != routeStopStudentsRequestDTO.studentIds().size()) {
+                throw new EntityNotFoundException("Um ou mais estudantes não foram encontrados");
+            }
             if (student.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountException("Estudante Inativo no sistema: " + student.getId());
 
             // valida mesmo customer
             validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
 
-            // insere os novos estudantes
-            routeStop.getStudents().add(student);
+            // utiliza helper para adicionar o estudante
+            routeStop.addStudent(student);
         }
 
         routeStop.setUpdatedAt(Instant.now());
@@ -200,10 +203,10 @@ public class RouteStopService {
     public RouteStopResponseDTO removeStudentToRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
         UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
 
+        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
 
         // verifica se o user é válido (admin, platform_admin)
         checkValidAdmin(authenticatedUser);
@@ -223,12 +226,19 @@ public class RouteStopService {
         List<Student> students = studentRepository.findAllById(studentIds);
 
         for (Student student : students) {
+            if (students.size() != routeStopStudentsRequestDTO.studentIds().size()) {
+                throw new EntityNotFoundException("Um ou mais estudantes não foram encontrados");
+            }
             // valida mesmo customer
             validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
 
             // remove os estudantes que forem procedentes com os ids
             for (UUID studentIdToRemove : studentIdsToRemove) {
-                routeStop.getStudents().removeIf(stId -> stId.getId().equals(studentIdToRemove));
+
+                if (student.getId().equals(studentIdToRemove)) {
+                    // utiliza helper para remover o estudante
+                    routeStop.removeStudent(student);
+                }
             }
         }
 
