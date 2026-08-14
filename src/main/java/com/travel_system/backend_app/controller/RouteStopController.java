@@ -9,11 +9,13 @@ import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDT
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.RouteStopService;
 import org.apache.tomcat.util.http.parser.Authorization;
+import org.simpleframework.xml.Path;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -43,7 +45,7 @@ public class RouteStopController {
     }
 
     @PostMapping("/new")
-    public ResponseEntity<RouteStopResponseDTO> createRouteStop(Authentication auth, RouteStopRequestDTO routeStopRequestDTO, UriComponentsBuilder componentsBuilder) {
+    public ResponseEntity<RouteStopResponseDTO> createRouteStop(Authentication auth, @Valid @RequestBody RouteStopRequestDTO routeStopRequestDTO, UriComponentsBuilder componentsBuilder) {
         String authenticatedEmail = auth.getName();
         RouteStopResponseDTO newRouteStop = routeStopService.createRouteStop(authenticatedEmail, routeStopRequestDTO);
 
@@ -53,21 +55,21 @@ public class RouteStopController {
     }
 
     @PatchMapping("/{routeStopId}/update")
-    public ResponseEntity<RouteStopResponseDTO> updateRouteStop(Authentication auth, UUID routeStopId, RouteStopUpdateDTO routeStopUpdateDTO) {
+    public ResponseEntity<RouteStopResponseDTO> updateRouteStop(Authentication auth, @PathVariable UUID routeStopId, @Valid @RequestBody RouteStopUpdateDTO routeStopUpdateDTO) {
         String authenticatedEmail = auth.getName();
 
         return ResponseEntity.ok().body(routeStopService.updateRouteStop(authenticatedEmail, routeStopId, routeStopUpdateDTO));
     }
 
     @PatchMapping("/{routeStopId}/students/add")
-    public ResponseEntity<RouteStopResponseDTO> addStudentsToRouteStop(Authentication auth, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
+    public ResponseEntity<RouteStopResponseDTO> addStudentsToRouteStop(Authentication auth, @PathVariable UUID routeStopId,@Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
         String authenticatedEmail = auth.getName();
 
         return ResponseEntity.ok().body(routeStopService.addStudentsToRouteStop(authenticatedEmail, routeStopId, routeStopStudentsRequestDTO));
     }
 
     @PatchMapping("/{routeStopId}/students/remove")
-    public ResponseEntity<RouteStopResponseDTO> removeStudentToRouteStop(Authentication auth, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
+    public ResponseEntity<RouteStopResponseDTO> removeStudentToRouteStop(Authentication auth, @PathVariable UUID routeStopId, @Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
         String authenticatedEmail = auth.getName();
 
         return ResponseEntity.ok().body(routeStopService.removeStudentToRouteStop(authenticatedEmail, routeStopId, routeStopStudentsRequestDTO));
