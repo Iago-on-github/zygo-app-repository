@@ -15,7 +15,6 @@ public interface RouteStopRequestMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "customer", ignore = true)
-    @Mapping(target = "students", ignore = true)
     RouteStop toEntity(RouteStopRequestDTO routeStopRequestDTO);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
