@@ -37,6 +37,10 @@ public class StandardRoute {
     @OneToMany(mappedBy = "standardRoute", cascade = CascadeType.ALL, orphanRemoval = true) // orphanRemoval = true faz com que os assignments antigos que foram removidos sejam excluídos
     @OrderBy("sequence ASC")
     private List<RouteStopAssignment> routeStopAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "standardRoute", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<StudentRouteStopAssignment> studentRouteStopAssignments = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     private GeneralStatus status;
     @CreatedDate
@@ -159,6 +163,14 @@ public class StandardRoute {
         this.routeStopAssignments = routeStopAssignments;
     }
 
+    public List<StudentRouteStopAssignment> getStudentRouteStopAssignments() {
+        return studentRouteStopAssignments;
+    }
+
+    public void setStudentRouteStopAssignments(List<StudentRouteStopAssignment> studentRouteStopAssignments) {
+        this.studentRouteStopAssignments = studentRouteStopAssignments;
+    }
+
     public GeneralStatus getStatus() {
         return status;
     }
@@ -182,4 +194,6 @@ public class StandardRoute {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+
 }

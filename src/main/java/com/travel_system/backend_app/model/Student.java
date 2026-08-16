@@ -5,9 +5,7 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "STUDENT_TABLE")
@@ -17,13 +15,8 @@ public class Student extends UserModel {
     private String course;
     @OneToMany(mappedBy = "student")
     private Set<StudentTravel> studentTravels = new HashSet<>();
-    @ManyToMany
-    @JoinTable(
-            name = "route_stop_point",
-            joinColumns = @JoinColumn(name = "student_id"),
-            inverseJoinColumns = @JoinColumn(name = "route_stop_id")
-    )
-    private Set<RouteStop> routeStops = new HashSet<>();
+    @OneToMany(mappedBy = "student")
+    private List<StudentRouteStopAssignment> studentRouteStopAssignments = new ArrayList<>();
 
     public Student() {
     }
@@ -58,11 +51,11 @@ public class Student extends UserModel {
         this.studentTravels = studentTravels;
     }
 
-    public Set<RouteStop> getRouteStops() {
-        return routeStops;
+    public List<StudentRouteStopAssignment> getStudentRouteStopAssignments() {
+        return studentRouteStopAssignments;
     }
 
-    public void setRouteStops(Set<RouteStop> routeStops) {
-        this.routeStops = routeStops;
+    public void setStudentRouteStopAssignments(List<StudentRouteStopAssignment> studentRouteStopAssignments) {
+        this.studentRouteStopAssignments = studentRouteStopAssignments;
     }
 }

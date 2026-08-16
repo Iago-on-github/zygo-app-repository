@@ -16,15 +16,15 @@ public class RouteStop {
     private UUID id;
     private String name;
     private String description;
-    @ManyToMany(mappedBy = "routeStops")
-    private Set<Student> students = new HashSet<>();
     private Double latitude;
     private Double longitude;
     @ManyToOne
     @JoinColumn(name = "customer_id")
     private Customer customer;
     @OneToMany(mappedBy = "routeStop")
-    private List<RouteStopAssignment> routeStopAssignment = new ArrayList<>();
+    private List<RouteStopAssignment> routeStopAssignments = new ArrayList<>();
+    @OneToMany(mappedBy = "routeStop")
+    private List<StudentRouteStopAssignment> studentRouteStopAssignments = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private GeneralStatus status;
     @CreatedDate
@@ -45,18 +45,6 @@ public class RouteStop {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-    }
-
-    // add estudante de forma sincronizada em ambos os lados
-    public void addStudent(Student student) {
-        this.students.add(student);
-        student.getRouteStops().add(this);
-    }
-
-    // remove estudante de forma sincronizada em ambos os lados
-    public void removeStudent(Student student) {
-        this.students.remove(student);
-        student.getRouteStops().remove(this);
     }
 
     public UUID getId() {
@@ -83,14 +71,6 @@ public class RouteStop {
         this.description = description;
     }
 
-    public Set<Student> getStudents() {
-        return students;
-    }
-
-    public void setStudents(Set<Student> students) {
-        this.students = students;
-    }
-
     public Double getLatitude() {
         return latitude;
     }
@@ -115,12 +95,12 @@ public class RouteStop {
         this.customer = customer;
     }
 
-    public List<RouteStopAssignment> getRouteStopAssignment() {
-        return routeStopAssignment;
+    public List<RouteStopAssignment> getRouteStopAssignments() {
+        return routeStopAssignments;
     }
 
-    public void setRouteStopAssignment(List<RouteStopAssignment> routeStopAssignment) {
-        this.routeStopAssignment = routeStopAssignment;
+    public void setRouteStopAssignments(List<RouteStopAssignment> routeStopAssignments) {
+        this.routeStopAssignments = routeStopAssignments;
     }
 
     public GeneralStatus getStatus() {
@@ -145,5 +125,13 @@ public class RouteStop {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<StudentRouteStopAssignment> getStudentRouteStopAssignments() {
+        return studentRouteStopAssignments;
+    }
+
+    public void setStudentRouteStopAssignments(List<StudentRouteStopAssignment> studentRouteStopAssignments) {
+        this.studentRouteStopAssignments = studentRouteStopAssignments;
     }
 }
