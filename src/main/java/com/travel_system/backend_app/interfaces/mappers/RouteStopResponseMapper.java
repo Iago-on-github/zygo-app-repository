@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring")
 public interface RouteStopResponseMapper {
 
-    @Mapping(target = "studentIds", source = "students")
     @Mapping(target = "customerId", source = "customer.id")
     RouteStopResponseDTO toDTO(RouteStop routeStop);
 
