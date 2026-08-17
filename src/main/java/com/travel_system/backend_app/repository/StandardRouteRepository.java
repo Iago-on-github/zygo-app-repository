@@ -32,7 +32,7 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
 
     // inicialmente os routeStops são null, jaq o hibernate não deixa fazer um DTO mapping dentro do outro
     // os routestops são buscados através da consulta "findAssignmentsByRouteId", e relacionados no próprio service
-    @Query("""
+/*    @Query("""
     SELECT new com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO(
         sr.id,
         sr.routeName,
@@ -42,7 +42,7 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
         sr.destinationLatitude,
         sr.destinationLongitude,
         sr.standardGeometry,
-        sr.travelPeriod,
+        sr.travelPeriods,
         null, 
         sr.customer.id,
         sr.status,
@@ -53,10 +53,11 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
     WHERE sr.id = :standardRouteId
       AND sr.status = :status
 """)
-    Optional<StandardRouteResponseDTO> findRouteBaseByIdAndStatus(
+    Optional<StandardRoute> findRouteBaseByIdAndStatus(
             @Param("standardRouteId") UUID standardRouteId,
             @Param("status") GeneralStatus status
-    );
+    );*/
+
 
     @Query("""
     SELECT new com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResponseDTO(
@@ -70,4 +71,13 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
     ORDER BY rsa.sequence ASC
 """)
     Set<RouteStopAssignmentResponseDTO> findAssignmentsByRouteId(@Param("standardRouteId") UUID standardRouteId);
+
+    @Query("""
+        SELECT sr FROM StandardRoute sr 
+        LEFT JOIN FETCH sr.travelPeriods 
+        WHERE sr.id = :id 
+        AND sr.status = :status
+    """)
+    Optional<StandardRoute> findRouteBaseByIdAndStatus(@Param("id") UUID id, @Param("status") GeneralStatus status);
 }
+
