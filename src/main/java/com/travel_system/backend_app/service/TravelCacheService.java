@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.model.Travel;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -49,6 +49,8 @@ public class TravelCacheService {
         addIfNotNull(redisData, "finalLongitude", travelCacheDTO.finalLongitude());
         addIfNotNull(redisData, "distance", travelCacheDTO.distance());
         addIfNotNull(redisData, "duration", travelCacheDTO.duration());
+        addIfNotNull(redisData, "customerId", travelCacheDTO.customerId());
+        addIfNotNull(redisData, "cityId", travelCacheDTO.cityId());
 
         if (!redisData.isEmpty()) {
             logger.info("[storeTravelStaticCache] - Dados de cache estático da viagem salvos com sucesso.");
@@ -67,6 +69,8 @@ public class TravelCacheService {
         }
 
         String travelStatus = redisData.get("travelStatus");
+        String customerIdStr = redisData.get("customerId");
+        String cityIdStr = redisData.get("cityId");
         String polylineRoute = redisData.get("polyline");
         String finalLatitudeStr = redisData.get("finalLatitude");
         String finalLongitudeStr = redisData.get("finalLongitude");
@@ -78,9 +82,12 @@ public class TravelCacheService {
         Double distance = (distanceStr != null) ? Double.valueOf(distanceStr) : null;
         Double duration = (durationStr != null) ? Double.valueOf(durationStr) : null;
 
+        UUID customerId = (customerIdStr != null) ? UUID.fromString(customerIdStr) : null;
+        UUID cityId = (cityIdStr != null) ? UUID.fromString(cityIdStr) : null;
+
         TravelStatus travelStatusConverted = travelStatus != null ? TravelStatus.valueOf(travelStatus) : null;
 
-        return new TravelCacheDTO(travelId, travelStatusConverted, finalLatitude, finalLongitude, polylineRoute, distance, duration);
+        return new TravelCacheDTO(travelId, cityId, customerId, travelStatusConverted, finalLatitude, finalLongitude, polylineRoute, distance, duration);
     }
 
     // invalida (deleta) todo o cache da viagem estática
@@ -114,6 +121,8 @@ public class TravelCacheService {
     private TravelCacheDTO travelCacheMapper(Travel travel) {
         return new TravelCacheDTO(
                 travel.getId(),
+                travel.getCustomer().getCity().getId(),
+                travel.getCustomer().getId(),
                 travel.getTravelStatus(),
                 travel.getFinalLatitude(),
                 travel.getFinalLongitude(),
