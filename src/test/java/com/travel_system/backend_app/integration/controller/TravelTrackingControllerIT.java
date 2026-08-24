@@ -1,6 +1,5 @@
 package com.travel_system.backend_app.integration.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.travel_system.backend_app.config.RabbitMQConfig;
@@ -9,13 +8,11 @@ import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
 import com.travel_system.backend_app.events.VehicleGpsMessageDTO;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
-import com.travel_system.backend_app.listeners.StudentAwayStateListener;
-import com.travel_system.backend_app.listeners.VehicleGpsListener;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
@@ -25,7 +22,6 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,10 +36,6 @@ import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEvent;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -54,7 +46,6 @@ import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 
-import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -222,7 +213,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             requestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
             routeDetailsDTO = new RouteDetailsDTO(3100.0, 14500.0, "recalculated_polyline");
             routeDeviationDTO = new RouteDeviationDTO(325.0, true, -12.9708, -38.4986);
-            travelCacheDTO = new TravelCacheDTO(travel.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+            travelCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
             ROUTE_KEY_PREFIX = "travel:route:" + travel.getId();
             TRACKING_KEY_PREFIX = "travel:tracking:" + travel.getId();
@@ -516,7 +507,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                @DisplayName("Deve garantir que apenas viagens inicializadas sejam processadas")
                @MethodSource("invalidTravelStatusProvider")
                void shouldRejectWhenTravelIsNotTravelling(TravelStatus travelStatus) throws Exception {
-                   TravelCacheDTO withInvalidStatus = new TravelCacheDTO(travel.getId(), travelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+                   TravelCacheDTO withInvalidStatus = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), travelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
                    when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(withInvalidStatus);
 
@@ -884,7 +875,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 @DisplayName("Não deve publicar os eventos quando a viagem não estiver em andamento")
                 @MethodSource("invalidTravelStatusProvider")
                 void shouldNotPublishEventsWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) throws Exception {
-                    TravelCacheDTO withInvalidStatus = new TravelCacheDTO(travel.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+                    TravelCacheDTO withInvalidStatus = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
                     when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(withInvalidStatus);
                     
                     mockMvc.perform(post(completePathController)
@@ -1341,7 +1332,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                @ParameterizedTest
                @MethodSource("travelStatusProvider")
                void shouldThrowTravelExceptionWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) throws Exception {
-                   TravelCacheDTO invalidTravelCacheDTO = new TravelCacheDTO(travel.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+                   TravelCacheDTO invalidTravelCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
                    studentTravel = createStudentTravelWithPosition(travel, student, null, null);
                    position = studentTravel.getPosition();
@@ -2541,7 +2532,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, driver, Instant.now(), Instant.now(), TravelPeriod.MORNING, null, "encodedPolyline", 35.5, 18.2, -12.9714, -38.5014, -12.9800, -38.4900, "Salvador", customer, null);
             travel = travelRepository.saveAndFlush(travel);
 
-            travelCacheDTO = new TravelCacheDTO(travel.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+            travelCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
             requestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.9750, -38.5020, 60.0, 180.0);
             routeDeviationDTO = new RouteDeviationDTO(10.3, true, -32.232, -11.433);
             routeDetailsDTO = new RouteDetailsDTO(3100.0, 14500.0, "recalculated_polyline");
@@ -2567,7 +2558,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
                 long previousTimestamp = clock.millis() - 5_000;
                 redisTemplate.opsForHash().put(ROUTE_KEY_PREFIX, "etaTimestamp", String.valueOf(previousTimestamp));
 
-                TravelCacheDTO localCacheDTO = new TravelCacheDTO(travel.getId(), TravelStatus.TRAVELLING, -38.502, -12.975, "encoded_geometry_test", 8005.0, 120.0);
+                TravelCacheDTO localCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), TravelStatus.TRAVELLING, -38.502, -12.975, "encoded_geometry_test", 8005.0, 120.0);
 
                 when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(localCacheDTO);
                 when(routeCalculationService.calculateHaversineDistanceInMeters(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -2737,7 +2728,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             @DisplayName("Deve lançar TravelException quando a viagem não estiver em andamento")
             @MethodSource("invalidTravelStatusProvider")
             void shouldRejectWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) {
-                TravelCacheDTO cacheWithInvalidStatus = new TravelCacheDTO(travel.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+                TravelCacheDTO cacheWithInvalidStatus = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
                 when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(cacheWithInvalidStatus);
 
@@ -3061,7 +3052,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, driver, Instant.now(), Instant.now(), TravelPeriod.MORNING, null, "encodedPolyline", 35.5, 18.2, -12.9714, -38.5014, -12.9800, -38.4900, "Salvador", customer, null);
             travel = travelRepository.saveAndFlush(travel);
 
-            travelCacheDTO = new TravelCacheDTO(travel.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+            travelCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
             ROUTE_KEY_PREFIX = "travel:route:" + travel.getId();
             TRACKING_KEY_PREFIX = "travel:tracking:" + travel.getId();
@@ -3105,7 +3096,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
         @DisplayName("Deve lançar exception quando a viagem não estiver em andamento (travelling)")
         @MethodSource("invalidTravelStatusProvider")
         void shouldRejectDriverPositionWhenTravelIsPending(TravelStatus invalidTravelStatus) throws Exception {
-            TravelCacheDTO invalidCache = new TravelCacheDTO(travel.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+            TravelCacheDTO invalidCache = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), invalidTravelStatus, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
             when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(invalidCache);
 
@@ -3201,7 +3192,7 @@ class TravelTrackingControllerIT extends IntegrationTestBase {
             travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, driver, Instant.now(), Instant.now(), TravelPeriod.MORNING, null, "encodedPolyline", 35.5, 18.2, -12.9714, -38.5014, -12.9800, -38.4900, "Salvador", customer, null);
             travel = travelRepository.saveAndFlush(travel);
 
-            travelCacheDTO = new TravelCacheDTO(travel.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
+            travelCacheDTO = new TravelCacheDTO(travel.getId(), city.getId(), customer.getId(), TravelStatus.TRAVELLING, -38.5020, -12.9750, travel.getPolylineRoute(), travel.getDistance(), travel.getDuration());
 
             ROUTE_KEY_PREFIX = "travel:route:" + travel.getId();
             TRACKING_KEY_PREFIX = "travel:tracking:" + travel.getId();

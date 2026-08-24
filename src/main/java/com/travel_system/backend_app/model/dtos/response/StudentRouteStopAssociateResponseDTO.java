@@ -19,8 +19,8 @@ public record StudentRouteStopAssociateResponseDTO(
         UUID customerId,
         Set<RouteStopAssignmentResponseDTO> routeStopAssignments,
         StandardRouteSimpleResponseDTO standardRoute,
-        RouteStopSimpleResponseDTO routeStop,
-        TravelPeriod travelPeriod,
+//        RouteStopSimpleResponseDTO routeStop,
+        Set<TravelPeriod> travelPeriods,
         GeneralStatus status,
         Instant createdAt,
         Instant updatedAt

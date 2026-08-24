@@ -25,6 +25,8 @@ public class RouteStop {
     private List<RouteStopAssignment> routeStopAssignments = new ArrayList<>();
     @OneToMany(mappedBy = "routeStop")
     private List<StudentRouteStopAssignment> studentRouteStopAssignments = new ArrayList<>();
+    @OneToMany(mappedBy = "routeStop")
+    private List<StudentTravelRouteStop> studentTravelRouteStops = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private GeneralStatus status;
     @CreatedDate
@@ -101,6 +103,14 @@ public class RouteStop {
 
     public void setRouteStopAssignments(List<RouteStopAssignment> routeStopAssignments) {
         this.routeStopAssignments = routeStopAssignments;
+    }
+
+    public List<StudentTravelRouteStop> getStudentTravelRouteStops() {
+        return studentTravelRouteStops;
+    }
+
+    public void setStudentTravelRouteStops(List<StudentTravelRouteStop> studentTravelRouteStops) {
+        this.studentTravelRouteStops = studentTravelRouteStops;
     }
 
     public GeneralStatus getStatus() {

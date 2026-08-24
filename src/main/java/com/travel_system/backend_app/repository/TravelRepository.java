@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.model.StandardRoute;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
@@ -36,4 +37,6 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
     boolean existsByIdAndDriverId(UUID travelId, UUID driverId);
 
     boolean existsByDriverIdAndTravelStatusIn(UUID driverId, List<TravelStatus> status);
+
+    StandardRoute findStandardRouteByTravelId(UUID travelId);
 }

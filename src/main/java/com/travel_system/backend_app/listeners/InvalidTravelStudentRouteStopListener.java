@@ -6,10 +6,10 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 @Component
-public class InvalidStudentRouteStopListener {
+public class InvalidTravelStudentRouteStopListener {
     private final TravelTrackingNotificationService trackingNotificationService;
 
-    public InvalidStudentRouteStopListener(TravelTrackingNotificationService trackingNotificationService) {
+    public InvalidTravelStudentRouteStopListener(TravelTrackingNotificationService trackingNotificationService) {
         this.trackingNotificationService = trackingNotificationService;
     }
 

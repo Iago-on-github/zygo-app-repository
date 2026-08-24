@@ -13,7 +13,7 @@ import java.util.UUID;
 @Mapper(componentModel = "spring")
 public interface StandardRouteResponseMapper {
 
-    @Mapping(target = "travelPeriod", source = "travelPeriod")
+    @Mapping(target = "travelPeriods", source = "travelPeriods")
     @Mapping(target = "routeStopAssignments", source = "routeStopAssignments")
     @Mapping(target = "customerId", source = "customer.id")
     StandardRouteResponseDTO toDTO(StandardRoute standardRoute);

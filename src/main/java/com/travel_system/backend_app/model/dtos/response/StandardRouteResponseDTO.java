@@ -17,7 +17,7 @@ public record StandardRouteResponseDTO(
         Double destinationLatitude,
         Double destinationLongitude,
         String standardGeometry,
-        TravelPeriod travelPeriod,
+        Set<TravelPeriod> travelPeriods,
         Set<RouteStopAssignmentResponseDTO> routeStopAssignments,
         UUID customerId,
         GeneralStatus status,

@@ -1,21 +1,17 @@
 package com.travel_system.backend_app.integration.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.travel_system.backend_app.integration.IntegrationTestBase;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelCacheDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.service.*;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.NamedStoredProcedureQueries;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,15 +20,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SetOperations;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.shaded.org.checkerframework.framework.qual.DefaultQualifierForUse;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -40,8 +33,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
@@ -1402,7 +1393,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             studentTravelRepository.save(studentTravel);
 
             travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
-            travelCacheDTO = new TravelCacheDTO(travel.getId(), travel.getTravelStatus(), -38.501200, -12.971800, "", 5500.0, 120.0);
+            travelCacheDTO = new TravelCacheDTO(travel.getId(), UUID.randomUUID(), UUID.randomUUID(), travel.getTravelStatus(), -13.232, -39.1322, "encoded_polyline", null, null);
             studentTravelCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), student.getId(), StudentTravelStatus.ACTIVE, true);
 
             completePathController = PATH_CONTROLLER + "/" + travel.getId() + "/leave";
@@ -1453,7 +1444,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             @DisplayName("Deve garantir que apenas viagens em andamento permitam o desligamento.")
             @MethodSource("travelStatusProvider")
             void shouldReturnConflictWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) throws Exception {
-                TravelCacheDTO travelCacheWithInvalidStatus = new TravelCacheDTO(travel.getId(), invalidTravelStatus, -38.501200, -12.971800, "", 5500.0, 120.0);
+                TravelCacheDTO travelCacheWithInvalidStatus = new TravelCacheDTO(travel.getId(), UUID.randomUUID(), UUID.randomUUID(), invalidTravelStatus, -38.501200, -12.971800, "", 5500.0, 120.0);
 
                 when(travelCacheService.getOrLoadTravelStaticCache(eq(travel.getId()))).thenReturn(travelCacheWithInvalidStatus);
                 when(travelStudentStateCacheService.getOrLoadStudentTravelCache(eq(travel.getId()), anyString()))

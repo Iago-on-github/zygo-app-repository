@@ -12,10 +12,7 @@ import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.repository.RouteStopRepository;
-import com.travel_system.backend_app.repository.StandardRouteRepository;
-import com.travel_system.backend_app.repository.StudentRepository;
-import com.travel_system.backend_app.repository.UserRepository;
+import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,16 +28,18 @@ public class RouteStopService {
     private final UserRepository userRepository;
     private final RouteStopRepository routeStopRepository;
     private final StudentRepository studentRepository;
+    private final StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository;
 
     private final MapboxAPIService mapboxAPIService;
 
     private final RouteStopResponseMapper routeStopResponseMapper;
     private final RouteStopRequestMapper routeStopRequestMapper;
 
-    public RouteStopService(UserRepository userRepository, RouteStopRepository routeStopRepository, StudentRepository studentRepository, MapboxAPIService mapboxAPIService, RouteStopResponseMapper routeStopResponseMapper, RouteStopRequestMapper routeStopRequestMapper) {
+    public RouteStopService(UserRepository userRepository, RouteStopRepository routeStopRepository, StudentRepository studentRepository, StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository, MapboxAPIService mapboxAPIService, RouteStopResponseMapper routeStopResponseMapper, RouteStopRequestMapper routeStopRequestMapper) {
         this.userRepository = userRepository;
         this.routeStopRepository = routeStopRepository;
         this.studentRepository = studentRepository;
+        this.studentRouteStopAssignmentRepository = studentRouteStopAssignmentRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.routeStopRequestMapper = routeStopRequestMapper;
@@ -109,8 +108,13 @@ public class RouteStopService {
                 // devem ser do mesmo customer
                 validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
 
-                // utiliza helper para adicionar o estudante
-                routeStop.addStudent(student);
+                StudentRouteStopAssignment studentRouteStopAssignment = new StudentRouteStopAssignment();
+                studentRouteStopAssignment.setStudent(student);
+                studentRouteStopAssignment.setRouteStop(routeStop);
+                studentRouteStopAssignment.setCreatedAt(Instant.now());
+
+                // salva a associação
+                studentRouteStopAssignmentRepository.save(studentRouteStopAssignment);
             }
         }
 
@@ -151,98 +155,6 @@ public class RouteStopService {
         routeStop.setUpdatedAt(Instant.now());
 
         routeStopRequestMapper.routeStopUpdateDTO(routeStopUpdateDTO, routeStop);// mapper DTO converte para entidade
-
-        RouteStop savedRouteStop = routeStopRepository.save(routeStop);
-
-        return routeStopResponseMapper.toDTO(savedRouteStop);
-    }
-
-    @Transactional
-    public RouteStopResponseDTO addStudentsToRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
-        UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
-
-        RouteStop routeStop = routeStopRepository.findById(routeStopId)
-                .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
-
-        // verifica se o user é válido (admin, platform_admin)
-        checkValidAdmin(authenticatedUser);
-        checkAdminPrivileges(authenticatedUser);
-
-        // valida mesmo Customer
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
-
-        if (routeStopStudentsRequestDTO.studentIds().isEmpty()) {
-            throw new IllegalArgumentException("Nenhum estudante inserido");
-        }
-
-        List<Student> students = studentRepository.findAllById(routeStopStudentsRequestDTO.studentIds());
-
-        for (Student student : students) {
-            if (students.size() != routeStopStudentsRequestDTO.studentIds().size()) {
-                throw new EntityNotFoundException("Um ou mais estudantes não foram encontrados");
-            }
-            if (student.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountException("Estudante Inativo no sistema: " + student.getId());
-
-            // valida mesmo customer
-            validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
-
-            // utiliza helper para adicionar o estudante
-            routeStop.addStudent(student);
-        }
-
-        routeStop.setUpdatedAt(Instant.now());
-
-        RouteStop savedRouteStop = routeStopRepository.save(routeStop);
-
-        return routeStopResponseMapper.toDTO(savedRouteStop);
-    }
-
-    @Transactional
-    public RouteStopResponseDTO removeStudentToRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
-        UserModel authenticatedUser = userRepository.findUserByEmail(authenticatedEmail);
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
-
-        RouteStop routeStop = routeStopRepository.findById(routeStopId)
-                .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
-
-        // verifica se o user é válido (admin, platform_admin)
-        checkValidAdmin(authenticatedUser);
-        checkAdminPrivileges(authenticatedUser);
-
-        // valida mesmo Customer
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
-
-        if (routeStop.getStudents().isEmpty()) {
-            throw new IllegalArgumentException("Nenhum estudante vinculado ao RouteStop");
-        }
-
-        Set<UUID> studentIdsToRemove = routeStopStudentsRequestDTO.studentIds();
-
-        List<UUID> studentIds = routeStop.getStudents().stream().map(Student::getId).toList();
-
-        List<Student> students = studentRepository.findAllById(studentIds);
-
-        for (Student student : students) {
-            if (students.size() != routeStopStudentsRequestDTO.studentIds().size()) {
-                throw new EntityNotFoundException("Um ou mais estudantes não foram encontrados");
-            }
-            // valida mesmo customer
-            validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
-
-            // remove os estudantes que forem procedentes com os ids
-            for (UUID studentIdToRemove : studentIdsToRemove) {
-
-                if (student.getId().equals(studentIdToRemove)) {
-                    // utiliza helper para remover o estudante
-                    routeStop.removeStudent(student);
-                }
-            }
-        }
-
-        routeStop.setUpdatedAt(Instant.now());
 
         RouteStop savedRouteStop = routeStopRepository.save(routeStop);
 

@@ -24,6 +24,9 @@ public class StudentRouteStopAssignment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "standard_route_id")
     private StandardRoute standardRoute;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "travel_period")
+    private TravelPeriod travelPeriod;
     @CreatedDate
     private Instant createdAt;
     @LastModifiedDate
@@ -32,11 +35,12 @@ public class StudentRouteStopAssignment {
     public StudentRouteStopAssignment() {
     }
 
-    public StudentRouteStopAssignment(UUID id, Student student, RouteStop routeStop, StandardRoute standardRoute, Instant createdAt, Instant updatedAt) {
+    public StudentRouteStopAssignment(UUID id, Student student, RouteStop routeStop, StandardRoute standardRoute, TravelPeriod travelPeriod, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.student = student;
         this.routeStop = routeStop;
         this.standardRoute = standardRoute;
+        this.travelPeriod = travelPeriod;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -71,6 +75,14 @@ public class StudentRouteStopAssignment {
 
     public void setStandardRoute(StandardRoute standardRoute) {
         this.standardRoute = standardRoute;
+    }
+
+    public TravelPeriod getTravelPeriod() {
+        return travelPeriod;
+    }
+
+    public void setTravelPeriod(TravelPeriod travelPeriod) {
+        this.travelPeriod = travelPeriod;
     }
 
     public Instant getCreatedAt() {

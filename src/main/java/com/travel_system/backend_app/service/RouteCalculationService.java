@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.NoSuchCoordinates;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDeviationDTO;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;

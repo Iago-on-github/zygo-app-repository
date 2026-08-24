@@ -25,9 +25,9 @@ public interface StudentRouteStopResponseMapper {
     @Mapping(target = "customerId", source = "assignment.routeStop.customer.id")
     @Mapping(target = "createdAt", source = "assignment.routeStop.createdAt")
     @Mapping(target = "updatedAt", source = "assignment.routeStop.updatedAt")
-    @Mapping(target = "travelPeriod", source = "assignment.standardRoute.travelPeriod")
+    @Mapping(target = "travelPeriods", source = "assignment.standardRoute.travelPeriods")
     @Mapping(target = "routeStopAssignments", source = "assignment.routeStop.routeStopAssignments")
-    @Mapping(target = "routeStop", source = "assignment.routeStop")
+//    @Mapping(target = "routeStop", source = "assignment.routeStop")
     @Mapping(target = "standardRoute", source = "assignment.standardRoute")
     @Mapping(target = "studentIds", source = "studentIds")
     StudentRouteStopAssociateResponseDTO toDTO(StudentRouteStopAssignment assignment, Set<UUID> studentIds);

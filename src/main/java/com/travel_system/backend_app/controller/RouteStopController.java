@@ -61,20 +61,6 @@ public class RouteStopController {
         return ResponseEntity.ok().body(routeStopService.updateRouteStop(authenticatedEmail, routeStopId, routeStopUpdateDTO));
     }
 
-    @PatchMapping("/{routeStopId}/students/add")
-    public ResponseEntity<RouteStopResponseDTO> addStudentsToRouteStop(Authentication auth, @PathVariable UUID routeStopId,@Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
-        String authenticatedEmail = auth.getName();
-
-        return ResponseEntity.ok().body(routeStopService.addStudentsToRouteStop(authenticatedEmail, routeStopId, routeStopStudentsRequestDTO));
-    }
-
-    @PatchMapping("/{routeStopId}/students/remove")
-    public ResponseEntity<RouteStopResponseDTO> removeStudentToRouteStop(Authentication auth, @PathVariable UUID routeStopId, @Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
-        String authenticatedEmail = auth.getName();
-
-        return ResponseEntity.ok().body(routeStopService.removeStudentToRouteStop(authenticatedEmail, routeStopId, routeStopStudentsRequestDTO));
-    }
-
     @PatchMapping("/{standardRouteId}/status")
     public ResponseEntity<Void> updateRouteStopStatus(@PathVariable UUID standardRouteId, Authentication auth, @RequestParam GeneralStatus status) {
         String authenticatedEmail = auth.getName();

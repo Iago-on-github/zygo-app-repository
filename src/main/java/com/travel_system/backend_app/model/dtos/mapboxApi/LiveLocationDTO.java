@@ -1,5 +1,7 @@
 package com.travel_system.backend_app.model.dtos.mapboxApi;
 
+import java.time.Instant;
+
 // usado como DTO de agregação para respostas real-time
 public record LiveLocationDTO(
         Double latitude,
@@ -7,5 +9,6 @@ public record LiveLocationDTO(
         String geometry,
         Double distance,
         Double lastCalcLat,
-        Double lastCalcLng) {
+        Double lastCalcLng,
+        Instant current_location_timestamp) {
 }

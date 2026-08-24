@@ -1,13 +1,13 @@
 package com.travel_system.backend_app.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.Travel;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelCacheDTO;
+import com.travel_system.backend_app.model.StudentTravelRouteStop;
+import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.response.StudentTravelRouteStopDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
-import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
-import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,11 +15,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +26,8 @@ public class TravelStudentStateCacheService {
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> redisOperations;
 
+    private final ObjectMapper objectMapper;
+
     Logger log = LoggerFactory.getLogger(TravelStudentStateCacheService.class);
 
     private final String TRAVEL_STUDENTS_STATUS_KEY = "travel:students:status:";
@@ -37,11 +35,12 @@ public class TravelStudentStateCacheService {
     private final String TRAVEL_STUDENTS_ID_KEY = "travel:students:studentId:";
     private final String TRAVEL_STUDENTS_TRAVEL_ID_KEY = "travel:students:studentTravelId:";
 
-    public TravelStudentStateCacheService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, RedisTemplate<String, String> redisTemplate) {
+    public TravelStudentStateCacheService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.redisTemplate = redisTemplate;
         this.redisOperations = redisTemplate.opsForHash();
+        this.objectMapper = objectMapper;
     }
     // retorna o status armazenado
     private StudentTravelStatus getStudentTravelStatus(UUID travelId, String studentEmail) {
@@ -268,21 +267,27 @@ public class TravelStudentStateCacheService {
             StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentEmail(travelId, studentEmail)
                     .orElseThrow(EntityNotFoundException::new);
 
+            // busca os campos requeridos p/ cache
             UUID storedStudentTravelId = studentTravel.getId();
             UUID storedStudentId = studentTravel.getStudent().getId();
             boolean embark = studentTravel.isEmbark();
             StudentTravelStatus studentTravelStatus = studentTravel.getStudentTravelStatus();
+            List<StudentTravelRouteStop> studentTravelRouteStops = studentTravel.getStudentTravelRouteStops();
 
+            // mapping de cada campo
             Map<String, UUID> mapStudentTravelId = new HashMap<>();
             Map<String, UUID> mapStudentId = new HashMap<>();
             Map<String, Boolean> mapEmbark = new HashMap<>();
             Map<String, StudentTravelStatus> mapStatus = new HashMap<>();
+            Map<String, List<StudentTravelRouteStop>> mapRouteStops = new HashMap<>();
 
             mapStudentTravelId.put(studentEmail, storedStudentTravelId);
             mapStudentId.put(studentEmail, storedStudentId);
             mapEmbark.put(studentEmail, embark);
             mapStatus.put(studentEmail, studentTravelStatus);
+            mapRouteStops.put(studentEmail, studentTravelRouteStops);
 
+            // armazena cada campo em seus respectivos métodos dedicados
             putStudentTravelId(travelId, mapStudentTravelId);
             putStudentId(travelId, mapStudentId);
             putStudentEmbark(travelId, mapEmbark);

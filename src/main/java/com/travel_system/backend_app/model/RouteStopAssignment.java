@@ -10,7 +10,8 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "route_stop_assignment")
+@Table(name = "route_stop_assignment",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "standard_route_id"}))
 public class RouteStopAssignment {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

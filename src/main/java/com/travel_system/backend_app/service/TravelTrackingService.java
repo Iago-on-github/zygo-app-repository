@@ -55,6 +55,7 @@ public class TravelTrackingService {
     private final TravelService travelService;
     private final LocationService locationService;
     private final TravelCacheService travelCacheService;
+    private final StudentTravelRouteStopService studentTravelRouteStopService;
 
     private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
 
@@ -65,7 +66,7 @@ public class TravelTrackingService {
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, TravelCacheService travelCacheService, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, TravelCacheService travelCacheService, StudentTravelRouteStopService studentTravelRouteStopService, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
@@ -76,12 +77,13 @@ public class TravelTrackingService {
         this.travelService = travelService;
         this.locationService = locationService;
         this.travelCacheService = travelCacheService;
+        this.studentTravelRouteStopService = studentTravelRouteStopService;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
-    public void markDriverCheckpoint(UUID cityId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
+    public void markDriverCheckpoint(UUID studentTravelId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
         if (!travelId.equals(vehicleLocationRequest.travelId())) {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
@@ -173,9 +175,12 @@ public class TravelTrackingService {
         eventPublisher.publishEvent(event);
 
         eventPublisher.publishEvent(new VehicleGpsMessageDTO(
-                cityId.toString(),
+                travelCached.cityId().toString(),
                 travelId.toString(),
                 new VehicleLocationRequestDTO(travelId, latitude, longitude, speed, heading)));
+
+        // evento de processamento da aproximação do veículo ao ponto de parada do estudante
+        studentTravelRouteStopService.processRouteStopApproach(travelId, studentTravelId);
     }
 
     // Orquestra o sistema de tracking em tempo real, verificando desvios de rota,
@@ -314,7 +319,8 @@ public class TravelTrackingService {
                 currentLocation.geometry(),
                 currentLocation.distance(),
                 currentLocation.lastCalcLat(),
-                currentLocation.lastCalcLng()
+                currentLocation.lastCalcLng(),
+                currentLocation.current_location_timestamp()
         );
 
     }

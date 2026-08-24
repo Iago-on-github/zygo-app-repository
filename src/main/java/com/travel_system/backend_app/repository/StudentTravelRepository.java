@@ -93,4 +93,6 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
             @Param("status") StudentTravelStatus status,
             @Param("travelStatus") TravelStatus travelStatus);
 
+    @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.id = :studentTravelId")
+    Optional<StudentTravel> findByTravelIdAndStudentTravelId(UUID travelId, UUID studentTravelId);
 }

@@ -14,11 +14,11 @@ import com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResp
 import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.repository.RouteStopRepository;
 import com.travel_system.backend_app.repository.StandardRouteRepository;
 import com.travel_system.backend_app.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
@@ -93,27 +94,27 @@ public class StandardRouteService {
 
     @Transactional(readOnly = true)
     public StandardRouteResponseDTO getStandardRouteStopPoints(UUID standardRouteId, GeneralStatus status) {
-        StandardRouteResponseDTO baseRoute = standardRouteRepository.findRouteBaseByIdAndStatus(standardRouteId, status)
+        StandardRoute baseRoute = standardRouteRepository.findRouteBaseByIdAndStatus(standardRouteId, status)
                 .orElseThrow(() -> new EntityNotFoundException("Rota não encontrada"));
 
         Set<RouteStopAssignmentResponseDTO> stops = standardRouteRepository.findAssignmentsByRouteId(standardRouteId);
 
         // mapeamento manual pois precisa fazer a inserão das rotas buscadas em uma query diferente
         return new StandardRouteResponseDTO(
-                baseRoute.id(),
-                baseRoute.routeName(),
-                baseRoute.routeDescription(),
-                baseRoute.originLatitude(),
-                baseRoute.originLongitude(),
-                baseRoute.destinationLatitude(),
-                baseRoute.destinationLongitude(),
-                baseRoute.standardGeometry(),
-                baseRoute.travelPeriod(),
+                baseRoute.getId(),
+                baseRoute.getRouteName(),
+                baseRoute.getRouteDescription(),
+                baseRoute.getOriginLatitude(),
+                baseRoute.getOriginLongitude(),
+                baseRoute.getDestinationLatitude(),
+                baseRoute.getDestinationLongitude(),
+                baseRoute.getStandardGeometry(),
+                baseRoute.getTravelPeriods(),
                 stops, // routeStops
-                baseRoute.customerId(),
-                baseRoute.status(),
-                baseRoute.createdAt(),
-                baseRoute.updatedAt()
+                baseRoute.getCustomer().getId(),
+                baseRoute.getStatus(),
+                baseRoute.getCreatedAt(),
+                baseRoute.getUpdatedAt()
         );
     }
 
@@ -219,12 +220,12 @@ public class StandardRouteService {
         // associa os pontos de parada à rota através dos assignments preservando a sequência oficial de cada ponto
         standardRoute.setRouteStopAssignments(assignments);
         standardRoute.setStatus(GeneralStatus.ACTIVE);
+        standardRoute.setTravelPeriods(standardRouteRequestDTO.periods());
+        standardRoute.setCreatedAt(Instant.now());
 
         // importante: caso o cascade do relacionamento seja removido é necessário salvar o RouteStopAssignments explicitamente
         StandardRoute savedStandardRoute = standardRouteRepository.save(standardRoute);
 
-        standardRoute.setCreatedAt(Instant.now());
-        standardRoute.setStatus(GeneralStatus.ACTIVE);
 
         return standardRouteResponseMapper.toDTO(savedStandardRoute);
     }
@@ -287,6 +288,13 @@ public class StandardRouteService {
                 destinationLng,
                 destinationLat,
                 defaultWaypoints);
+
+        // faz a inserção dos periods
+        if (standardRouteUpdateDTO.periods() != null && !standardRouteUpdateDTO.periods().isEmpty()) {
+            Set<TravelPeriod> newPeriods = new HashSet<>(standardRouteUpdateDTO.periods());
+
+            standardRoute.setTravelPeriods(newPeriods);
+        }
 
         standardRoute.setStandardGeometry(routeDetailsDTO.geometry());
         standardRoute.setUpdatedAt(Instant.now());

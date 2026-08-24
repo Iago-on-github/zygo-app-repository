@@ -7,10 +7,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "standard_route")
@@ -27,8 +24,14 @@ public class StandardRoute {
     Double destinationLongitude;
     @Column(columnDefinition = "text")
     private String standardGeometry;
+    @ElementCollection
+    @CollectionTable(
+            name = "standard_route_travel_periods",
+            joinColumns = @JoinColumn(name = "standard_route_id")
+    )
     @Enumerated(EnumType.STRING)
-    private TravelPeriod travelPeriod;
+    @Column(name = "travel_period")
+    private Set<TravelPeriod> travelPeriods = new HashSet<>();
     @OneToMany(mappedBy = "standardRoute")
     private List<Travel> travels = new ArrayList<>();
     @ManyToOne(fetch = FetchType.LAZY)
@@ -51,7 +54,7 @@ public class StandardRoute {
     public StandardRoute() {
     }
 
-    public StandardRoute(UUID id, String routeName, String routeDescription, Double originLatitude, Double originLongitude, Double destinationLatitude, Double destinationLongitude, String standardGeometry, TravelPeriod travelPeriod, Customer customer, GeneralStatus status, Instant createdAt, Instant updatedAt) {
+    public StandardRoute(UUID id, String routeName, String routeDescription, Double originLatitude, Double originLongitude, Double destinationLatitude, Double destinationLongitude, String standardGeometry, Customer customer, GeneralStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.routeName = routeName;
         this.routeDescription = routeDescription;
@@ -60,7 +63,6 @@ public class StandardRoute {
         this.destinationLatitude = destinationLatitude;
         this.destinationLongitude = destinationLongitude;
         this.standardGeometry = standardGeometry;
-        this.travelPeriod = travelPeriod;
         this.customer = customer;
         this.status = status;
         this.createdAt = createdAt;
@@ -131,12 +133,12 @@ public class StandardRoute {
         this.standardGeometry = standardGeometry;
     }
 
-    public TravelPeriod getTravelPeriod() {
-        return travelPeriod;
+    public Set<TravelPeriod> getTravelPeriods() {
+        return travelPeriods;
     }
 
-    public void setTravelPeriod(TravelPeriod travelPeriod) {
-        this.travelPeriod = travelPeriod;
+    public void setTravelPeriods(Set<TravelPeriod> travelPeriods) {
+        this.travelPeriods = travelPeriods;
     }
 
     public List<Travel> getTravels() {

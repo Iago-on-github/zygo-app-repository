@@ -8,13 +8,12 @@ import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
-import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -32,7 +31,6 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -238,14 +236,14 @@ class LocationServiceTest {
             travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity)));
             travelEntity.setTravelStatus(TravelStatus.TRAVELLING);
 
-            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
+            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null, Instant.now());
             distanceResponse = new DistanceResponseDTO(studentId, 400.0);
 
             studentAwayStateCheckEvent = new StudentAwayStateCheckEvent(travelId, liveLocationDTO);
 
             studentAwayStateDTO = new StudentAwayStateDTO(studentTravelEntity.getId(), studentId, "emailTeste@student.com", StudentTravelStatus.ACTIVE, true);
 
-            travelCache = new TravelCacheDTO(travelId, TravelStatus.TRAVELLING, null, null, null, null, null);
+            travelCache = new TravelCacheDTO(travelId, null, null, TravelStatus.TRAVELLING, null, null, "encoded<polyline", 3000.0, 33.2);
         }
 
         @Nested
@@ -255,7 +253,7 @@ class LocationServiceTest {
             @DisplayName("Deve marcar o estudante como distante do ônibus SEM dados (histórico) no redis")
             void shouldMarkStudentAwayWithoutRedisData() {
                 StudentAwayStateDTO studentAwayStateDTO = new StudentAwayStateDTO(studentTravelEntity.getId(), studentId, "emailTeste@student.com", StudentTravelStatus.ACTIVE, true);
-                TravelCacheDTO travelCache = new TravelCacheDTO(travelId, TravelStatus.TRAVELLING, null, null, null, null, null);
+                TravelCacheDTO travelCache = new TravelCacheDTO(travelId, null, null, TravelStatus.TRAVELLING, null, null, "encoded_polyline_route", 3000.3, 23.1);
 
                 doReturn(List.of(distanceResponse)).when(locationService).distanceBetweenPositions(travelId, liveLocationDTO);
                 when(studentTravelRepository.findStudentsForAwayState(travelId)).thenReturn(List.of(studentAwayStateDTO));
@@ -352,7 +350,7 @@ class LocationServiceTest {
             @DisplayName("Deve lançar exception quando o status da viagem não for compatível")
             @MethodSource("travelStatusProvider")
             void throwTravelExceptionWhenTravelStatusIsNotTravelling(TravelStatus travelStatus) {
-                TravelCacheDTO travelCache = new TravelCacheDTO(travelId, travelStatus, null, null, null, null, null);
+                TravelCacheDTO travelCache = new TravelCacheDTO(travelId, null, null, travelStatus, null, null, null, null, null);
 
                 doReturn(List.of(distanceResponse)).when(locationService).distanceBetweenPositions(eq(travelId), eq(liveLocationDTO));
                 when(studentTravelRepository.findStudentsForAwayState(travelId)).thenReturn(List.of(studentAwayStateDTO));
@@ -489,7 +487,7 @@ class LocationServiceTest {
             travelEntity.setStudentTravels(new HashSet<>(Set.of(studentTravelEntity)));
             travelEntity.setTravelStatus(TravelStatus.TRAVELLING);
 
-            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null);
+            liveLocationDTO = new LiveLocationDTO(-23.55, -46.63, null, null, null, null, Instant.now());
 
             studentTrackingPositionDTO = new StudentTrackingPositionDTO(studentId, -32.1223, -11.3233);
         }

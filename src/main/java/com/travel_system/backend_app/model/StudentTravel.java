@@ -4,6 +4,8 @@ import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -23,6 +25,8 @@ public class StudentTravel {
     private Instant disembarkHour;
     @OneToOne(mappedBy = "studentTravel")
     private GeoPosition position;
+    @OneToMany(mappedBy = "studentTravel", fetch = FetchType.LAZY)
+    private List<StudentTravelRouteStop> studentTravelRouteStops = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private StudentTravelStatus studentTravelStatus;
 
@@ -94,6 +98,14 @@ public class StudentTravel {
 
     public void setPosition(GeoPosition position) {
         this.position = position;
+    }
+
+    public List<StudentTravelRouteStop> getStudentTravelRouteStops() {
+        return studentTravelRouteStops;
+    }
+
+    public void setStudentTravelRouteStops(List<StudentTravelRouteStop> studentTravelRouteStops) {
+        this.studentTravelRouteStops = studentTravelRouteStops;
     }
 
     public StudentTravelStatus getStudentTravelStatus() {

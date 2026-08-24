@@ -97,11 +97,11 @@ class StandardRouteServiceTest {
         user.setPermissions(List.of(perms));
         user.setCustomer(customer);
 
-        standardRoute = new StandardRoute(UUID.randomUUID(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", TravelPeriod.MORNING, customer, GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
+        standardRoute = new StandardRoute(UUID.randomUUID(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", customer, GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
 
         routeStop = new RouteStop(UUID.randomUUID(), "RouteStopName", "RouteStop Description", -45.324, -11.342, customer, GeneralStatus.ACTIVE, Instant.now(), null);
 
-        standardRouteResponseDTO = new StandardRouteResponseDTO(standardRoute.getId(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", TravelPeriod.MORNING, Set.of(new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 1 - Praça Central", 1, false), new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 2 - Biblioteca", 2, true)), UUID.randomUUID(), GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
+        standardRouteResponseDTO = new StandardRouteResponseDTO(standardRoute.getId(), "Rota Universitária - Linha Leste", "Trajeto diário de transporte universitário conectando pontos de embarque ao campus central.", -12.2333, -38.7500, -12.2670, -38.9670, "a~|~Fkf~vO|@_@eA_@m@g@_@y@e@...", Set.of(TravelPeriod.MORNING), Set.of(new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 1 - Praça Central", 1, false), new RouteStopAssignmentResponseDTO(UUID.randomUUID(), "Ponto 2 - Biblioteca", 2, true)), UUID.randomUUID(), GeneralStatus.ACTIVE, Instant.parse("2026-08-10T12:00:00Z"), Instant.parse("2026-08-10T12:00:00Z"));
         standardRouteRequestDTO = new StandardRouteRequestDTO(
                 "Rota Coração de Maria - Feira de Santana",
                 "Rota fictícia para testes saindo de Coração de Maria com destino a Feira de Santana.",
@@ -109,7 +109,7 @@ class StandardRouteServiceTest {
                 -38.750000,
                 -12.266666,
                 -38.966666,
-                TravelPeriod.MORNING,
+                Set.of(TravelPeriod.MORNING),
                 Set.of(
                         new RouteStopAssignmentRequestDTO(
                                 routeStop.getId(),
@@ -220,7 +220,7 @@ class StandardRouteServiceTest {
         @Test
         @DisplayName("Deve recuperar os pontos de parada de uma rota padrão com sucesso")
         void shouldGetStandardRouteStopPoints() {
-            when(standardRouteRepository.findRouteBaseByIdAndStatus(standardRoute.getId(), GeneralStatus.ACTIVE)).thenReturn(Optional.of(standardRouteResponseDTO));
+            when(standardRouteRepository.findRouteBaseByIdAndStatus(standardRoute.getId(), GeneralStatus.ACTIVE)).thenReturn(Optional.of(standardRoute));
             when(standardRouteRepository.findAssignmentsByRouteId(standardRoute.getId())).thenReturn(Set.of());
 
             StandardRouteResponseDTO result = standardRouteService.getStandardRouteStopPoints(standardRoute.getId(), GeneralStatus.ACTIVE);
@@ -264,7 +264,7 @@ class StandardRouteServiceTest {
                     -38.750000,
                     -12.266666,
                     -38.966666,
-                    TravelPeriod.MORNING,
+                    Set.of(TravelPeriod.MORNING),
                     Set.of()
             );
         }
@@ -386,7 +386,7 @@ class StandardRouteServiceTest {
                         -38.750000,
                         -12.266666,
                         -38.966666,
-                        TravelPeriod.MORNING,
+                        Set.of(TravelPeriod.MORNING),
                         Set.of()
                 );
 
@@ -425,7 +425,7 @@ class StandardRouteServiceTest {
                         -38.750000,
                         -12.266666,
                         -38.966666,
-                        TravelPeriod.MORNING,
+                        Set.of(TravelPeriod.MORNING),
                         Set.of(
                                 new RouteStopAssignmentRequestDTO(
                                         routeStop.getId(),
@@ -454,7 +454,7 @@ class StandardRouteServiceTest {
                         -38.750000,
                         -12.266666,
                         -38.966666,
-                        TravelPeriod.MORNING,
+                        Set.of(TravelPeriod.MORNING),
                         Set.of(
                                 new RouteStopAssignmentRequestDTO(
                                         routeStop.getId(),
@@ -492,7 +492,7 @@ class StandardRouteServiceTest {
                         -38.750000,
                         -12.266666,
                         -38.966666,
-                        TravelPeriod.MORNING,
+                        Set.of(TravelPeriod.MORNING),
                         Set.of(
                                 new RouteStopAssignmentRequestDTO(
                                         routeStop.getId(),
@@ -530,7 +530,7 @@ class StandardRouteServiceTest {
                         -38.750000,
                         -12.266666,
                         -38.966666,
-                        TravelPeriod.MORNING,
+                        Set.of(TravelPeriod.MORNING),
                         Set.of(
                                 new RouteStopAssignmentRequestDTO(
                                         routeStop.getId(),
@@ -612,7 +612,7 @@ class StandardRouteServiceTest {
 
         @BeforeEach
         void setUp() {
-            standardRouteUpdateDTO = new StandardRouteUpdateDTO("newRouteName", "newRouteDescription", TravelPeriod.AFTERNOON, standardRoute.getOriginLatitude(), standardRoute.getOriginLongitude(), -12.19750, -38.96667);
+            standardRouteUpdateDTO = new StandardRouteUpdateDTO("newRouteName", "newRouteDescription", Set.of(TravelPeriod.AFTERNOON), standardRoute.getOriginLatitude(), standardRoute.getOriginLongitude(), -12.19750, -38.96667);
         }
 
         @Nested
@@ -656,7 +656,7 @@ class StandardRouteServiceTest {
                 // mudam com base no DTO
                 assertEquals(savedValue.getRouteName(), result.routeName());
                 assertEquals(savedValue.getRouteDescription(), result.routeDescription());
-                assertEquals(savedValue.getTravelPeriod(), result.travelPeriod());
+                assertEquals(savedValue.getTravelPeriods(), result.travelPeriods());
                 assertEquals(savedValue.getDestinationLatitude(), result.destinationLatitude());
                 assertEquals(savedValue.getDestinationLongitude(), result.destinationLongitude());
 
@@ -816,8 +816,8 @@ class StandardRouteServiceTest {
 
             public static Stream<Arguments> invalidOriginCoordinatesProvider() {
                 return Stream.of(
-                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", TravelPeriod.MORNING, null, -32.2342, -11.342, -40.232)),
-                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", TravelPeriod.MORNING, -9.242, null, -11.342, -40.232))
+                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", Set.of(TravelPeriod.MORNING), null, -32.2342, -11.342, -40.232)),
+                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", Set.of(TravelPeriod.MORNING), -9.242, null, -11.342, -40.232))
                 );
             }
 
@@ -840,8 +840,8 @@ class StandardRouteServiceTest {
 
             public static Stream<Arguments> invalidDestinationCoordinatesProvider() {
                 return Stream.of(
-                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", TravelPeriod.MORNING, -9.242, -32.2342, null, -40.232)),
-                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", TravelPeriod.MORNING, -9.242, -32.2342, -11.342, null))
+                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", Set.of(TravelPeriod.MORNING), -9.242, -32.2342, null, -40.232)),
+                        Arguments.of(new StandardRouteUpdateDTO("Exemplo RouteName", "Exemplo routeDescription", Set.of(TravelPeriod.MORNING), -9.242, -32.2342, -11.342, null))
                 );
             }
 

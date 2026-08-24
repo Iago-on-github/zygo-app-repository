@@ -127,13 +127,11 @@ public class StudentRouteStopService {
             throw new IllegalArgumentException("Nenhum estudante inserido");
         }
 
-        // CORREÇÃO 1: Operador >= em vez de >
         if (studentRouteStopAssignmentRepository.countByStudentId(studentIdFromDTO) >= 3) {
             throw new DomainValidationException("Estudante: " + studentIdFromDTO + " já atingiu o limite máximo de 3 pontos de parada");
         }
 
-        // CORREÇÃO 2: Mensagem usa travelPeriodByStudent
-        if (studentRouteStopAssignmentRepository.existsByStudentIdAndStandardRouteTravelPeriod(studentIdFromDTO, travelPeriodByStudent)) {
+        if (studentRouteStopAssignmentRepository.existsByStudentIdAndStandardRouteTravelPeriods(studentIdFromDTO, travelPeriodByStudent)) {
             throw new IllegalArgumentException("Estudante " + studentIdFromDTO + " já possui ponto no turno: " + travelPeriodByStudent);
         }
 
@@ -154,16 +152,21 @@ public class StudentRouteStopService {
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
+        // ⚠️ DEBUG: Verifique o que está vindo do banco
+        System.out.println("=== PERÍODOS DA ROTA NO BANCO: " + standardRoute.getTravelPeriods());
+        System.out.println("=== TAMANHO DA LISTA: " + (standardRoute.getTravelPeriods() != null ? standardRoute.getTravelPeriods().size() : "NULL"));
+        System.out.println("=== PERÍODO INFORMADO: " + travelPeriodByStudent);
+
         if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("Rota padrão está INATIVA no sistema: " + standardRouteId);
         }
 
-        // CORREÇÃO 3: Validação de que o turno do DTO bate com o turno da rota
-        if (!standardRoute.getTravelPeriod().equals(travelPeriodByStudent)) {
-            throw new DomainValidationException("O período informado (" + travelPeriodByStudent + ") não corresponde ao período da Rota Padrão (" + standardRoute.getTravelPeriod() + ")");
+        if (standardRoute.getTravelPeriods().stream().noneMatch(period -> period.equals(travelPeriodByStudent))) {
+            throw new DomainValidationException("O período informado (" + travelPeriodByStudent + ") não corresponde aos períodos da Rota Padrão");
         }
 
-        UUID customerId = authenticatedUser.getCustomer().getId();
+        UUID customerId = authenticatedUser.getCustomer().getId(); // customer base = usuário autenticado
+
         validateSameCustomer(customerId, routeStop.getCustomer().getId());
         validateSameCustomer(customerId, standardRoute.getCustomer().getId());
         validateSameCustomer(customerId, student.getCustomer().getId());
@@ -179,6 +182,7 @@ public class StudentRouteStopService {
         studentRouteStopAssignment.setStudent(student);
         studentRouteStopAssignment.setRouteStop(routeStop);
         studentRouteStopAssignment.setStandardRoute(standardRoute);
+        studentRouteStopAssignment.setTravelPeriod(travelPeriodByStudent);
 
         studentRouteStopAssignmentRepository.save(studentRouteStopAssignment);
 
@@ -211,7 +215,7 @@ public class StudentRouteStopService {
         }
 
         TravelPeriod travelPeriodFromDTO = routeStopStudentUpdateDTO.travelPeriod();
-        if (!standardRoute.getTravelPeriod().equals(travelPeriodFromDTO)) {
+        if (standardRoute.getTravelPeriods().stream().noneMatch(period -> period.equals(travelPeriodFromDTO))) {
             throw new IllegalArgumentException("O período informado não corresponde ao período da Rota Padrão");
         }
 
@@ -238,6 +242,19 @@ public class StudentRouteStopService {
         StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository
                 .findByStudentIdAndStandardRouteId(studentId, standardRouteId)
                 .orElseThrow(() -> new EntityAssignmentNotFound("Estudante sem vínculo ativo nesta Rota Padrão"));
+
+        // verifica se JÁ EXISTE outro assignment (diferente do atual) para este estudante, nesta rota, neste turno
+        boolean alreadyHasAssignmentInThisPeriod = studentRouteStopAssignmentRepository
+                .existsByStudentIdAndStandardRouteIdAndTravelPeriodAndIdNot(
+                        student.getId(),
+                        standardRoute.getId(),
+                        travelPeriodFromDTO,
+                        assignment.getId()
+                );
+
+        if (alreadyHasAssignmentInThisPeriod) {
+            throw new DomainValidationException("O estudante " + student.getId() + " já possui outro ponto de parada nesta rota no turno: " + travelPeriodFromDTO);
+        }
 
         // atualiza o ponto de parada na associação
         assignment.setRouteStop(newRouteStop);
@@ -290,10 +307,9 @@ public class StudentRouteStopService {
         }
 
         TravelPeriod travelPeriodFromDTO = routeStopStudentsRequestDTO.travelPeriod();
-        TravelPeriod standardRouteTravelPeriod = standardRoute.getTravelPeriod();
 
-        if (!travelPeriodFromDTO.equals(standardRouteTravelPeriod)) {
-            throw new DomainValidationException("O período informado (" + travelPeriodFromDTO + ") não corresponde ao período da Rota Padrão (" + standardRouteTravelPeriod + ")");
+        if (standardRoute.getTravelPeriods().stream().noneMatch(period -> period.equals(travelPeriodFromDTO))) {
+            throw new DomainValidationException("O período informado (" + travelPeriodFromDTO + ") não corresponde ao período da Rota Padrão");
         }
 
         StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository

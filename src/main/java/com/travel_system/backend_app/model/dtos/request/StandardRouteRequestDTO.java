@@ -6,6 +6,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.util.List;
 import java.util.Set;
 
 public record StandardRouteRequestDTO(
@@ -22,7 +23,7 @@ public record StandardRouteRequestDTO(
         @NotNull(message = "A longitude de destino é obrigatória")
         Double destinationLongitude,
         @NotNull(message = "O período de viagem é obrigatório")
-        TravelPeriod period,
+        Set<TravelPeriod> periods,
         @NotEmpty(message = "A lista de paradas não pode ser nula nem vazia")
         Set<@Valid @NotNull RouteStopAssignmentRequestDTO> routeStops
 ) {

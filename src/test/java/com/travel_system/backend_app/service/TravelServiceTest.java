@@ -4,7 +4,8 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
+import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
@@ -26,9 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.TemporalUnit;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -814,7 +813,7 @@ class TravelServiceTest {
 
        @BeforeEach
        void setUp() {
-           travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+           travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), UUID.randomUUID(), customer.getId(),TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
            studentTravelCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), student.getId(), StudentTravelStatus.ACTIVE, true);
        }
 
@@ -858,7 +857,7 @@ class TravelServiceTest {
         @DisplayName("throw exception when travel was not travelling")
         @MethodSource("travelStatusProvider")
         void throwExceptionWhenTravelWasNotTravelling(TravelStatus travelStatus) {
-            TravelCacheDTO newTravelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            TravelCacheDTO newTravelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), UUID.randomUUID(), customer.getId(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
             when(travelCacheService.getOrLoadTravelStaticCache(travel.getId())).thenReturn(newTravelCacheDTO);
             when(travelStudentStateCacheService.getOrLoadStudentTravelCache(travel.getId(), student.getEmail())).thenReturn(studentTravelCacheDTO);

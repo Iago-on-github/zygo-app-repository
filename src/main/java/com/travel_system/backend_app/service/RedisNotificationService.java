@@ -145,4 +145,51 @@ public class RedisNotificationService {
         }
 
     }
+
+    // recupera o último timestamp de notificação para rota inválida
+    public void putInvalidRouteLastNotifyData(UUID travelId, UUID studentId, Instant lastNotifyToInvalid, int quantityOfNotify) {
+        if (travelId == null || studentId == null) {
+            log.warn("[putInvalidRouteLastNotify] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return;
+        }
+
+        long lastNotify = lastNotifyToInvalid.toEpochMilli();
+
+        String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
+
+        Map<String, String> data = new HashMap<>();
+
+        data.put("lastNotifyToInvalidAt", String.valueOf(lastNotify));
+        data.put("quantityOfNotify", String.valueOf(quantityOfNotify));
+
+        hashOperations.putAll(key, data);
+    }
+
+    // recupera o último timestamp de notificação para rota inválida
+    public Long getInvalidRouteLastNotify(UUID travelId, UUID studentId) {
+        if (travelId == null || studentId == null) {
+            log.warn("[getInvalidRouteLastNotify] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return null;
+        }
+
+        String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
+
+        String quantityOfNotify = hashOperations.get(key, "quantityOfNotify");
+        String lastNotifyToInvalidAt = hashOperations.get(key, "lastNotifyToInvalidAt");
+
+        return lastNotifyToInvalidAt != null ? Long.parseLong(lastNotifyToInvalidAt) : null;
+    }
+
+    public Integer getCountInvalidRouteNotifications(UUID travelId, UUID studentId) {
+        if (travelId == null || studentId == null) {
+            log.warn("[getCountInvalidRouteNotifications] travelId: {} ou studentId: {} vindo null, retornando silenciosamente.", travelId, studentId);
+            return null;
+        }
+
+        String key = HASH_KEY_PREFIX + travelId + ":" + studentId;
+
+        String quantityOfNotify = hashOperations.get(key, "quantityOfNotify");
+
+        return quantityOfNotify != null ? Integer.parseInt(quantityOfNotify) : 0;
+    }
 }

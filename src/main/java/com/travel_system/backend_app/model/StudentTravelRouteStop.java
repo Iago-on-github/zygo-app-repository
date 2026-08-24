@@ -27,21 +27,24 @@ public class StudentTravelRouteStop {
     @Column(nullable = false)
     private StudentTravelRouteStopStatus studentTravelRouteStopStatus;
     private Instant lastValidatedAt;
-    private Instant lastNotifiedAt;
+    private Instant reachedAt;
     @CreatedDate
     private Instant createdAt;
     @LastModifiedDate
     private Instant updatedAt;
 
-    public StudentTravelRouteStop(Instant updatedAt, Instant createdAt, Instant lastNotifiedAt, Instant lastValidatedAt, StudentTravelRouteStopStatus studentTravelRouteStopStatus, RouteStop routeStop, StudentTravel studentTravel, UUID id) {
-        this.updatedAt = updatedAt;
-        this.createdAt = createdAt;
-        this.lastNotifiedAt = lastNotifiedAt;
-        this.lastValidatedAt = lastValidatedAt;
-        this.studentTravelRouteStopStatus = studentTravelRouteStopStatus;
-        this.routeStop = routeStop;
-        this.studentTravel = studentTravel;
+    public StudentTravelRouteStop() {
+    }
+
+    public StudentTravelRouteStop(UUID id, StudentTravel studentTravel, RouteStop routeStop, StudentTravelRouteStopStatus studentTravelRouteStopStatus, Instant lastValidatedAt, Instant reachedAt, Instant createdAt, Instant updatedAt) {
         this.id = id;
+        this.studentTravel = studentTravel;
+        this.routeStop = routeStop;
+        this.studentTravelRouteStopStatus = studentTravelRouteStopStatus;
+        this.lastValidatedAt = lastValidatedAt;
+        this.reachedAt = reachedAt;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() {
@@ -84,12 +87,12 @@ public class StudentTravelRouteStop {
         this.lastValidatedAt = lastValidatedAt;
     }
 
-    public Instant getLastNotifiedAt() {
-        return lastNotifiedAt;
+    public Instant getReachedAt() {
+        return reachedAt;
     }
 
-    public void setLastNotifiedAt(Instant lastNotifiedAt) {
-        this.lastNotifiedAt = lastNotifiedAt;
+    public void setReachedAt(Instant reachedAt) {
+        this.reachedAt = reachedAt;
     }
 
     public Instant getCreatedAt() {

@@ -1,12 +1,14 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.*;
-import com.travel_system.backend_app.model.StudentTravel;
+import com.travel_system.backend_app.events.ConfirmStudentTravelRouteStopReachedEvent;
+import com.travel_system.backend_app.events.InitializeStudentTravelRouteStopEvent;
+import com.travel_system.backend_app.events.ProcessStudentTravelRouteStopApproachingEvent;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
+import com.travel_system.backend_app.events.StudentTravelRouteStopsCacheEvent;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
-import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
+import com.travel_system.backend_app.model.enums.StudentTravelRouteStopStatus;
 import io.micrometer.common.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,7 @@ public class RedisTrackingService {
     private final String ROUTE_KEY_PREFIX = "travel:route:";
     private final String STUDENT_TRAVEL_KEY_PREFIX = "travel:away_students:";
     private final String STUDENT_AWAY_STATE_LOCK = "travel:student-away-lock:";
+    private final String STUDENT_ROUTE_STOP_MONITORING = "student:route-stop-monitoring:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;
@@ -255,6 +258,8 @@ public class RedisTrackingService {
         String lastCalcLat = routeData.get("last_calc_lat");
         String lastCalcLng = routeData.get("last_calc_lng");
 
+        String current_location_timestamp = routeData.get("current_location_timestamp");
+
         try {
             return new LiveLocationDTO(
                     latitude != null ? Double.parseDouble(latitude) : null,
@@ -262,7 +267,8 @@ public class RedisTrackingService {
                     geometry,
                     distance != null ? Double.parseDouble(distance) : null,
                     lastCalcLat != null ? Double.parseDouble(lastCalcLat) : null,
-                    lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null);
+                    lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null,
+                    current_location_timestamp != null ? Instant.parse(current_location_timestamp) : null);
         } catch (NumberFormatException e) {
             logger.warn("erro ao tentar tratar/retornar algum dado requerido da viagem: {}", travelId);
             return null;
@@ -603,6 +609,172 @@ public class RedisTrackingService {
         redisTemplate.delete(lockKey);
     }
 
+    //
+    // PONTOS DE PARADA
+    //
+
+    // armazena os dados de inicialização do monitoriamento ponto de parada para o estudante (quando o estudante entra na viagem)
+    public void storeInitializeStudentTravelRouteStopData(InitializeStudentTravelRouteStopEvent event) {
+        if (event.travelId() == null || event.routeStopId() == null || event.studentTravelId() == null) {
+            logger.info("[storeInitializeStudentTravelRouteStopData] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        if (event.routeStopLatitude() == null || event.routeStopLongitude() == null) {
+            logger.info("[storeInitializeStudentTravelRouteStopData] dados coordenadas da rota inválidas");
+            return;
+        }
+
+        String travelId = event.travelId().toString();
+        String routeStopId = event.routeStopId().toString();
+        String studentTravelId = event.studentTravelId().toString();
+        String routeStopLatitude = event.routeStopLatitude().toString();
+        String routeStopLongitude = event.routeStopLongitude().toString();
+
+        String status = String.valueOf(event.studentTravelRouteStopStatus());
+
+        String key = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+
+        Map<String, String> data = new HashMap<>();
+
+        data.put("travelId", travelId);
+        data.put("routeStopId", routeStopId);
+        data.put("studentTravelId", studentTravelId);
+        data.put("routeStopLatitude", routeStopLatitude);
+        data.put("routeStopLongitude", routeStopLongitude);
+        data.put("status", status);
+
+        hashOperations.putAll(key, data);
+    }
+
+    /*
+    * armazena os novos dados do tracking quando ocorre uma transição de estado (ex., "expected" -> "approaching")
+    * não carrega o status do DTO, pois o próprio DTO já representa o estado de approaching
+    * */
+    public void updateStudentTravelRouteStopProcessMonitoring(ProcessStudentTravelRouteStopApproachingEvent event) {
+        if (event.travelId() == null || event.routeStopId() == null || event.studentTravelId() == null) {
+            logger.info("[updateStudentTravelRouteStopMonitoring] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        // dados da key
+        String studentTravelId = event.studentTravelId().toString();
+        String travelId = event.travelId().toString();
+
+        String distance = event.distance().toString();
+        String occurredAt = event.occurredAt().toString();
+
+        String key = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+
+        Map<String, String> data = new HashMap<>();
+
+        // armazena somente o que não havia ainda
+        data.put("distance", distance);
+        data.put("occurredAt", occurredAt);
+        data.put("status", StudentTravelRouteStopStatus.APPROACHING.toString());
+
+        hashOperations.putAll(key, data);
+    }
+
+    /*
+    * armazena os novos dados do trackig quando ocorre a transição de estado ("approaching" -> "reached")
+    * não carrega o status do DTO, pois o próprio DTO já representa o estado de reached
+    * */
+    public void updateStudentTravelRouteStopConfirmMonitoring(ConfirmStudentTravelRouteStopReachedEvent event) {
+        if (event.travelId() == null || event.routeStopId() == null || event.studentTravelId() == null) {
+            logger.info("[updateStudentTravelRouteStopProcess] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        String travelId = event.travelId().toString();
+        UUID studentTravelId = event.studentTravelId();
+
+        String key = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+
+        Map<String, String> data = new HashMap<>();
+
+        data.put("status", StudentTravelRouteStopStatus.REACHED.toString());
+        data.put("distanceInMeters", event.distanceInMeters().toString());
+        data.put("disembarkAt", event.disembarkAt().toString());
+        data.put("vehiclePositionAt", event.vehiclePositionAt().toString());
+        data.put("vehicleLatitude", event.vehicleLatitude().toString());
+        data.put("vehicleLongitude", event.vehicleLongitude().toString());
+
+        hashOperations.putAll(key, data);
+    }
+
+    // recupera os dados de monitoriamento do ponto de parada para o estudante
+    public StudentTravelRouteStopsCacheEvent getStudentTravelRouteStopMonitoring(UUID travelId, UUID studentTravelId) {
+        if (travelId == null) {
+            logger.info("[getStudentTravelRouteStopMonitoring] dados de entrada inválidos ou insuficientes");
+            return null;
+        }
+
+        String key = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+
+        List<String> fieldsToGet = Arrays.asList(
+                "routeStopId",
+                "studentTravelId",
+                "routeStopLatitude",
+                "routeStopLongitude",
+                "status",
+                "distance",
+                "occurredAt",
+                // dados dps que a desconexão via reached acontece \/
+                "distanceInMeters",
+                "disembarkAt",
+                "vehiclePositionAt",
+                "vehicleLatitude",
+                "vehicleLongitude");
+
+        List<String> hashFields = hashOperations.multiGet(key, fieldsToGet);
+
+        String routeStopId = hashFields.getFirst();
+        String studentTravelIdCache = hashFields.get(1);
+        String routeStopLatitude = hashFields.get(2);
+        String routeStopLongitude = hashFields.get(3);
+        String status = hashFields.get(4);
+        String distance = hashFields.get(5);
+        String occurredAt = hashFields.get(6);
+        String distanceInMeters = hashFields.get(7);
+        String disembarkAt = hashFields.get(8);
+        String vehiclePositionAt = hashFields.get(9);
+        String vehicleLatitude = hashFields.get(10);
+        String vehicleLongitude = hashFields.get(11);
+
+        StudentTravelRouteStopStatus studentTravelRouteStopStatus = StudentTravelRouteStopStatus.valueOf(status);
+
+        return new StudentTravelRouteStopsCacheEvent(
+                toUUIDOrNull(studentTravelIdCache),
+                travelId,
+                toUUIDOrNull(routeStopId),
+                toDoubleOrNull(distance),
+                Instant.parse(occurredAt),
+                toDoubleOrNull(routeStopLatitude),
+                toDoubleOrNull(routeStopLongitude),
+                studentTravelRouteStopStatus,
+                toDoubleOrNull(distanceInMeters),
+                Instant.parse(disembarkAt),
+                Instant.parse(vehiclePositionAt),
+                toDoubleOrNull(vehicleLatitude),
+                toDoubleOrNull(vehicleLongitude)
+        );
+
+    }
+
+    // realiza a deleção do estado do redis para aquele estudante em específico
+    public void deleteStudentTravelRouteStopMonitoring(UUID travelId, UUID studentTravelId) {
+        if (travelId == null) {
+            logger.info("[deleteStudentTravelRouteStopMonitoring] dados de entrada inválidos ou insuficientes");
+            return;
+        }
+
+        String key = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+
+        redisTemplate.delete(key);
+    }
+
+    // MÉTODOS AUXILIARES
     private void velocityAnalysisHelper(String key, String movementState, Map<String, String> data, String stateStartedAt, String lastNotificationSendAt, String lastEtaNotificationAt) {
         data.put("movementState", movementState);
         data.put("stateStartedAt", stateStartedAt);
@@ -615,5 +787,9 @@ public class RedisTrackingService {
 
     private Double toDoubleOrNull(String value) {
         return value == null ? null : Double.parseDouble(value);
+    }
+
+    private UUID toUUIDOrNull(String value) {
+        return value == null ? null : UUID.fromString(value);
     }
 }

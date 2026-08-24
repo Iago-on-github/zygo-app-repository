@@ -57,9 +57,9 @@ public class TravelTrackingController {
                     content = @Content(schema = @Schema(hidden = true))),
 
     })
-    @PostMapping("/travels/{travelId}/locations/{cityId}")
-    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID cityId, @PathVariable UUID travelId, @Valid @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
-        travelTrackingService.markDriverCheckpoint(cityId, travelId, vehicleLocationRequest);
+    @PostMapping("/travels/{travelId}/student/{studentTravelId}/locations")
+    public ResponseEntity<Void> markDriverCheckpoint(@PathVariable UUID travelId, @PathVariable UUID studentTravelId, @Valid @RequestBody VehicleLocationRequestDTO vehicleLocationRequest) {
+        travelTrackingService.markDriverCheckpoint(studentTravelId, travelId, vehicleLocationRequest);
         return ResponseEntity.ok().build();
     }
 

@@ -1,18 +1,18 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
+import com.travel_system.backend_app.exceptions.InactiveAccountException;
 import com.travel_system.backend_app.exceptions.TravelException;
-import com.travel_system.backend_app.model.GeoPosition;
-import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
+import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -40,13 +40,15 @@ public class LocationService {
     private final RedisTrackingService redisTrackingService;
     private final TravelCacheService travelCacheService;
     private final TravelTrackingNotificationService trackingNotificationService;
-    
-    private Logger log = LoggerFactory.getLogger(LocationService.class);
+    private final TravelTrackingStaticCache travelTrackingStaticCache;
+    private final StudentTravelRouteStopService studentTravelRouteStopService;
+
+    private final Logger log = LoggerFactory.getLogger(LocationService.class);
 
     private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
     private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
 
-    public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, TravelRepository travelRepository, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService) {
+    public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, TravelRepository travelRepository, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService, TravelStudentStateCacheService travelStudentStateCacheService, TravelTrackingStaticCache travelTrackingStaticCache, StudentTravelRouteStopService studentTravelRouteStopService) {
         this.geoPositionRepository = geoPositionRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.routeCalculationService = routeCalculationService;
@@ -55,6 +57,8 @@ public class LocationService {
         this.redisTrackingService = redisTrackingService;
         this.travelCacheService = travelCacheService;
         this.trackingNotificationService = trackingNotificationService;
+        this.travelTrackingStaticCache = travelTrackingStaticCache;
+        this.studentTravelRouteStopService = studentTravelRouteStopService;
     }
 
     @Transactional
@@ -192,13 +196,25 @@ public class LocationService {
             Instant disembarkHour = Instant.now();
             studentTravelRepository.disconnectedStudentFromTrip(studentTravelsToAutoDisconnect, StudentTravelStatus.AUTO_DISCONNECTED, disembarkHour, false);
 
-            // apenas se conseguir disconectar busca a viagem inteira no banco para recuperar dados para notificação
+            // apenas se conseguir desconectar: busca a viagem inteira no banco para recuperar dados para notificação
             Travel travel = travelRepository.findById(travelId)
                     .orElseThrow(() -> new EntityNotFoundException("Viagem não encontrada: " + travelId));
 
-            // manda notificação para cada estudante compatível com o auto-desvínculo
-            studentIdsToAutoDisconnect.forEach(studentToNotification -> {
-                trackingNotificationService.sendAutoDisconnectStudentNotification(travel, studentToNotification);
+            // processamento p/ cada estudante desvinculado
+            studentIdsToAutoDisconnect.forEach(studentId -> {
+                // limpa cache
+                travelTrackingStaticCache.removeStudentTravelTrackingCache(travelId, studentId);
+
+                /*
+                * algoritmo que detecta se o estudante desembarcou no RouteStop dele após ele sair da viagem
+                * */
+                studentTravelRouteStopService.confirmStudentRouteStopReached(travelId, studentId, StudentTravelStatus.AUTO_DISCONNECTED);
+
+                // manda notificação
+                trackingNotificationService.sendAutoDisconnectStudentNotification(travel, studentId);
+
+                // limpa o redis para o contexto do algoritmo de proximidade do routestop
+                redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentId);
             });
 
         }
@@ -236,6 +252,44 @@ public class LocationService {
 
         log.info("[distanceBetweenPositions] Viagem {}: Cálculo concluído. {} alunos processados com sucesso. TTL: {}", travelId, results.size(), executingTime);
         return results;
+    }
+
+    // verifica a distância entre o veículo e o routeStop do aluno
+    protected DistanceResponseDTO distanceBetweenVehicleAndRouteStop(UUID travelId, UUID studentTravelId, LiveLocationDTO driverPosition) {
+
+        // recupera o cache armazenado no momento que o aluno entrou na viagem
+        StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCache.getStudentTravelTrackingData(travelId, studentTravelId);
+
+        if (trackingData == null) {
+            log.warn("[distanceBetweenVehicleAndRouteStop] - cache do contexto não existe mais ou não foi iniciado ainda");
+            return null;
+        }
+
+        if (driverPosition.latitude() == null || driverPosition.longitude() == null) {
+            log.warn("[distanceBetweenVehicleAndRouteStop] - dados de localizaçao do motorista não encontrado");
+            return null;
+        }
+
+        UUID studentId = trackingData.studentId();
+        Double routeStopLatitude = trackingData.routeStopLatitude();
+        Double routeStopLongitude = trackingData.routeStopLongitude();
+
+        log.info("studentTravelId {}: Iniciando cálculo de distância entre a viagem e o ponto de parada ", studentTravelId);
+
+        Double distance = routeCalculationService.calculateHaversineDistanceInMeters(
+                routeStopLatitude,
+                routeStopLongitude,
+                driverPosition.latitude(),
+                driverPosition.longitude()
+        );
+
+        // verifica distância inválida
+        if (distance == null || distance < 0) {
+            log.warn("[distanceBetweenVehicleAndRouteStop] - distance retornada é inválida");
+            return null;
+        }
+
+        return new DistanceResponseDTO(studentId, distance);
     }
 
     private void applyStudentPositionUpdate(UUID studentTravelId, LiveCoordinates actually) {

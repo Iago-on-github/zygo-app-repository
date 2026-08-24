@@ -8,18 +8,16 @@ import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperties;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -30,14 +28,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.context.NestedTestConfiguration;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.Current;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -100,7 +94,7 @@ class TravelTrackingServiceTest {
         driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
         travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
         vehicleLocationRequestDTO = new VehicleLocationRequestDTO(travel.getId(), -12.973456, -38.501234, 60.0, 180.0);
-        liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000);
+        liveLocationDTO = new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000, null);
         newLocationReceivedEvents = new NewLocationReceivedEvents(UUID.randomUUID(), -12.973456, -38.501234, Instant.now(), TravelStatus.TRAVELLING, 60.0, 180.0);
         routeDeviationDTO = new RouteDeviationDTO(25.0, true, -12.972000, -38.500000);
         routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, "encoded_polyline_example");
@@ -127,7 +121,7 @@ class TravelTrackingServiceTest {
 
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
             routeDetailsDTO = new RouteDetailsDTO(300.0, 1200.0, "encodedPolylineHere");
             routeCalculationReferenceDTO = new RouteCalculationReferenceDTO(-32.223, 12.323);
             currentVehicleLocationDTO = new CurrentVehicleLocationDTO(-32.223, 12.323, 70.3, 3023.1);
@@ -416,7 +410,7 @@ class TravelTrackingServiceTest {
             @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
             @MethodSource("travelStatusProvider")
             void shouldThrowTravelExceptionWhenCheckpointTravelIsNotTravelling(TravelStatus travelStatus) {
-                TravelCacheDTO travelCache = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+                TravelCacheDTO travelCache = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
                 when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCache);
 
@@ -525,11 +519,11 @@ class TravelTrackingServiceTest {
 
             public static Stream<Arguments> redisLocalizationProvider() {
                 return Stream.of(
-                        Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
-                        Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
-                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000)),
-                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000)),
-                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null)),
+                        Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000, null)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000, null)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000, null)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000, null)),
+                        Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null, null)),
                         Arguments.of((LiveLocationDTO) null)
                 );
             }
@@ -555,7 +549,7 @@ class TravelTrackingServiceTest {
 
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
             routeDetailsDTO = new RouteDetailsDTO(300.0, 1200.0, "encodedPolylineHere");
             routeCalculationReferenceDTO = new RouteCalculationReferenceDTO(-32.223, 12.323);
             currentVehicleLocationDTO = new CurrentVehicleLocationDTO(-32.223, 12.323, 70.3, 3023.1);
@@ -734,7 +728,7 @@ class TravelTrackingServiceTest {
             @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
             @MethodSource("travelStatusProvider")
             void shouldThrowTravelExceptionWhenTravelIsNotTravelling(TravelStatus travelStatus) {
-                TravelCacheDTO travelCacheWithDynamicSatus = new TravelCacheDTO(UUID.randomUUID(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+                TravelCacheDTO travelCacheWithDynamicSatus = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), travelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
                 when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheWithDynamicSatus);
 
@@ -910,7 +904,7 @@ class TravelTrackingServiceTest {
             travelId = travel.getId();
             travel.setTravelStatus(TravelStatus.TRAVELLING);
 
-            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            travelCacheDTO = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), TravelStatus.TRAVELLING, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
         }
 
         @Test
@@ -931,7 +925,7 @@ class TravelTrackingServiceTest {
         @DisplayName("Deve lançar exception quando a viagem não estiver em andamento")
         @MethodSource("travelStatusProvider")
         void throwExceptionWhenTravelIsNotTravelling(TravelStatus invalidTravelStatus) {
-            TravelCacheDTO travelCacheWithInvalidStatus = new TravelCacheDTO(UUID.randomUUID(), invalidTravelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
+            TravelCacheDTO travelCacheWithInvalidStatus = new TravelCacheDTO(UUID.randomUUID(), cityId, customer.getId(), invalidTravelStatus, -12.9714, -38.5014, "encodedPolylineHere", 12.7, 25.0);
 
             when(travelCacheService.getOrLoadTravelStaticCache(travelId)).thenReturn(travelCacheWithInvalidStatus);
 
@@ -961,11 +955,11 @@ class TravelTrackingServiceTest {
 
         public static Stream<Arguments> redisLocalizationProvider() {
             return Stream.of(
-                    Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
-                    Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000)),
-                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000)),
-                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000)),
-                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null)),
+                    Arguments.of(new LiveLocationDTO(null, -38.501234, "encoded_polyline_example", 12.5, -12.970000, -38.500000, null)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, null, "encoded_polyline_example", 12.5, -12.970000, -38.500000, null)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", null, -12.970000, -38.500000, null)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, null, -38.500000, null)),
+                    Arguments.of(new LiveLocationDTO(-12.973456, -38.501234, "encoded_polyline_example", 12.5, -12.970000, null, null)),
                     Arguments.of((LiveLocationDTO) null)
             );
         }
