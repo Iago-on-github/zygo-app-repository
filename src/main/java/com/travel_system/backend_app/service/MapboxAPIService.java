@@ -10,11 +10,13 @@ import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RoutesDTO;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.transaction.Transactional;
+import org.locationtech.jts.util.CollectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -50,7 +52,8 @@ public class MapboxAPIService implements MapboxAPICalling {
 
         logger.info("[calculateRoute] dados de coordenadas validados, criando waypoints e fazendo chamada à api...");
 
-        if (waypoint.isEmpty()) {
+        // verifica se é null/empty
+        if (CollectionUtils.isEmpty(waypoint)) {
             waypoint = List.of();
         }
 
