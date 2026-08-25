@@ -15,6 +15,7 @@ public record TravelResponseDTO(
         TravelStatus status,
         TravelPeriod travelPeriod,
         DriverResponseDTO driverResponseDTO,
+        StandardRouteSimpleResponseDTO standardRouteSimpleResponseDTO,
         Set<StudentTravel> studentTravel,
         Instant createdAt,
         Instant startHourTravel,

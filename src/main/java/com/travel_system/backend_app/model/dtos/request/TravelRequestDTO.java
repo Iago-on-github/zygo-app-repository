@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record TravelRequestDTO(
         UUID driverId,
+        UUID standardRouteId,
         TravelPeriod travelPeriod,
         Double originLongitude,
         Double originLatitude,
