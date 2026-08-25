@@ -27,6 +27,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(CustomerMismatchException.class)
+    public final ResponseEntity<StandardError> CustomerMismatchException(CustomerMismatchException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(EmptyMandatoryFieldsFound.class)
     public final ResponseEntity<StandardError> emptyMandatoryFieldsException(EmptyMandatoryFieldsFound ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
@@ -34,6 +39,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(NoSuchCoordinates.class)
     public final ResponseEntity<StandardError> noSuchCoordinatesException(NoSuchCoordinates ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DomainValidationException.class)
+    public final ResponseEntity<StandardError> DomainValidationException(DomainValidationException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
@@ -74,6 +84,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InactiveAccountException.class)
+    public final ResponseEntity<StandardError> InactiveAccountException(InactiveAccountException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
