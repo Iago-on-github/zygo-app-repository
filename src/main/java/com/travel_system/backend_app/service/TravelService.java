@@ -1,7 +1,6 @@
 package com.travel_system.backend_app.service;
 
 import com.mapbox.geojson.Point;
-import com.travel_system.backend_app.config.constants.GlobalAppConstants;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.RouteStopResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.StandardRouteResponseMapper;
@@ -18,6 +17,7 @@ import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -36,39 +36,40 @@ public class TravelService {
     private final StudentTravelRepository studentTravelRepository;
     private final StudentRepository studentRepository;
     private final DriverRepository driverRepository;
-    private final MapboxAPIService mapboxAPIService;
-    private final RedisTrackingService redisTrackingService;
     private final TravelReportsRepository travelReportsRepository;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
+    private final StandardRouteRepository standardRouteRepository;
+
+    private final MapboxAPIService mapboxAPIService;
+    private final RedisTrackingService redisTrackingService;
     private final PolylineService polylineService;
-    private final RouteCalculationService routeCalculationService;
     private final TravelCacheService travelCacheService;
     private final TravelStudentStateCacheService travelStudentStateCacheService;
     private final TravelNotificationService travelNotificationService;
     private final StudentTravelRouteStopService studentTravelRouteStopService;
-    private final TravelTrackingStaticCache travelTrackingStaticCache;
+    private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
 
     private final RouteStopResponseMapper routeStopResponseMapper;
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, RouteCalculationService routeCalculationService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCache travelTrackingStaticCache, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
+        this.standardRouteRepository = standardRouteRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.redisTrackingService = redisTrackingService;
         this.travelReportsRepository = travelReportsRepository;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.polylineService = polylineService;
-        this.routeCalculationService = routeCalculationService;
         this.travelCacheService = travelCacheService;
         this.travelStudentStateCacheService = travelStudentStateCacheService;
         this.travelNotificationService = travelNotificationService;
         this.studentTravelRouteStopService = studentTravelRouteStopService;
-        this.travelTrackingStaticCache = travelTrackingStaticCache;
+        this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
     }
@@ -107,6 +108,24 @@ public class TravelService {
         travel.setCreatedAt(Instant.now());
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
+
+        /*
+        * verificação da rota padrão da viagem
+        * */
+
+        StandardRoute standardRoute = standardRouteRepository.findById(travelRequestDTO.standardRouteId())
+                .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada"));
+
+        if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
+            throw new StandardRouteException("A Rota Padão está INATIVA no sistema");
+        }
+
+        // verifica compatibilidade entre Customers
+        if (!isSameCustomer(travel.getCustomer().getId(), standardRoute.getCustomer().getId())) {
+            throwTravelException("A Rota Padrão deve obrigariamente ser do mesmo customer da Viagem");
+        }
+
+        travel.setStandardRoute(standardRoute);
 
         // obtém preview da viagem
         TravelPreviewDTO tripPreview = mapboxAPIService.getTripPreview(
@@ -218,7 +237,7 @@ public class TravelService {
             }
 
             // limpa o cache estático do tracking da viagem p/ o estudante
-            travelTrackingStaticCache.removeStudentTravelTrackingCache(travelId, studentTravel.getId());
+            travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravel.getId());
 
             // limpa o redis para o contexto do algoritmo de proximidade do routestop
             redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravel.getId());
@@ -267,6 +286,9 @@ public class TravelService {
         travelLocationHistoryRepository.deleteAllByTravelId(travelId);
 
         travelRepository.save(actualTrip);
+
+        // adiciona +1 no número de totaltrips do motorista
+        setCountDriverTrips(actualTrip);
 
         redisTrackingService.clearTravelLocationCache(travelId);
 
@@ -374,10 +396,11 @@ public class TravelService {
                     studentTravel.setEmbark(false);
                     studentTravel.setDisembarkHour(Instant.now());
                     studentTravelRepository.save(studentTravel);
-
-                    // limpa o cache estático do tracking da viagem p/ o estudante
-                    travelTrackingStaticCache.removeStudentTravelTrackingCache(travelId, studentTravel.getId());
                 }
+
+                // evento route_stop_algorithm viagem cancelada
+                studentTravelRouteStopService.cancelledStudentRouteStop(travelId, studentTravel.getId(), baseCustomerId);
+
                 log.info("[cancelTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
             });
         }
@@ -445,16 +468,6 @@ public class TravelService {
         return standardRouteResponseMapper.toDTO(standardRouteByTravel);
     }
 
-    // recupera os pontos de parada vínculados à viagem
-    public List<RouteStopResponseDTO> getTravelRouteStops(UUID travelId) {
-        StandardRoute standardRouteByTravel = travelRepository.findStandardRouteByTravelId(travelId);
-
-        List<RouteStop> routeStops = standardRouteByTravel.getRouteStopAssignments().stream()
-                .map(RouteStopAssignment::getRouteStop).toList();
-
-        return routeStops.stream().map(routeStopResponseMapper::toDTO).toList();
-    }
-
     @Cacheable(value = "studentLogged", key = "#studentId + '-' + #travelId")
     public boolean isStudentLogged(UUID studentId, UUID travelId) {
             return studentTravelRepository.existsByIdAndTravelId(studentId, travelId);
@@ -516,6 +529,9 @@ public class TravelService {
 
         studentTravelRepository.save(studentTravel);
 
+        // carrega os dados iniciais da viagem para o cache assim que a viagem é iniciada
+        loadTravelDataToCache(travel, student, studentTravel);
+
         boolean routeStopCompatible = isRouteStopCompatible(travel, studentTravel);
 
         /*
@@ -532,9 +548,6 @@ public class TravelService {
             // inicializa o monitoriamento do ponto de parada para o estudante
             studentTravelRouteStopService.initializeStudentTravelRouteStopTracking(travel.getId(), studentTravel.getId());
         }
-
-        // carrega os dados iniciais da viagem para o cache aassim que a viagem é iniciada
-        loadTravelDataToCache(travel, student, studentTravel);
 
         travelStudentStateCacheService.evictStudentTravelCachedData(travel.getId(), student.getEmail());
 
@@ -557,7 +570,7 @@ public class TravelService {
         travelStudentStateCacheService.evictStudentTravelCachedData(travelId, studentEmail);
 
         // limpa o cache estático do tracking da viagem p/ o estudante
-        travelTrackingStaticCache.removeStudentTravelTrackingCache(travelId, studentTravelId);
+        travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravelId);
 
         // limpa o redis para o contexto do algoritmo de proximidade do routestop
         redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravelId);
@@ -572,7 +585,24 @@ public class TravelService {
 
     private TravelResponseDTO travelConverted(Travel travel) {
         DriverResponseDTO driverResponseDTO = driverMapper(travel.getDriver());
+        StandardRouteSimpleResponseDTO standardRouteSimpleResponseDTO = standardRouteSimpleMapper(travel.getStandardRoute());
 
+        TravelPreviewDTO travelPreviewDTO = getTravelPreviewDTO(travel);
+
+        return new TravelResponseDTO(
+                travel.getId(),
+                travel.getTravelStatus(),
+                travel.getTravelPeriod(),
+                driverResponseDTO,
+                standardRouteSimpleResponseDTO,
+                travel.getStudentTravels(),
+                travel.getCreatedAt(),
+                travel.getStartHourTravel(),
+                travelPreviewDTO
+        );
+    }
+
+    private static TravelPreviewDTO getTravelPreviewDTO(Travel travel) {
         String arrivalTime = null;
 
         // Usa campo "createdAt" para exibir preview ao motorista APENAS ao criar a viagem (sem inicia-la)
@@ -581,18 +611,7 @@ public class TravelService {
                     .plusSeconds(travel.getDuration().longValue()).toString();
         }
 
-        TravelPreviewDTO travelPreviewDTO = new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
-
-        return new TravelResponseDTO(
-                travel.getId(),
-                travel.getTravelStatus(),
-                travel.getTravelPeriod(),
-                driverResponseDTO,
-                travel.getStudentTravels(),
-                travel.getCreatedAt(),
-                travel.getStartHourTravel(),
-                travelPreviewDTO
-        );
+        return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
     }
 
     private DriverResponseDTO driverMapper(Driver driver) {
@@ -610,6 +629,27 @@ public class TravelService {
                 driver.getTotalTrips(),
                 driver.getCustomer().getId()
         );
+    }
+
+    private StandardRouteSimpleResponseDTO standardRouteSimpleMapper(StandardRoute standardRoute) {
+        return new StandardRouteSimpleResponseDTO(
+                standardRoute.getId(),
+                standardRoute.getRouteName(),
+                standardRoute.getRouteDescription(),
+                standardRoute.getTravelPeriods(),
+                standardRoute.getStatus()
+                );
+    }
+
+    private void setCountDriverTrips(Travel travel) {
+        Integer totalTrips = travel.getDriver().getTotalTrips();
+
+        if (totalTrips == null) totalTrips = 0;
+
+        // n° totaltrips armazenado + 1 da viagem recentemnete feita
+        int newValueOfTotalTrips = totalTrips += 1;
+
+        driverRepository.updateTotalTrips(newValueOfTotalTrips);
     }
 
     /*
@@ -648,7 +688,7 @@ public class TravelService {
             );
 
             // salva o cache no redis
-            travelTrackingStaticCache.saveStudentTravelTrackingData(studentTravelRouteStopTrackingCacheDTO);
+            travelTrackingStaticCacheService.saveStudentTravelTrackingData(studentTravelRouteStopTrackingCacheDTO);
         });
 
     }

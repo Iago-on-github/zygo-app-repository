@@ -38,5 +38,6 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
 
     boolean existsByDriverIdAndTravelStatusIn(UUID driverId, List<TravelStatus> status);
 
-    StandardRoute findStandardRouteByTravelId(UUID travelId);
+    @Query("SELECT t.standardRoute FROM Travel t WHERE t.id = :travelId")
+    StandardRoute findStandardRouteByTravelId(@Param("travelId") UUID travelId);
 }
