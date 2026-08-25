@@ -152,10 +152,6 @@ public class StudentRouteStopService {
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
-        // ⚠️ DEBUG: Verifique o que está vindo do banco
-        System.out.println("=== PERÍODOS DA ROTA NO BANCO: " + standardRoute.getTravelPeriods());
-        System.out.println("=== TAMANHO DA LISTA: " + (standardRoute.getTravelPeriods() != null ? standardRoute.getTravelPeriods().size() : "NULL"));
-        System.out.println("=== PERÍODO INFORMADO: " + travelPeriodByStudent);
 
         if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("Rota padrão está INATIVA no sistema: " + standardRouteId);
