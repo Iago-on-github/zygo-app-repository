@@ -5,6 +5,9 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -21,4 +24,8 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
     Optional<Driver> findByEmailOrTelephone(String email, String telephone);
 
     Page<Driver> findAllByStatus(GeneralStatus status, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Driver d SET d.totalTrips = :newValueOfTotalTrips")
+    void updateTotalTrips(@Param("newValueOfTotalTrips") int newValueOfTotalTrips);
 }
