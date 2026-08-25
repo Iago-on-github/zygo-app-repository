@@ -3,6 +3,8 @@ package com.travel_system.backend_app.controller;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
+import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -168,12 +171,68 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Troca de Motorista da viagem",
+            description = "Realiza a troca do Motorista da viagem \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Motorista**: Obrigatório estar ATIVO no sistema. \n" +
+                    "- **Viagem:**: O novo motorista NÃO PODE ter outra viagem em andamento ou pendente no momento do vínculo. \n" +
+                    "- **Customer**: Ambos devem ser do mesmo Customer (cliente) \n" +
+                    "- **Status Viagem: **: Não é permitido realizar essa operação em Viagens com status = 'CANCELLED' ou 'FINISH'.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Novo motorista vinculado, troca realizada com sucesso",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_USER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "400", description = "Novo Motorista inativo no sistema",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404",
+                    description = "Recurso não encontrado. Possíveis causas:\n" +
+                            "- **Viagem não encontrada**: A viagem informada na URL não existe no sistema;\n" +
+                            "- **Novo motorista não localizado**: O novo motorista não foi encontrado no banco",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409",
+                    description = "Conflito na viagem. Possíveis causas: \n" +
+                            "- **Motorista c/ viagem:**: O novo motorista já possui uma viagem PENDENTE ou EM ANDAMENTO no sistema\n" +
+                            "- **Customer**: Novo Motorista não é do mesmo Customer.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PutMapping("/{travelId}/change/{driverId}")
     public ResponseEntity<Void> driverChange(@PathVariable UUID travelId, @PathVariable UUID driverId) {
         travelService.driverChanged(travelId, driverId);
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Cancelamento da viagem",
+            description = "Realiza o cancelamento da viagem, desvinculando todos os estudantes \n" +
+                    "### Regras de Negócio: \n" +
+                    "- **Viagem**: A viagem precisa obrigatoriamente estar com status PENDING. \n",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Viagem cancelada com sucesso",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_USER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404",
+                    description = "Recurso não encontrado. \n" +
+                            "- **Viagem não encontrada**: A viagem informada na URL não existe no sistema;\n" +
+                            "- **Viagem com status inapropriado**: A viagem não está com status PENDING. \n",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409",
+                    description = "Conflito na viagem. Possíveis causas: \n" +
+                            "- **Customer**: Estudante a ser desvinculado não é do mesmo Customer da viagem.",
+                    content = @Content(schema = @Schema(hidden = true)))
+    })
     @PutMapping("/{travelId}/cancel")
     public ResponseEntity<Void> cancelTravel(@PathVariable UUID travelId) {
         travelService.cancelTravel(travelId);
@@ -215,6 +274,20 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Viagem que o estudante está embarcado",
+            description = "Retorna apenas a viagem na qual o estudante está atualmente embarcado. \n",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "desvinculo do estudante realizado com sucesso. Sem body retornado.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_USER'.",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
     @GetMapping("/activeTrips")
     public ResponseEntity<ActiveStudentTravelDTO> getActiveTravelByStudent(Authentication auth) {
         String studentEmail = auth.getName();
@@ -236,7 +309,7 @@ public class TravelController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "ados de preview obtidos com sucesso. Retorna a estrutura com o cálculo do horário estimado de chegada.",
+            @ApiResponse(responseCode = "200", description = "Dados de preview obtidos com sucesso. Retorna a estrutura com o cálculo do horário estimado de chegada.",
                     content = @Content(schema = @Schema(implementation = TravelPreviewDTO.class))),
             @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
                     content = @Content(mediaType = "application/json", schema = @Schema(hidden = true))),
@@ -246,5 +319,29 @@ public class TravelController {
     @GetMapping("/{travelId}/preview")
     public ResponseEntity<TravelPreviewDTO> getTravelPreview(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelService.getTravelPreview(travelId));
+    }
+
+    @Operation(
+            summary = "Obter a Rota Padrão vinculada à viagem ",
+            description = "Retorna os dados da Rota Pardrão + os Pontos de Parada vinculados à mesma (se houver). \n" +
+                    "### Regras de Negócio: \n" +
+                    "- O Motorista deve vincular a Rota Padrão à viagem durante a criação. \n" +
+                    "- Deve poder ser consultado APENAS após a criação da viagem.",
+            tags = {"Travels"},
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Rota Padrão retornada com sucesso. A Estrutura contém dados como: Nome, Descrição, Lat/Lng, Pontos de Parada, Período e Status.",
+                content = @Content(schema = @Schema(implementation = StandardRouteResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
+                    content = @Content(mediaType = "application/json", schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "404", description = "Viagem não encontrada no banco de dados.",
+                    content = @Content(schema = @Schema(hidden = true))),
+            @ApiResponse(responseCode = "409", description = "Nenhuma Rota Padrão encontrada para a viagem em questão",
+                    content = @Content(schema = @Schema(hidden = true))),
+    })
+    @GetMapping("/{travelId}/standard")
+    public ResponseEntity<StandardRouteResponseDTO> getTravelStandardRoute(@PathVariable UUID travelId) {
+        return ResponseEntity.ok().body(travelService.getTravelStandardRoute(travelId));
     }
 }
