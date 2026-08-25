@@ -127,7 +127,7 @@ public class TravelControllerIT extends IntegrationTestBase {
 //            travel = new Travel(null, null, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer);
 //            travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
             travelPreviewDTO = new TravelPreviewDTO(123.45, 2.5, "Feira de Santana", "14:30");
         }
@@ -218,7 +218,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("Deve lançar exception quando o motorista não existir")
             void shouldReturnNotFoundWhenDriverDoesNotExist() throws Exception {
-                TravelRequestDTO withoutDriver = new TravelRequestDTO(UUID.randomUUID(), TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+                TravelRequestDTO withoutDriver = new TravelRequestDTO(UUID.randomUUID(), null, TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
                 mockMvc.perform(post(PATH_CONTROLLER + "/" + "create").with(user(AUTH_USER)
                                         .authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
@@ -268,7 +268,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             @Test
             @DisplayName("Deve lançar exception quando o período da viagem não for informado")
             void shouldRejectTravelCreationWhenTravelPeriodIsNull() throws Exception {
-                TravelRequestDTO withoutPeriod = new TravelRequestDTO(driver.getId(), null, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+                TravelRequestDTO withoutPeriod = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
                 mockMvc.perform(post(PATH_CONTROLLER + "/" + "create").with(user(AUTH_USER)
                                         .authorities(new SimpleGrantedAuthority("ROLE_DRIVER")))
@@ -325,7 +325,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel = new Travel(null, TravelStatus.PENDING, driver, Instant.parse("2026-07-16T10:00:00Z"), null, TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
             travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
             routeDetailsDTO = new RouteDetailsDTO(1000.0, 36.3, "encoded_polyline_route");
 
@@ -509,7 +509,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             travel.setStudentTravels(Set.of(studentTravel));
             travelRepository.save(travel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING, -38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
             completePathController = PATH_CONTROLLER + "/" + travel.getId() + "/end";
 
@@ -879,7 +879,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
             studentRepository.save(student);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
         }
 
         @Test
@@ -1088,7 +1088,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
             studentRepository.save(student);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(),null, TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
             completePathController = PATH_CONTROLLER + "/" + travel.getId() + "/change/" + driverCandidate.getId();
         }
@@ -1244,7 +1244,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             student = new Student(null, "email@exemplo.com", "senha123", "studentName", "studentLastName", "11999999999", "perfil.png", GeneralStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now(), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
             studentRepository.save(student);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
 
             completePathController = PATH_CONTROLLER + "/" + travel.getId() + "/cancel";
         }
@@ -1392,7 +1392,7 @@ public class TravelControllerIT extends IntegrationTestBase {
             studentTravel = new StudentTravel(null, travel, student, true, Instant.now(), null, null, StudentTravelStatus.ACTIVE);
             studentTravelRepository.save(studentTravel);
 
-            travelRequestDTO = new TravelRequestDTO(driver.getId(), TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
+            travelRequestDTO = new TravelRequestDTO(driver.getId(), null, TravelPeriod.MORNING,-38.501200, -12.971800, -38.482300, -12.950400, "Feira de Santana");
             travelCacheDTO = new TravelCacheDTO(travel.getId(), UUID.randomUUID(), UUID.randomUUID(), travel.getTravelStatus(), -13.232, -39.1322, "encoded_polyline", null, null);
             studentTravelCacheDTO = new StudentTravelCacheDTO(studentTravel.getId(), student.getEmail(), student.getId(), StudentTravelStatus.ACTIVE, true);
 
