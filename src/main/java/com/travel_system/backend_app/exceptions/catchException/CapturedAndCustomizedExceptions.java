@@ -75,7 +75,11 @@ public class CapturedAndCustomizedExceptions {
     @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
 
+    @ExceptionHandler(StandardRouteException.class)
+    public final ResponseEntity<StandardError> StandardRouteException(StandardRouteException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
