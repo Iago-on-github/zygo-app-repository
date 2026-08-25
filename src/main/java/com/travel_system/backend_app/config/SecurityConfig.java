@@ -109,6 +109,9 @@ public class SecurityConfig {
     }
 
     private void configureTravelTrackingEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/tracking/{travelId}/standard").hasAnyRole(ROLE_USER, ROLE_DRIVER);
+        auth.requestMatchers("/v1/tracking/{travelId}/route-stops").hasAnyRole(ROLE_USER, ROLE_DRIVER);
+
         auth.requestMatchers("/v1/tracking/**").hasRole(ROLE_DRIVER);
     }
 
