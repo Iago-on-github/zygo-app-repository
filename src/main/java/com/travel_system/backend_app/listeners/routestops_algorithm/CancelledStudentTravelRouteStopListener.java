@@ -4,12 +4,15 @@ import com.travel_system.backend_app.events.routestops_algorithm.CancelledStuden
 import com.travel_system.backend_app.repository.StudentTravelRouteStopRepository;
 import com.travel_system.backend_app.service.TravelTrackingNotificationService;
 import com.travel_system.backend_app.service.TravelTrackingStaticCacheService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CancelledStudentTravelRouteStopListener {
+    private final Logger log = LoggerFactory.getLogger(CancelledStudentTravelRouteStopListener.class);
 
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
     private final StudentTravelRouteStopRepository studentTravelRouteStopRepository;
@@ -24,6 +27,11 @@ public class CancelledStudentTravelRouteStopListener {
     @EventListener
     @Async
     public void handleCancelledStudentTravelRouteStop(CancelledStudentTravelRouteStopEvent event) {
+        if (event == null) {
+            log.warn("[handleCancelledStudentTravelRouteStop - Evento nulo recebido, ignorando processamento");
+            return;
+        }
+
         studentTravelRouteStopRepository.updateCancelledStatus(event.studentTravelId(), event.routeStopId(), event.studentTravelRouteStopStatus(), event.lastValidatedAt());
 
         // notificação
