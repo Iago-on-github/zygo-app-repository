@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.events;
+package com.travel_system.backend_app.events.routestops_algorithm;
 
 /*
 * dto de evento para aproximação do ponto de parada

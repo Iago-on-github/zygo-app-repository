@@ -1,10 +1,10 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.ConfirmStudentTravelRouteStopReachedEvent;
-import com.travel_system.backend_app.events.InitializeStudentTravelRouteStopEvent;
-import com.travel_system.backend_app.events.ProcessStudentTravelRouteStopApproachingEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.ConfirmStudentTravelRouteStopReachedEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.InitializeStudentTravelRouteStopEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.ProcessStudentTravelRouteStopApproachingEvent;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
-import com.travel_system.backend_app.events.StudentTravelRouteStopsCacheEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.StudentTravelRouteStopsCacheEvent;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
@@ -610,7 +610,7 @@ public class RedisTrackingService {
     }
 
     //
-    // PONTOS DE PARADA
+    // PONTOS DE PARADA [route_stop_algorithm]
     //
 
     // armazena os dados de inicialização do monitoriamento ponto de parada para o estudante (quando o estudante entra na viagem)

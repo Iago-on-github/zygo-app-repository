@@ -40,7 +40,6 @@ public class LocationService {
     private final RedisTrackingService redisTrackingService;
     private final TravelCacheService travelCacheService;
     private final TravelTrackingNotificationService trackingNotificationService;
-    private final TravelTrackingStaticCache travelTrackingStaticCache;
     private final StudentTravelRouteStopService studentTravelRouteStopService;
 
     private final Logger log = LoggerFactory.getLogger(LocationService.class);
@@ -48,16 +47,15 @@ public class LocationService {
     private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
     private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
 
-    public LocationService(GeoPositionRepository geoPositionRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, TravelRepository travelRepository, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService, TravelStudentStateCacheService travelStudentStateCacheService, TravelTrackingStaticCache travelTrackingStaticCache, StudentTravelRouteStopService studentTravelRouteStopService) {
+    public LocationService(GeoPositionRepository geoPositionRepository, TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService, StudentTravelRouteStopService studentTravelRouteStopService) {
         this.geoPositionRepository = geoPositionRepository;
+        this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.routeCalculationService = routeCalculationService;
         this.travelService = travelService;
-        this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.travelCacheService = travelCacheService;
         this.trackingNotificationService = trackingNotificationService;
-        this.travelTrackingStaticCache = travelTrackingStaticCache;
         this.studentTravelRouteStopService = studentTravelRouteStopService;
     }
 
@@ -202,9 +200,6 @@ public class LocationService {
 
             // processamento p/ cada estudante desvinculado
             studentIdsToAutoDisconnect.forEach(studentId -> {
-                // limpa cache
-                travelTrackingStaticCache.removeStudentTravelTrackingCache(travelId, studentId);
-
                 /*
                 * algoritmo que detecta se o estudante desembarcou no RouteStop dele após ele sair da viagem
                 * */
@@ -212,14 +207,11 @@ public class LocationService {
 
                 // manda notificação
                 trackingNotificationService.sendAutoDisconnectStudentNotification(travel, studentId);
-
-                // limpa o redis para o contexto do algoritmo de proximidade do routestop
-                redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentId);
             });
 
         }
     }
-    
+
     // distância entre o motorista e o estudante
     protected List<DistanceResponseDTO> distanceBetweenPositions(UUID travelId, LiveLocationDTO driverPosition) {
         long start = System.currentTimeMillis(); // debugging ttl
@@ -252,44 +244,6 @@ public class LocationService {
 
         log.info("[distanceBetweenPositions] Viagem {}: Cálculo concluído. {} alunos processados com sucesso. TTL: {}", travelId, results.size(), executingTime);
         return results;
-    }
-
-    // verifica a distância entre o veículo e o routeStop do aluno
-    protected DistanceResponseDTO distanceBetweenVehicleAndRouteStop(UUID travelId, UUID studentTravelId, LiveLocationDTO driverPosition) {
-
-        // recupera o cache armazenado no momento que o aluno entrou na viagem
-        StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCache.getStudentTravelTrackingData(travelId, studentTravelId);
-
-        if (trackingData == null) {
-            log.warn("[distanceBetweenVehicleAndRouteStop] - cache do contexto não existe mais ou não foi iniciado ainda");
-            return null;
-        }
-
-        if (driverPosition.latitude() == null || driverPosition.longitude() == null) {
-            log.warn("[distanceBetweenVehicleAndRouteStop] - dados de localizaçao do motorista não encontrado");
-            return null;
-        }
-
-        UUID studentId = trackingData.studentId();
-        Double routeStopLatitude = trackingData.routeStopLatitude();
-        Double routeStopLongitude = trackingData.routeStopLongitude();
-
-        log.info("studentTravelId {}: Iniciando cálculo de distância entre a viagem e o ponto de parada ", studentTravelId);
-
-        Double distance = routeCalculationService.calculateHaversineDistanceInMeters(
-                routeStopLatitude,
-                routeStopLongitude,
-                driverPosition.latitude(),
-                driverPosition.longitude()
-        );
-
-        // verifica distância inválida
-        if (distance == null || distance < 0) {
-            log.warn("[distanceBetweenVehicleAndRouteStop] - distance retornada é inválida");
-            return null;
-        }
-
-        return new DistanceResponseDTO(studentId, distance);
     }
 
     private void applyStudentPositionUpdate(UUID studentTravelId, LiveCoordinates actually) {

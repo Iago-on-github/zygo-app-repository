@@ -32,4 +32,22 @@ public interface StudentTravelRouteStopRepository extends JpaRepository<StudentT
             @Param("status") StudentTravelRouteStopStatus status,
             @Param("lastValidatedAt") Instant lastValidatedAt,
             @Param("reachedAt") Instant reachedAt);
+
+    /*
+     * realiza o update para o cancelled
+     * */
+    @Modifying
+    @Query("""
+    UPDATE StudentTravelRouteStop s SET 
+        s.studentTravelRouteStopStatus = :status, 
+        s.lastValidatedAt = :lastValidatedAt
+        WHERE s.studentTravel.id = :studentTravelId
+        AND s.routeStop.id =:routeStopId
+""")
+    void updateCancelledStatus(
+            @Param("studentTravelId") UUID studentTravelId,
+            @Param("routeStopId") UUID routeStopId,
+            @Param("status") StudentTravelRouteStopStatus status,
+            @Param("lastValidatedAt") Instant lastValidatedAt
+    );
 }

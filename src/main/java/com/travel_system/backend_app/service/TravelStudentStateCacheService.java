@@ -42,6 +42,7 @@ public class TravelStudentStateCacheService {
         this.redisOperations = redisTemplate.opsForHash();
         this.objectMapper = objectMapper;
     }
+
     // retorna o status armazenado
     private StudentTravelStatus getStudentTravelStatus(UUID travelId, String studentEmail) {
         if (travelId == null || studentEmail == null) {

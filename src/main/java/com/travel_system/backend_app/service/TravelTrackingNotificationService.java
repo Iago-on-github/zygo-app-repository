@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.InvalidStudentTravelRouteStopEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.CancelledStudentTravelRouteStopEvent;
+import com.travel_system.backend_app.events.routestops_algorithm.InvalidStudentTravelRouteStopEvent;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
@@ -126,7 +127,7 @@ public class TravelTrackingNotificationService {
         firebaseNotificationSender.sendPushNotification(studentCommand);
     }
 
-    // STUDENT NOT ASSOCIATED TO ROUTESTOP
+    // STUDENT NOT ASSOCIATED TO ROUTE_STOP
     public void sendNotAssociatedToRouteStopNotification(InvalidStudentTravelRouteStopEvent studentTravelRouteStopEvent) {
         UUID travelId = studentTravelRouteStopEvent.travelId();
         UUID studentId = studentTravelRouteStopEvent.studentId();
@@ -176,6 +177,42 @@ public class TravelTrackingNotificationService {
         // se não for a primeira notificação, envia pushs por tempo padrão multiplicado a cada notificação enviada
         handleInvalidRouteNotification(travelId, studentId, countInvalidRouteNotifications, studentCommand);
 
+    }
+
+    // CANCELLED ROUTE_STOP_ALGORITHM
+    public void sendCancelledRouteStopNotification(CancelledStudentTravelRouteStopEvent cancelledStudentTravelRouteStopEvent) {
+        UUID travelId = cancelledStudentTravelRouteStopEvent.travelId();
+        UUID studentId = cancelledStudentTravelRouteStopEvent.studentId();
+        UUID customerId = cancelledStudentTravelRouteStopEvent.customerId();
+        StudentTravelRouteStopStatus studentTravelRouteStopStatus = cancelledStudentTravelRouteStopEvent.studentTravelRouteStopStatus();
+
+        // manda somente para o user em questão
+        NotificationAudience specificUser = NotificationAudience.SPECIFIC_USER;
+
+        String title = "Viagem cancelada.";
+        String message = "Seu(s) Ponto(s) de Parada(s) não serão rastreados pois a viagem foi cancelada";
+        String link = "/travels/" + travelId + "/tracking";
+
+        Map<String, String> data = Map.of(
+                "travelId", travelId.toString(),
+                "studentId", studentId.toString(),
+                "studentTravelRouteStopStatus", studentTravelRouteStopStatus.toString()
+        );
+
+        PushNotificationCommandDTO studentCommand = new PushNotificationCommandDTO(
+                specificUser,
+                studentId,
+                customerId,
+                travelId,
+                title,
+                message,
+                link,
+                Priority.NORMAL,
+                data
+        );
+
+        // envia notificação
+        firebaseNotificationSender.sendPushNotification(studentCommand);
     }
 
     // decide quando enviar as notifications para InvalidRoute

@@ -22,6 +22,12 @@ import java.util.UUID;
 
 @Repository
 public interface StandardRouteRepository extends JpaRepository<StandardRoute, UUID> {
+
+    // sobreescreve o método padrão "findById" do JPA e força o carregamento dos "travelPeriods"
+    @Override
+    @EntityGraph(attributePaths = {"travelPeriods"})
+    Optional<StandardRoute> findById(UUID id);
+
     // busca em apenas uma query entidades relacionadas
     @EntityGraph(attributePaths = {"routeStopAssignments", "routeStopAssignments.routeStop", "customer"})
     Page<StandardRoute> findAllByCustomerId(UUID customerId, Pageable pageable);
@@ -29,35 +35,6 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
     boolean existsByRouteNameAndCustomerId(String name, UUID customerId);
 
     boolean existsByRouteNameAndCustomerIdAndIdNot(String name, UUID customerId, UUID standardRouteId);
-
-    // inicialmente os routeStops são null, jaq o hibernate não deixa fazer um DTO mapping dentro do outro
-    // os routestops são buscados através da consulta "findAssignmentsByRouteId", e relacionados no próprio service
-/*    @Query("""
-    SELECT new com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO(
-        sr.id,
-        sr.routeName,
-        sr.routeDescription,
-        sr.originLatitude,
-        sr.originLongitude,
-        sr.destinationLatitude,
-        sr.destinationLongitude,
-        sr.standardGeometry,
-        sr.travelPeriods,
-        null, 
-        sr.customer.id,
-        sr.status,
-        sr.createdAt,
-        sr.updatedAt
-    )
-    FROM StandardRoute sr
-    WHERE sr.id = :standardRouteId
-      AND sr.status = :status
-""")
-    Optional<StandardRoute> findRouteBaseByIdAndStatus(
-            @Param("standardRouteId") UUID standardRouteId,
-            @Param("status") GeneralStatus status
-    );*/
-
 
     @Query("""
     SELECT new com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResponseDTO(

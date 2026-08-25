@@ -1,44 +1,27 @@
 package com.travel_system.backend_app.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.config.constants.CacheConstants;
-import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.StudentTravelRouteStop;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
-import com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelRouteStopDTO;
-import com.travel_system.backend_app.repository.StudentTravelRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import com.travel_system.backend_app.config.constants.CacheConstants;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
-import static com.travel_system.backend_app.config.constants.CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY;
 
 @Service
-public class TravelTrackingStaticCache {
-    Logger log = LoggerFactory.getLogger(TravelTrackingStaticCache.class);
-
-    private final StudentTravelRepository studentTravelRepository;
+public class TravelTrackingStaticCacheService {
+    Logger log = LoggerFactory.getLogger(TravelTrackingStaticCacheService.class);
 
     private final RedisTemplate<String, String> redisTemplate;
-    private final HashOperations<String, String, String> redisOperations;
 
     private final ObjectMapper objectMapper;
 
-    public TravelTrackingStaticCache(RedisTemplate<String, String> redisTemplate, HashOperations<String, String, String> redisOperations, StudentTravelRepository studentTravelRepository, ObjectMapper objectMapper) {
+    public TravelTrackingStaticCacheService(RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
-        this.redisOperations = redisTemplate.opsForHash();
-        this.studentTravelRepository = studentTravelRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -58,7 +41,7 @@ public class TravelTrackingStaticCache {
             // serializa o DTO inteiro para JSON
             String jsonValue = objectMapper.writeValueAsString(cacheDTO);
 
-            redisOperations.put(key, field, jsonValue);
+            redisTemplate.opsForHash().put(key, field, jsonValue);
 
             log.debug("dados de tracking salvos no cache para studentTravel: {}", cacheDTO.studentTravelId());
 
@@ -72,14 +55,16 @@ public class TravelTrackingStaticCache {
         String key = CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY + travelId;
         String field = studentTravelId.toString();
 
-        String trackingCacheResult = redisOperations.get(key, field);
+        Object trackingCacheResult = redisTemplate.opsForHash().get(key, field);
 
         if (trackingCacheResult == null) {
             return null;
         }
 
         try {
-            return objectMapper.readValue(trackingCacheResult, StudentTravelRouteStopTrackingCacheDTO.class);
+            String trackingCacheString = (String) trackingCacheResult;
+
+            return objectMapper.readValue(trackingCacheString, StudentTravelRouteStopTrackingCacheDTO.class);
         } catch (JsonProcessingException e) {
             log.error("Erro ao desserializar cacheDTO do JSON", e);
             return null;
@@ -92,7 +77,7 @@ public class TravelTrackingStaticCache {
         String key = CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY + travelId;
         String field = studentTravelId.toString();
 
-        redisOperations.delete(key, field);
+        redisTemplate.opsForHash().delete(key, field);
     }
 
 }

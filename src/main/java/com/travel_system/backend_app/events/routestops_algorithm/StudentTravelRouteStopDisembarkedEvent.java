@@ -1,8 +1,6 @@
-package com.travel_system.backend_app.events;
+package com.travel_system.backend_app.events.routestops_algorithm;
 
 import com.travel_system.backend_app.model.enums.StudentTravelRouteStopStatus;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
 import java.util.UUID;

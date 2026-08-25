@@ -67,8 +67,9 @@ public class PushNotificationService {
         Double longitude = vehicleLocationRequest.longitude();
         Double speed = vehicleLocationRequest.speed();
         Double heading = vehicleLocationRequest.heading();
+        Instant currentVehicleLocationTimestamp = Instant.now();
 
-        LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null);
+        LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null, currentVehicleLocationTimestamp);
         Set<StudentTrackingPositionDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
         List<DistanceResponseDTO> differencePosition = locationService.distanceBetweenPositions(travelId, driverPosition);
 
@@ -403,13 +404,16 @@ public class PushNotificationService {
         double lastCalcLat = (routeCalculateReference != null && routeCalculateReference.lastCalcLat() != null) ? routeCalculateReference.lastCalcLat() : 0.0;
         double lastCalcLng = (routeCalculateReference != null && routeCalculateReference.lastCalcLng() != null) ? routeCalculateReference.lastCalcLng() : 0.0;
 
+        Instant currentVehicleLocationTimestamp = Instant.now();
+
         return new LiveLocationDTO(
                 latitude,
                 longitude,
                 geometry,
                 distance,
                 lastCalcLat,
-                lastCalcLng);
+                lastCalcLng,
+                currentVehicleLocationTimestamp);
     }
 
     private boolean hasEnoughCooldownForStopped(Instant lastEtaNotify, Instant now, long notificationCooldown) {

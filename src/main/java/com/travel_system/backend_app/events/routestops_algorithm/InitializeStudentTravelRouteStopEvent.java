@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.events;
+package com.travel_system.backend_app.events.routestops_algorithm;
 
 import com.travel_system.backend_app.model.enums.StudentTravelRouteStopStatus;
 
