@@ -362,7 +362,7 @@ public class TravelService {
         UUID driverCandidateCustomerId = driver.getCustomer().getId();
 
         if (!isSameCustomer(actuallyDriverCustomerId, driverCandidateCustomerId)) {
-            throwTravelException("Motoristas devem pertencer ao mesmo Customer");
+            throw new CustomerMismatchException("Motoristas devem pertencer ao mesmo Customer");
         }
 
         actualTrip.setDriver(driver);
@@ -464,6 +464,10 @@ public class TravelService {
     // recupera a rota padrão da viagem
     public StandardRouteResponseDTO getTravelStandardRoute(UUID travelId) {
         StandardRoute standardRouteByTravel = travelRepository.findStandardRouteByTravelId(travelId);
+
+        if (standardRouteByTravel == null) {
+            throw new TravelException("Rota Padrão não encontrada para a viagem: " + travelId);
+        }
 
         return standardRouteResponseMapper.toDTO(standardRouteByTravel);
     }
