@@ -223,6 +223,10 @@ public class StudentTravelRouteStopService {
     * realiza a confirmação de 'cancelled' caso a viagem seja cancelada
     * */
     public void cancelledStudentRouteStop(UUID travelId, UUID studentTravelId, UUID customerId) {
+        if (travelId == null || studentTravelId == null || customerId == null) {
+            throw new IllegalArgumentException("Parâmetros requeridos inválidos ou não inseridos");
+        }
+
         // cache estático do tracking
         StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCacheService.getStudentTravelTrackingData(travelId, studentTravelId);
 
