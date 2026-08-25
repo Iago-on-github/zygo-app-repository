@@ -812,7 +812,8 @@ class RedisTrackingServiceTest {
                     "POINT(-46.6333 -23.5505)",
                     125.5,
                     -23.5490,
-                    -46.6345
+                    -46.6345,
+                    null
             );
 
             redisTrackingService.keepMemoryBetweenDriverPings(travelId, liveLocationDTO);
@@ -837,7 +838,8 @@ class RedisTrackingServiceTest {
                     "POINT(-46.6333 -23.5505)",
                     125.5,
                     -23.5490,
-                    -46.6345
+                    -46.6345,
+                    null
             );
 
             redisTrackingService.keepMemoryBetweenDriverPings(null, liveLocationDTO);

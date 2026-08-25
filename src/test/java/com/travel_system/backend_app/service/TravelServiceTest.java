@@ -81,7 +81,7 @@ class TravelServiceTest {
 
         driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
 
-        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), TravelPeriod.MORNING, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
+        travelRequestDTO = new TravelRequestDTO(UUID.randomUUID(), null, TravelPeriod.MORNING, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
 
         student = new Student(UUID.randomUUID(), "ana.souza@exemplo.com", "Senha@123", "Ana", "Souza", "+55 11 99999-1234", "https://cdn.exemplo.com/students/ana-souza.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 0), LocalDateTime.of(2026, 7, 16, 12, 0), customer, InstitutionType.UNIVERSITY, "Engenharia de Software");
 
@@ -172,7 +172,7 @@ class TravelServiceTest {
         @Test
         @DisplayName("Deve lançar exception quando o período da viagem não for encontrado")
         void throwTravelExceptionWhenTravelPeriodIsNull() {
-            TravelRequestDTO newTravelReqDTO = new TravelRequestDTO(UUID.randomUUID(), null, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
+            TravelRequestDTO newTravelReqDTO = new TravelRequestDTO(UUID.randomUUID(), null, TravelPeriod.MORNING, -38.501234, -12.973456, -38.512345, -12.985678, "Feira de Santana");
 
             when(driverRepository.findById(newTravelReqDTO.driverId())).thenReturn(Optional.of(driver));
 
