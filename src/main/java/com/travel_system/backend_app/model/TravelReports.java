@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -7,7 +8,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "TRAVEL_DATA_REPORT")
-public class TravelReports {
+public class TravelReports extends BaseTenantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

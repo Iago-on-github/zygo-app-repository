@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.NotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
 import jakarta.persistence.*;
@@ -11,7 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "push_notification_tokens")
-public class DeviceToken {
+public class DeviceToken extends BaseTenantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

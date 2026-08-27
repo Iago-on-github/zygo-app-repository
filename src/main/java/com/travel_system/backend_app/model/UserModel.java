@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -13,7 +14,7 @@ import java.util.*;
 @Entity
 @Table(name = "USER_TABLE")
 @Inheritance(strategy = InheritanceType.JOINED)
-public class UserModel {
+public class UserModel extends BaseTenantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

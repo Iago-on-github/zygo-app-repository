@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import jakarta.persistence.*;
@@ -11,7 +12,7 @@ import java.util.*;
 
 @Entity
 @Table(name = "standard_route")
-public class StandardRoute {
+public class StandardRoute extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

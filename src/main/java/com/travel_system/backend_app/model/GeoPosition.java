@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -8,7 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "GEO_POSITION_TABLE")
-public class GeoPosition {
+public class GeoPosition extends BaseTenantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;

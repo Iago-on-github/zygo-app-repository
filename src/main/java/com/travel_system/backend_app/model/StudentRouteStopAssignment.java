@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -10,7 +11,7 @@ import java.util.*;
 
 @Entity
 @Table(name = "student_route_stop_assignment")
-public class StudentRouteStopAssignment {
+public class StudentRouteStopAssignment extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

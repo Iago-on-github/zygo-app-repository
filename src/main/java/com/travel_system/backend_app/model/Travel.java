@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import jakarta.persistence.*;
@@ -11,7 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "TRAVELS_DATA")
-public class Travel {
+public class Travel extends BaseTenantEntity {
     // status + identificação
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

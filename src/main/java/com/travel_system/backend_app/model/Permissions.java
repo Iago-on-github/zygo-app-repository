@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 

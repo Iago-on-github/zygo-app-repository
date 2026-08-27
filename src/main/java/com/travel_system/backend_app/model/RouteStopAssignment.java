@@ -4,6 +4,7 @@ package com.travel_system.backend_app.model;
 * responsável por definir a ordem das paradas na rota padrão durante a viagem
 * */
 
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
 
@@ -12,7 +13,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "route_stop_assignment",
         uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "standard_route_id"}))
-public class RouteStopAssignment {
+public class RouteStopAssignment extends BaseTenantEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
