@@ -1,7 +1,9 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.config.TenantConfig;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.controller.RabbitMQAuthController;
+import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.UserRepository;
 import org.slf4j.Logger;
@@ -12,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class RabbitMQAuthService {
@@ -50,6 +54,13 @@ public class RabbitMQAuthService {
             String subjectFromToken = tokenConfig.getSubjectFromToken(password);
             UUID id = UUID.fromString(username);
 
+            // recupera o CustomerID do token e injeta na Thread atual
+            UUID customerIdFromToken = tokenConfig.getCustomerIdFromToken(password);
+            if (customerIdFromToken != null) {
+                TenantContext.setCurrentTenant(customerIdFromToken);
+            }
+
+
             boolean validateUser = userRepository.existsByEmailAndIdAndStatus(subjectFromToken, id, GeneralStatus.ACTIVE);
 
             if (!validateUser) {
@@ -63,6 +74,8 @@ public class RabbitMQAuthService {
         } catch (Exception e) {
             log.error("[authenticateMessaging] Erro ao processar autenticação de mensageria: {}", e.getMessage());
             return false;
+        } finally {
+            TenantContext.removeCurrentTenant();
         }
     }
 
@@ -93,27 +106,51 @@ public class RabbitMQAuthService {
     }
 
     public boolean authenticateTopic(String usernameId, String routingKey, String permission) {
-        String[] routingKeyParts = routingKey.split("[/.]");
-        String travelIdStr = routingKeyParts[routingKeyParts.length - 1];
+        Matcher matcher = TOPIC_PATTERN.matcher(routingKey);
+
+        // valida a estrutura da routingKey recebida
+        if (!matcher.matches()) {
+            log.warn("[authenticateTopic] Estrutura de tópico inválida: {}", routingKey);
+            return false;
+        }
+
+        String costumerIdStr = matcher.group(1);
+        String travelIdStr = matcher.group(2);
 
         try {
+            UUID customerId = UUID.fromString(costumerIdStr);
             UUID travelId = UUID.fromString(travelIdStr);
-            UUID studentId = UUID.fromString(usernameId);
+            UUID userId = UUID.fromString(usernameId);
 
-            if (permission.equals("publish")) {
-                log.info("[authenticateTopic] Motorista autenticado. Viagem: {} ", travelId);
+            // injeta o customerId do tópico na thread atual
+            TenantContext.setCurrentTenant(customerId);
+
+            // valida as permissões já com o hibernate aplicando o tenant nas consultas
+            if ("publish".equalsIgnoreCase(permission)) {
+                log.info("[authenticateTopic] Validando publicação do Motorista {} na Viagem {}", userId, travelId);
                 return travelService.isDriverLogged(usernameId, travelId);
             }
 
-            if (permission.equals("subscribe")) {
-                log.info("[authenticateTopic] Estudante autenticado. Viagem: {} ", travelId);
-                return travelService.isStudentLogged(studentId, travelId);
+            if ("subscribe".equalsIgnoreCase(permission)) {
+                log.info("[authenticateTopic] Validando inscrição do Estudante {} na Viagem {}", userId, travelId);
+                return travelService.isStudentLogged(userId, travelId);
             }
-        } catch (Exception e) {
-            log.error("[authenticateTopic] Erro na autorização de tópico. {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.error("[authenticateTopic] Erro ao converter UUIDs do tópico ou usuário: {}", e.getMessage());
             return false;
+        } finally {
+            TenantContext.removeCurrentTenant();
         }
 
         return false;
     }
+
+    // aceita tanto separadores de barra '/' quanto de ponto '.'
+    private static final Pattern TOPIC_PATTERN = Pattern.compile(
+            "^tenants[/.]" +
+                    "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})" +
+                    "[/.]travels[/.]" +
+                    "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})" +
+                    "[/.]location$"
+    );
 }
