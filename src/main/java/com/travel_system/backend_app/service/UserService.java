@@ -24,16 +24,17 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
         if (username == null || username.isBlank()) {
-            throw new EmptyMandatoryFieldsFound("Email não informado.");
+            throw new UsernameNotFoundException("Email não informado.");
         }
 
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-        UserModel user = repository.findUserByEmail(username);
+        /*UserModel user = repository.findUserByEmail(username);
 
         if (user == null) {
             throw new UsernameNotFoundException("Usuário não encontrado: " + username);
-        }
+        }*/
+
+        UserModel user = repository.findByEmailForAuthentication(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + username));
 
         return new CustomUserDetails(user);
     }

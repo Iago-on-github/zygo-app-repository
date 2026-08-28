@@ -57,11 +57,11 @@ public class StudentRouteStopService {
         checkValidUser(authenticatedUser);
 
         // valida mesmo Customer
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), standardRoute.getCustomer().getId());
+        validateSameCustomer(authenticatedUser.getCustomerId(), standardRoute.getCustomerId());
 
         boolean isStudent = authenticatedUser.getRoles().stream().anyMatch(role -> role.equals("ROLE_USER"));
 
-        UUID customerId = authenticatedUser.getCustomer().getId();
+        UUID customerId = authenticatedUser.getCustomerId();
 
         UUID targetStudentId;
         if (isStudent) {
@@ -73,7 +73,7 @@ public class StudentRouteStopService {
             Student targetStudent = studentRepository.findById(targetStudentId)
                     .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + targetStudentId));
 
-            validateSameCustomer(customerId, targetStudent.getCustomer().getId());
+            validateSameCustomer(customerId, targetStudent.getCustomerId());
         }
 
         StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository.findByStudentIdAndStandardRouteId(targetStudentId, standardRouteId)
@@ -93,13 +93,13 @@ public class StudentRouteStopService {
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
-        UUID customerId = authenticatedUser.getCustomer().getId();
+        UUID customerId = authenticatedUser.getCustomerId();
 
         // verifica se o user é válido (estudante, admin, platform_admin)
         checkValidUser(authenticatedUser);
 
         // valida mesmo Customer
-        validateSameCustomer(customerId, standardRoute.getCustomer().getId());
+        validateSameCustomer(customerId, standardRoute.getCustomerId());
 
         UUID studentIdFromDTO = routeStopStudentsRequestDTO.studentId();
         TravelPeriod travelPeriodFromDTO = routeStopStudentsRequestDTO.travelPeriod();
@@ -161,11 +161,11 @@ public class StudentRouteStopService {
             throw new DomainValidationException("O período informado (" + travelPeriodByStudent + ") não corresponde aos períodos da Rota Padrão");
         }
 
-        UUID customerId = authenticatedUser.getCustomer().getId(); // customer base = usuário autenticado
+        UUID customerId = authenticatedUser.getCustomerId(); // customer base = usuário autenticado
 
-        validateSameCustomer(customerId, routeStop.getCustomer().getId());
-        validateSameCustomer(customerId, standardRoute.getCustomer().getId());
-        validateSameCustomer(customerId, student.getCustomer().getId());
+        validateSameCustomer(customerId, routeStop.getCustomerId());
+        validateSameCustomer(customerId, standardRoute.getCustomerId());
+        validateSameCustomer(customerId, student.getCustomerId());
 
         boolean isAssignmentWithRouteStop = standardRoute.getRouteStopAssignments().stream()
                 .anyMatch(assignment -> assignment.getRouteStop().getId().equals(routeStopId));
@@ -198,13 +198,13 @@ public class StudentRouteStopService {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + studentId));
 
-        UUID customerId = authenticatedUser.getCustomer().getId();
-        validateSameCustomer(customerId, student.getCustomer().getId());
+        UUID customerId = authenticatedUser.getCustomerId();
+        validateSameCustomer(customerId, student.getCustomerId());
 
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
-        validateSameCustomer(customerId, standardRoute.getCustomer().getId());
+        validateSameCustomer(customerId, standardRoute.getCustomerId());
 
         if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("Rota padrão está INATIVA no sistema: " + standardRouteId);
@@ -220,7 +220,7 @@ public class StudentRouteStopService {
         RouteStop newRouteStop = routeStopRepository.findById(newRouteStopId)
                 .orElseThrow(() -> new EntityNotFoundException("Ponto de Parada não encontrado: " + newRouteStopId));
 
-        validateSameCustomer(customerId, newRouteStop.getCustomer().getId());
+        validateSameCustomer(customerId, newRouteStop.getCustomerId());
 
         if (newRouteStop.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("Ponto de Parada está INATIVO no sistema: " + newRouteStopId);
@@ -280,11 +280,11 @@ public class StudentRouteStopService {
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
-        UUID customerId = authenticatedUser.getCustomer().getId();
+        UUID customerId = authenticatedUser.getCustomerId();
 
-        validateSameCustomer(customerId, student.getCustomer().getId());
-        validateSameCustomer(customerId, routeStop.getCustomer().getId());
-        validateSameCustomer(customerId, standardRoute.getCustomer().getId());
+        validateSameCustomer(customerId, student.getCustomerId());
+        validateSameCustomer(customerId, routeStop.getCustomerId());
+        validateSameCustomer(customerId, standardRoute.getCustomerId());
 
         if (routeStop.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("Ponto de Parada está INATIVO no sistema: " + routeStopId);
@@ -332,7 +332,7 @@ public class StudentRouteStopService {
             throw new NotAuthorizedException("Apenas Estudantes ou Administradores podem realizar ações de Rotas Padrão");
         }
 
-        if (authenticatedUser.getCustomer() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
+        if (authenticatedUser.getCustomerId() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
         if (authenticatedUser.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountModificationException("Usuário não está ativo");
     }
 

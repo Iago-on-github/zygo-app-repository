@@ -22,7 +22,7 @@ public interface StudentRouteStopResponseMapper {
     @Mapping(target = "latitude", source = "assignment.routeStop.latitude")
     @Mapping(target = "longitude", source = "assignment.routeStop.longitude")
     @Mapping(target = "status", source = "assignment.routeStop.status")
-    @Mapping(target = "customerId", source = "assignment.routeStop.customer.id")
+    @Mapping(target = "customerId", source = "assignment.routeStop.customerId")
     @Mapping(target = "createdAt", source = "assignment.routeStop.createdAt")
     @Mapping(target = "updatedAt", source = "assignment.routeStop.updatedAt")
     @Mapping(target = "travelPeriods", source = "assignment.standardRoute.travelPeriods")

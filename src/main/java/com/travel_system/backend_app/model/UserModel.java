@@ -37,8 +37,6 @@ public class UserModel extends BaseTenantEntity {
     @JoinTable(name = "user_permissions", joinColumns = {@JoinColumn (name="id_user")},
     inverseJoinColumns = {@JoinColumn (name = "id_permission")})
     private List<Permissions> permissions = new ArrayList<>();
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Customer customer;
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<DeviceToken> deviceTokens = new HashSet<>();
 
@@ -55,7 +53,6 @@ public class UserModel extends BaseTenantEntity {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-        this.customer = customer;
     }
 
     public List<String> getRoles() {
@@ -152,14 +149,6 @@ public class UserModel extends BaseTenantEntity {
 
     public void setPermissions(List<Permissions> permissions) {
         this.permissions = permissions;
-    }
-
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
     }
 
     public Set<DeviceToken> getDeviceTokens() {

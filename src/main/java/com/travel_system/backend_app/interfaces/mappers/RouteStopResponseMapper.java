@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring")
 public interface RouteStopResponseMapper {
 
-    @Mapping(target = "customerId", source = "customer.id")
+    @Mapping(target = "customerId", source = "customerId")
     RouteStopResponseDTO toDTO(RouteStop routeStop);
 
     // Mapeia individualmente cada elemento da coleção 'routeStopAssignments' para o UUID da parada

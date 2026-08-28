@@ -20,29 +20,16 @@ import java.util.UUID;
 public class DevSandboxController {
     // testes de fluxos e endpoints que não devem/precisam ser expostos ao público
 
-    private final NotificationService notificationService;
     private final TravelTrackingService travelTrackingService;
     private final RouteCalculationService routeCalculationService;
     private final MapboxAPIService mapboxAPIService;
     private final PushNotificationService pushNotificationService;
 
-    public DevSandboxController(NotificationService notificationService, TravelTrackingService travelTrackingService, RouteCalculationService routeCalculationService, MapboxAPIService mapboxAPIService, PushNotificationService pushNotificationService) {
-        this.notificationService = notificationService;
+    public DevSandboxController(TravelTrackingService travelTrackingService, RouteCalculationService routeCalculationService, MapboxAPIService mapboxAPIService, PushNotificationService pushNotificationService) {
         this.travelTrackingService = travelTrackingService;
         this.routeCalculationService = routeCalculationService;
         this.mapboxAPIService = mapboxAPIService;
         this.pushNotificationService = pushNotificationService;
-    }
-
-    @PostMapping("/sendRabbitMessage")
-    public void sendTestMessage() {
-        notificationService.sendMessage(new StudentProximityNotificationMessage(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                350.0,
-                "FAR",
-                Instant.now().toString(),
-                "DISTANCE_STEP_REACHED"));
     }
 
     @GetMapping("/{travelId}/location")

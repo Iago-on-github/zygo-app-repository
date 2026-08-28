@@ -89,7 +89,7 @@ public class StudentService {
         newStudent.setPermissions(List.of(userPerm));
         newStudent.setCreatedAt(LocalDateTime.now());
         newStudent.setStatus(GeneralStatus.ACTIVE);
-        newStudent.setCustomer(customer);
+        newStudent.setCustomerId(customer.getId());
 
         Student savedStudent = repository.save(newStudent);
         return studentConverted(savedStudent);
@@ -186,7 +186,7 @@ public class StudentService {
                 student.getCreatedAt(),
                 student.getInstitutionType(),
                 student.getCourse(),
-                student.getCustomer().getId()
+                student.getCustomerId()
         );
     }
 

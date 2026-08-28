@@ -1,13 +1,12 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.StudentProximityEvents;
-import com.travel_system.backend_app.events.VehicleMovementEvents;
+import com.travel_system.backend_app.model.dtos.notifications.StudentProximityNotificationDTO;
+import com.travel_system.backend_app.model.dtos.notifications.VehicleMovementNotificationDTO;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
@@ -27,7 +26,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -115,10 +113,10 @@ class PushNotificationServiceTest {
 
                 pushNotificationService.checkProximityAlerts(vehicleLocRequest);
 
-                ArgumentCaptor<StudentProximityEvents> eventCaptor = ArgumentCaptor.forClass(StudentProximityEvents.class);
+                ArgumentCaptor<StudentProximityNotificationDTO> eventCaptor = ArgumentCaptor.forClass(StudentProximityNotificationDTO.class);
                 verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-                StudentProximityEvents publishedEvent = eventCaptor.getValue();
+                StudentProximityNotificationDTO publishedEvent = eventCaptor.getValue();
                 assertEquals(travelId, publishedEvent.travelId());
                 assertEquals(studentId, publishedEvent.studentId());
                 assertEquals(simulatedDistance, publishedEvent.distance());
@@ -166,10 +164,10 @@ class PushNotificationServiceTest {
 
                 pushNotificationService.checkProximityAlerts(vehicleLocRequest);
 
-                ArgumentCaptor<StudentProximityEvents> eventCaptor = ArgumentCaptor.forClass(StudentProximityEvents.class);
+                ArgumentCaptor<StudentProximityNotificationDTO> eventCaptor = ArgumentCaptor.forClass(StudentProximityNotificationDTO.class);
                 verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-                StudentProximityEvents publishedEvent = eventCaptor.getValue();
+                StudentProximityNotificationDTO publishedEvent = eventCaptor.getValue();
                 assertEquals(travelId, publishedEvent.travelId());
                 assertEquals(studentId, publishedEvent.studentId());
                 assertEquals(currentDistance, publishedEvent.distance());
@@ -219,10 +217,10 @@ class PushNotificationServiceTest {
 
                 pushNotificationService.checkProximityAlerts(vehicleLocRequest);
 
-                ArgumentCaptor<StudentProximityEvents> eventCaptor = ArgumentCaptor.forClass(StudentProximityEvents.class);
+                ArgumentCaptor<StudentProximityNotificationDTO> eventCaptor = ArgumentCaptor.forClass(StudentProximityNotificationDTO.class);
                 verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-                StudentProximityEvents publishedEvent = eventCaptor.getValue();
+                StudentProximityNotificationDTO publishedEvent = eventCaptor.getValue();
                 assertEquals(travelId, publishedEvent.travelId());
                 assertEquals(studentId, publishedEvent.studentId());
                 assertEquals(currentDistance, publishedEvent.distance());
@@ -270,10 +268,10 @@ class PushNotificationServiceTest {
 
                 pushNotificationService.checkProximityAlerts(vehicleLocRequest);
 
-                ArgumentCaptor<StudentProximityEvents> eventCaptor = ArgumentCaptor.forClass(StudentProximityEvents.class);
+                ArgumentCaptor<StudentProximityNotificationDTO> eventCaptor = ArgumentCaptor.forClass(StudentProximityNotificationDTO.class);
                 verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-                StudentProximityEvents publishedEvent = eventCaptor.getValue();
+                StudentProximityNotificationDTO publishedEvent = eventCaptor.getValue();
                 assertEquals(travelId, publishedEvent.travelId());
                 assertEquals(studentId, publishedEvent.studentId());
                 assertEquals(currentDistance, publishedEvent.distance());
@@ -322,10 +320,10 @@ class PushNotificationServiceTest {
 
                 pushNotificationService.checkProximityAlerts(vehicleLocRequest);
 
-                ArgumentCaptor<StudentProximityEvents> eventCaptor = ArgumentCaptor.forClass(StudentProximityEvents.class);
+                ArgumentCaptor<StudentProximityNotificationDTO> eventCaptor = ArgumentCaptor.forClass(StudentProximityNotificationDTO.class);
                 verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-                StudentProximityEvents publishedEvent = eventCaptor.getValue();
+                StudentProximityNotificationDTO publishedEvent = eventCaptor.getValue();
                 assertEquals(travelId, publishedEvent.travelId());
                 assertEquals(studentId, publishedEvent.studentId());
                 assertEquals(currentDistance, publishedEvent.distance());
@@ -461,10 +459,10 @@ class PushNotificationServiceTest {
             assertNull(savedState.lastEtaNotificationAt());
             assertNull(savedState.lastNotificationSendAt());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(travelId, publishedEvent.travelId());
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
             assertNotNull(publishedEvent.traceId());
@@ -500,10 +498,10 @@ class PushNotificationServiceTest {
             AnalyzeMovementStateDTO savedState = movementStateCaptor.getValue();
             assertEquals(MovementState.INSUFFICIENT_DATA, savedState.movementState());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(travelId, publishedEvent.travelId());
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision()); // Não deve notificar spam
 
@@ -545,10 +543,10 @@ class PushNotificationServiceTest {
             AnalyzeMovementStateDTO savedState = movementStateCaptor.getValue();
             assertEquals(MovementState.INSUFFICIENT_DATA, savedState.movementState());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(travelId, publishedEvent.travelId());
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
@@ -609,10 +607,10 @@ class PushNotificationServiceTest {
             verify(redisTrackingService, times(1)).saveAnalyzedMovementState(eq(travelId), movementStateCaptor.capture());
             assertEquals(MovementState.NORMAL, movementStateCaptor.getValue().movementState());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -666,10 +664,10 @@ class PushNotificationServiceTest {
             assertNotNull(savedState.stateStartedAt());
             assertNull(savedState.lastNotificationSendAt());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -723,10 +721,10 @@ class PushNotificationServiceTest {
             assertEquals(MovementState.SLOW, savedState.movementState());
             assertNotNull(savedState.lastNotificationSendAt());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NOTIFY_SLOW, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -774,10 +772,10 @@ class PushNotificationServiceTest {
 
             verify(redisTrackingService, never()).saveAnalyzedMovementState(eq(travelId), any());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -828,10 +826,10 @@ class PushNotificationServiceTest {
             assertNotNull(savedState.stateStartedAt());
             assertNull(savedState.lastNotificationSendAt());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -882,10 +880,10 @@ class PushNotificationServiceTest {
             assertEquals(MovementState.STOPPED, savedState.movementState());
             assertNotNull(savedState.lastNotificationSendAt());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NOTIFY_STOPPED, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();
@@ -933,10 +931,10 @@ class PushNotificationServiceTest {
 
             verify(redisTrackingService, never()).saveAnalyzedMovementState(eq(travelId), any());
 
-            ArgumentCaptor<VehicleMovementEvents> eventCaptor = ArgumentCaptor.forClass(VehicleMovementEvents.class);
+            ArgumentCaptor<VehicleMovementNotificationDTO> eventCaptor = ArgumentCaptor.forClass(VehicleMovementNotificationDTO.class);
             verify(eventPublisher, times(1)).publishEvent(eventCaptor.capture());
 
-            VehicleMovementEvents publishedEvent = eventCaptor.getValue();
+            VehicleMovementNotificationDTO publishedEvent = eventCaptor.getValue();
             assertEquals(ShouldNotify.SHOULD_NO_NOTIFY, publishedEvent.decision());
 
             VelocityAnalysisDTO analysis = publishedEvent.velocityAnalysis();

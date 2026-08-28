@@ -23,14 +23,14 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, UUID> 
     @Query("SELECT dt.token FROM DeviceToken dt WHERE dt.user.id= :userId AND dt.active = TRUE")
     Set<String> findTokensByUserId(@Param("userId") UUID userId);
 
-    @Query("SELECT dt.token FROM DeviceToken dt WHERE dt.user.customer.id = :customerId AND dt.active = TRUE")
+    @Query("SELECT dt.token FROM DeviceToken dt WHERE dt.user.customerId = :customerId AND dt.active = TRUE")
     Set<String> findTokensByCustomerId(@Param("customerId") UUID customerId);
 
     // DISTINCT evita duplicidade de tokens caso o user tenha mais de uma ROLE
-    @Query("SELECT DISTINCT dt.token FROM DeviceToken dt JOIN dt.user.permissions p WHERE dt.user.customer.id = :customerId AND p.description = :role AND dt.active = TRUE")
+    @Query("SELECT DISTINCT dt.token FROM DeviceToken dt JOIN dt.user.permissions p WHERE dt.user.customerId = :customerId AND p.description = :role AND dt.active = TRUE")
     Set<String> findTokensByCustomerIdAndUserType(@Param("customerId") UUID customerId, @Param("role") String role);
 
-    @Query("SELECT DISTINCT dt.token FROM DeviceToken dt JOIN dt.user.permissions p WHERE dt.user.customer.id = :customerId AND p.description IN :roles AND dt.active = TRUE")
+    @Query("SELECT DISTINCT dt.token FROM DeviceToken dt JOIN dt.user.permissions p WHERE dt.user.customerId = :customerId AND p.description IN :roles AND dt.active = TRUE")
     Set<String> findActiveTokensByCustomerIdAndRoles(@Param("customerId") UUID customerId, @Param("roles") List<String> roles);
 
     @Query("SELECT DISTINCT dt.token FROM Travel t JOIN t.studentTravels st JOIN st.student s JOIN DeviceToken dt ON dt.user = s WHERE t.id = :travelId AND dt.active = TRUE")

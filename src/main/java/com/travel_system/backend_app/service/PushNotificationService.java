@@ -1,22 +1,21 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.StudentProximityEvents;
-import com.travel_system.backend_app.events.VehicleMovementEvents;
+import com.travel_system.backend_app.model.dtos.notifications.VehicleMovementNotificationDTO;
 import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteCalculationReferenceDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.notifications.StudentProximityNotificationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.NotificationStateDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.enums.MovementState;
 import com.travel_system.backend_app.model.enums.ShouldNotify;
-import com.travel_system.backend_app.repository.TravelRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,6 +29,8 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.travel_system.backend_app.config.constants.NotificationConstants.*;
+
 @Service
 public class PushNotificationService {
     private final TravelService travelService;
@@ -37,17 +38,21 @@ public class PushNotificationService {
     private final RedisNotificationService redisNotificationService;
     private final RedisTrackingService redisTrackingService;
     private final LocationService locationService;
+    private final TravelCacheService travelCacheService;
+    private final AsyncNotificationService asyncNotificationService;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
 
-    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, LocationService locationService, ApplicationEventPublisher eventPublisher) {
+    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, LocationService locationService, TravelCacheService travelCacheService, AsyncNotificationService asyncNotificationService, ApplicationEventPublisher eventPublisher) {
         this.travelService = travelService;
         this.routeCalculationService = routeCalculationService;
         this.redisNotificationService = redisNotificationService;
         this.redisTrackingService = redisTrackingService;
         this.locationService = locationService;
+        this.travelCacheService = travelCacheService;
+        this.asyncNotificationService = asyncNotificationService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -55,7 +60,6 @@ public class PushNotificationService {
       gera pushs de notificações por distância <aluno - ônibus>
       ex.: Ônibus está há 200M de você
     */
-
     @Retryable(
             retryFor = Exception.class,
             maxAttempts = 3,
@@ -68,6 +72,9 @@ public class PushNotificationService {
         Double speed = vehicleLocationRequest.speed();
         Double heading = vehicleLocationRequest.heading();
         Instant currentVehicleLocationTimestamp = Instant.now();
+
+        // adicionar travel cache aqui para ter o dado de customerId para o DTO
+        TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
         LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null, currentVehicleLocationTimestamp);
         Set<StudentTrackingPositionDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
@@ -137,16 +144,21 @@ public class PushNotificationService {
                 }
             }
 
+            // envia notificação async e realiza update no redis p/ notificação enviada
             if (shouldPushNotification) {
-                eventPublisher.publishEvent(new StudentProximityEvents(
-                        travelId,
+                StudentProximityNotificationDTO studentProximityNotificationDTO =
+                        new StudentProximityNotificationDTO(travelId,
                         student.studentId(),
+                        travelStaticCache.customerId(),
                         distance,
                         zone,
                         timestamp,
-                        alertType));
+                        alertType);
 
-                logger.info("Evento publicado [{}]: aluno {} na viagem {}", alertType, student.studentId(), travelId);
+                // notificação async
+                asyncNotificationService.processStudentProximity(studentProximityNotificationDTO);
+
+                logger.info("Notificação do tipo: [{}] enviada p/ aluno {} na viagem {}", alertType, student.studentId(), travelId);
 
                 redisNotificationService.updateNotificationState(travelId, student.studentId(),
                         new NotificationStateDTO(zone,
@@ -186,12 +198,11 @@ public class PushNotificationService {
 
         ShouldNotify decision = shouldSendNotification(travelId, velocityAnalysis, traceId);
 
-        // chama para notificação via event
-        eventPublisher.publishEvent(new VehicleMovementEvents(
-                travelId,
-                velocityAnalysis,
-                decision,
-                traceId));
+        VehicleMovementNotificationDTO vehicleMovementNotificationDTO = new VehicleMovementNotificationDTO(travelId, velocityAnalysis, decision, traceId);
+
+        // manda notificação async
+        asyncNotificationService.processNotificationType(vehicleMovementNotificationDTO, decision);
+
     }
 
     @Recover
@@ -220,10 +231,6 @@ public class PushNotificationService {
             movementState = lastMovementState.movementState();
         }
         logger.info("DEBUG: Estado no Redis: {} | Estado Atual: {}", movementState, actualMovementState);
-
-        final long STATE_TIME_LIMIT_MS = 4_000;
-        final long NOTIFICATION_COOLDOWN_MS = 12_000;
-        final long NOTIFICATION_COOLDOWN_MS_STOPPED = 300_000;
 
         // comparar estados
         // se o estado mudou, ainda nao notifica mas salva a mudança no Redis

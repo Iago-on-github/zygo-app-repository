@@ -74,25 +74,24 @@ public class CustomerService {
 
         City city = cityRepository.findById(customerRequestDTO.cityId()).orElseThrow(() -> new EntityNotFoundException("City não encontrada."));
 
-        Set<UserModel> users = new HashSet<>();
-        if (customerRequestDTO.userIds() != null && !customerRequestDTO.userIds().isEmpty()) {
-            users = new HashSet<>(userRepository.findAllById(customerRequestDTO.userIds()));
-
-            // verifica se houve resultado retornado no banco
-            if (users.size() != customerRequestDTO.userIds().size()) {
-                throw new EntityNotFoundException("Nenhum usuário encontrado");
-            }
-        }
-
         boolean isCnpjAlreadyExists = customerRepository.findByCnpj(customerRequestDTO.cnpj()).isPresent();
 
         if (isCnpjAlreadyExists) throw new DuplicateResourceException("Customer com o CNPJ " + customerRequestDTO.cnpj() + " já existe na base de dados.");
 
-        Customer customer = customerMapper(customerRequestDTO, users);
+        Customer customer = customerMapper(customerRequestDTO);
         customer.setCity(city);
-        customer.setUsers(users);
+        Customer savedCustomer = customerRepository.save(customer);
 
-        customerRepository.save(customer);
+        if (customerRequestDTO.userIds() != null && !customerRequestDTO.userIds().isEmpty()) {
+            List<UserModel> users = userRepository.findAllById(customerRequestDTO.userIds());
+
+            if (users.size() != customerRequestDTO.userIds().size()) {
+                throw new EntityNotFoundException("Um ou mais usuários informados não foram encontrados");
+            }
+
+            users.forEach(user -> user.setCustomerId(savedCustomer.getId()));
+            userRepository.saveAll(users);
+        }
 
         return customerResponseDtoMapper(customer);
     }
@@ -143,13 +142,8 @@ public class CustomerService {
         );
     }
 
-    private Customer customerMapper(CustomerRequestDTO customerRequestDTO, Set<UserModel> users) {
+    private Customer customerMapper(CustomerRequestDTO customerRequestDTO) {
         Customer customer = new Customer();
-
-        // relaciona customer com UserModel
-        for (UserModel user : users) {
-            user.setCustomer(customer);
-        }
 
         customer.setName(customerRequestDTO.name());
         customer.setSlug(customerRequestDTO.slug());

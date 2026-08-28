@@ -19,6 +19,9 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<UserModel, UUID> {
     UserModel findUserByEmail(String email);
 
+    @Query(value = "SELECT * FROM user_table u WHERE u.email = :email AND u.status = 'ACTIVE'", nativeQuery = true)
+    Optional<UserModel> findByEmailForAuthentication(@Param("email") String email);
+
     @Query("SELECT n FROM UserModel n WHERE n.name = :name AND n.status = 'ACTIVE' ")
     Set<String> findByName(String name);
 

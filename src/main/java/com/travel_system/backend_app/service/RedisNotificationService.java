@@ -12,12 +12,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.config.constants.CacheConstants.HASH_KEY_PREFIX;
+
 @Service
 public class RedisNotificationService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final HashOperations<String, String, String> hashOperations;
-
-    private final String HASH_KEY_PREFIX = "notification:";
 
     private Logger log = LoggerFactory.getLogger(RedisNotificationService.class);
 

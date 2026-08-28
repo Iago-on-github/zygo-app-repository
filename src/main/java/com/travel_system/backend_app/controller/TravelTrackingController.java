@@ -3,6 +3,7 @@ package com.travel_system.backend_app.controller;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
+import com.travel_system.backend_app.model.dtos.route.TravelTrackingSummaryDTO;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.service.TravelTrackingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -86,7 +87,7 @@ public class TravelTrackingController {
                     content = @Content(schema = @Schema(hidden = true))),
     })
     @GetMapping("/travels/{travelId}/location")
-    public ResponseEntity<LiveLocationDTO> getDriverPosition(@PathVariable UUID travelId) {
+    public ResponseEntity<TravelTrackingSummaryDTO> getDriverPosition(@PathVariable UUID travelId) {
         return ResponseEntity.ok().body(travelTrackingService.getDriverPosition(travelId));
     }
 

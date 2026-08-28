@@ -13,14 +13,17 @@ import static com.travel_system.backend_app.infrastructure.TenantContext.getCurr
 @Component
 public class TenantResolver implements CurrentTenantIdentifierResolver<UUID> {
 
+    // UUID neutro reservado para tarefas do sistema, rotas públicas e PlatformAdmin
+    private static final UUID SYSTEM_TENANT = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
     // chamado para capturar o UUID do cliente a cada operação no banco
     @Override
     public UUID resolveCurrentTenantIdentifier() {
-        /*
-        * caso seja null, o hibernate omite o customer_id na consulta
-        * lida como rota pública ou plataform_admin
-        * */
-        return getCurrentTenant();
+        UUID currentTenant = getCurrentTenant();
+
+        System.out.println("currentTenant: " + currentTenant);
+
+        return (currentTenant != null) ? currentTenant : SYSTEM_TENANT;
     }
 
     @Override

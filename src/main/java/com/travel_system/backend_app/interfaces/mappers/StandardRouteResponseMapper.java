@@ -15,7 +15,7 @@ public interface StandardRouteResponseMapper {
 
     @Mapping(target = "travelPeriods", source = "travelPeriods")
     @Mapping(target = "routeStopAssignments", source = "routeStopAssignments")
-    @Mapping(target = "customerId", source = "customer.id")
+    @Mapping(target = "customerId", source = "customerId")
     StandardRouteResponseDTO toDTO(StandardRoute standardRoute);
 
     // Mapeia cada RouteStopAssignment individual para o DTO aninhado RouteStopAssignmentResponseDTO

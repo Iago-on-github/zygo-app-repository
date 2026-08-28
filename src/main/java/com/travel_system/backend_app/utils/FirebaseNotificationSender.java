@@ -3,30 +3,16 @@ package com.travel_system.backend_app.utils;
 import com.google.firebase.messaging.*;
 import com.travel_system.backend_app.exceptions.DomainValidationException;
 import com.travel_system.backend_app.model.DeviceToken;
-import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.UserModel;
-import com.travel_system.backend_app.model.dtos.MovementNotificationEventDTO;
-import com.travel_system.backend_app.model.dtos.StudentTokensDTO;
-import com.travel_system.backend_app.model.dtos.VehicleMovementNotificationDTO;
 import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
-import com.travel_system.backend_app.model.enums.MovementState;
-import com.travel_system.backend_app.model.enums.NotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
-import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
-import org.hibernate.engine.jdbc.batch.spi.Batch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
-
-import static io.lettuce.core.pubsub.PubSubOutput.Type.message;
-import static java.util.stream.Collectors.toList;
 
 @Service
 public class FirebaseNotificationSender {
@@ -61,6 +47,11 @@ public class FirebaseNotificationSender {
         if (existingDeviceToken.isPresent()) {
             deviceToken = existingDeviceToken.get();
 
+            // caso esteja inativo seta para ativo
+            if (!deviceToken.isActive()) {
+                deviceToken.setActive(true);
+            }
+
             deviceToken.setUser(user);
         } else {
             deviceToken = new DeviceToken();
@@ -88,7 +79,7 @@ public class FirebaseNotificationSender {
         MulticastMessage payload = buildFcmMessage(pushNotificationCommand, deviceTokens);
 
         try {
-            BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(payload);
+            BatchResponse response = firebaseMessaging.sendEachForMulticast(payload);
 
             logger.info("Tokens enviados ao firebase: {}", response.getSuccessCount());
 

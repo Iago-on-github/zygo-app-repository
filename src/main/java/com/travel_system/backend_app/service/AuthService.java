@@ -47,7 +47,7 @@ public class AuthService {
             throw new EntityNotFoundException("Email não encontrado. Tente novamente");
         }
 
-        UUID customerId = user.getCustomer() != null ? user.getCustomer().getId() : null;
+        UUID customerId = user.getCustomerId() != null ? user.getCustomerId() : null;
 
         var tokenResponse = tokenConfig.createAccessToken(loginRequestDto.email(), user.getRoles(), customerId);
 

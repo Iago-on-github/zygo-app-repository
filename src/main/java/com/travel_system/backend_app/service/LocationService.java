@@ -27,6 +27,9 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.travel_system.backend_app.config.constants.GlobalAppConstants.AUTO_DISCONNECT_DISTANCE_METERS;
+import static com.travel_system.backend_app.config.constants.GlobalAppConstants.AUTO_DISCONNECT_TIME;
+
 
 @Service
 public class LocationService {
@@ -43,9 +46,6 @@ public class LocationService {
     private final StudentTravelRouteStopService studentTravelRouteStopService;
 
     private final Logger log = LoggerFactory.getLogger(LocationService.class);
-
-    private static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
-    private static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
 
     public LocationService(GeoPositionRepository geoPositionRepository, TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, RouteCalculationService routeCalculationService, TravelService travelService, RedisTrackingService redisTrackingService, TravelCacheService travelCacheService, TravelTrackingNotificationService trackingNotificationService, StudentTravelRouteStopService studentTravelRouteStopService) {
         this.geoPositionRepository = geoPositionRepository;

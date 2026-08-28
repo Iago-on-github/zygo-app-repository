@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -15,19 +17,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.config.constants.CacheConstants.TRAVEL_STATIC_CACHE;
+
 @Service
 public class TravelCacheService {
     private final TravelRepository travelRepository;
+    private final CustomerRepository customerRepository;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> redisOperations;
 
-    private final String TRAVEL_STATIC_CACHE = "trip:static:";
-
     private Logger logger = LoggerFactory.getLogger(TravelCacheService.class);
 
-    public TravelCacheService(TravelRepository travelRepository, RedisTemplate<String, String> redisTemplate) {
+    public TravelCacheService(TravelRepository travelRepository, CustomerRepository customerRepository, RedisTemplate<String, String> redisTemplate) {
         this.travelRepository = travelRepository;
+        this.customerRepository = customerRepository;
         this.redisTemplate = redisTemplate;
         this.redisOperations = redisTemplate.opsForHash();
     }
@@ -110,7 +114,10 @@ public class TravelCacheService {
             Travel travel = travelRepository.findById(travelId)
                     .orElseThrow((() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada.")));
 
-            TravelCacheDTO travelCacheDTO = travelCacheMapper(travel);
+            UUID cityId = customerRepository.findCityIdById(travel.getCustomerId())
+                    .orElseThrow(() -> new EntityNotFoundException("City não encontrada."));
+
+            TravelCacheDTO travelCacheDTO = travelCacheMapper(travel, cityId);
 
             storeTravelStaticCache(travelCacheDTO);
 
@@ -118,11 +125,11 @@ public class TravelCacheService {
         }
     }
 
-    private TravelCacheDTO travelCacheMapper(Travel travel) {
+    private TravelCacheDTO travelCacheMapper(Travel travel, UUID cityId) {
         return new TravelCacheDTO(
                 travel.getId(),
-                travel.getCustomer().getCity().getId(),
-                travel.getCustomer().getId(),
+                cityId,
+                travel.getCustomerId(),
                 travel.getTravelStatus(),
                 travel.getFinalLatitude(),
                 travel.getFinalLongitude(),

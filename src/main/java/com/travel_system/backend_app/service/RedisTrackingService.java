@@ -22,6 +22,8 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.travel_system.backend_app.config.constants.CacheConstants.*;
+
 
 @Service
 public class RedisTrackingService {
@@ -31,14 +33,6 @@ public class RedisTrackingService {
     private final HashOperations<String, String, String> hashOperations;
 
     private final Logger logger = LoggerFactory.getLogger(RedisTrackingService.class);
-
-    private final String SET_KEY = "ACTIVE_TRAVELS_KEY";
-
-    private final String TRACKING_KEY_PREFIX = "travel:tracking:";
-    private final String ROUTE_KEY_PREFIX = "travel:route:";
-    private final String STUDENT_TRAVEL_KEY_PREFIX = "travel:away_students:";
-    private final String STUDENT_AWAY_STATE_LOCK = "travel:student-away-lock:";
-    private final String STUDENT_ROUTE_STOP_MONITORING = "student:route-stop-monitoring:";
 
     public RedisTrackingService(RouteCalculationService routeCalculationService, RedisTemplate<String, String> redisTemplate) {
         this.routeCalculationService = routeCalculationService;

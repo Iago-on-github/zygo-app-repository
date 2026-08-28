@@ -49,7 +49,7 @@ public class RouteStopAssignmentService {
 
         RouteStop routeStop = routeStopRepository.findById(routeStopId).orElseThrow(() -> new EntityNotFoundException("Ponto de parada não encontrado"));
 
-        validateSameCustomer(standardRoute.getCustomer().getId(), routeStop.getCustomer().getId());
+        validateSameCustomer(standardRoute.getCustomerId(), routeStop.getCustomerId());
 
         if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE) || routeStop.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("A Rota padrão ou o poto de parada está inativo");
@@ -101,7 +101,7 @@ public class RouteStopAssignmentService {
 
         RouteStop routeStop = routeStopRepository.findById(routeStopId).orElseThrow(() -> new EntityNotFoundException("Ponto de parada não encontrado"));
 
-        validateSameCustomer(standardRoute.getCustomer().getId(), routeStop.getCustomer().getId());
+        validateSameCustomer(standardRoute.getCustomerId(), routeStop.getCustomerId());
 
         if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE) || routeStop.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new IllegalArgumentException("A Rota padrão ou o poto de parada está inativo");
@@ -235,11 +235,11 @@ public class RouteStopAssignmentService {
             throw new EntityNotFoundException("Um ou mais RouteStops informados não foram encontrados");
         }
 
-        UUID customerId = standardRoute.getCustomer().getId();
+        UUID customerId = standardRoute.getCustomerId();
 
         // valida customer e coords válidas do RouteStop
         for (RouteStop routeStop : routeStops) {
-            validateSameCustomer(customerId, routeStop.getCustomer().getId());
+            validateSameCustomer(customerId, routeStop.getCustomerId());
 
             if (routeStop.getStatus() == GeneralStatus.INACTIVE) {
                 throw new DomainValidationException("O RouteStop " + routeStop.getId() + " está inativo e não pode participar da rota");

@@ -7,6 +7,7 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.GeoPosition;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.*;
 import com.travel_system.backend_app.model.dtos.request.RouteDeviationRequestDTO;
@@ -15,6 +16,7 @@ import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
 import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.route.LocationPointDTO;
+import com.travel_system.backend_app.model.dtos.route.TravelTrackingSummaryDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -274,14 +276,37 @@ public class TravelTrackingService {
 //    }
 
     // endpoint de fastview - provê a loc do driver
-    public LiveLocationDTO getDriverPosition(UUID travelId) {
+    public TravelTrackingSummaryDTO getDriverPosition(UUID travelId) {
         TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
         if (travelStaticCache.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("[getDriverPosition] Viagem " + travelId + " não está em andamento.");
         }
 
-        return extractLiveCoordinates(travelId);
+        LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
+
+        // retorna o último ETA armazenado + a distância
+        PreviousStateDTO previousEta = redisTrackingService.getPreviousEta(travelId);
+        // fornece o último estado do veículo
+        AnalyzeMovementStateDTO lastMovementState = redisTrackingService.getLastMovementState(travelId);
+
+        Double durationRemaining = previousEta != null ? previousEta.durationRemaining() : null;
+        Double distanceRemaining = previousEta != null ? previousEta.distanceRemaining() : null;
+        String movementState = lastMovementState != null ? lastMovementState.movementState().name() : "UNKNOWN";
+        String travelStatus = travelStaticCache.travelStatus().name();
+
+        return new TravelTrackingSummaryDTO(
+                liveLocationDTO.latitude(),
+                liveLocationDTO.longitude(),
+                liveLocationDTO.geometry(),
+                distanceRemaining,
+                durationRemaining,
+                movementState,
+                travelStatus,
+                liveLocationDTO.lastCalcLat(),
+                liveLocationDTO.lastCalcLng(),
+                liveLocationDTO.current_location_timestamp()
+        );
     }
 
     // fornece um histórico de points salvos no banco

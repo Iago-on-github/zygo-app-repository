@@ -35,9 +35,6 @@ public class StandardRoute extends BaseTenantEntity {
     private Set<TravelPeriod> travelPeriods = new HashSet<>();
     @OneToMany(mappedBy = "standardRoute")
     private List<Travel> travels = new ArrayList<>();
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
     @OneToMany(mappedBy = "standardRoute", cascade = CascadeType.ALL, orphanRemoval = true) // orphanRemoval = true faz com que os assignments antigos que foram removidos sejam excluídos
     @OrderBy("sequence ASC")
     private List<RouteStopAssignment> routeStopAssignments = new ArrayList<>();
@@ -64,7 +61,6 @@ public class StandardRoute extends BaseTenantEntity {
         this.destinationLatitude = destinationLatitude;
         this.destinationLongitude = destinationLongitude;
         this.standardGeometry = standardGeometry;
-        this.customer = customer;
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -148,14 +144,6 @@ public class StandardRoute extends BaseTenantEntity {
 
     public void setTravels(List<Travel> travels) {
         this.travels = travels;
-    }
-
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
     }
 
     public List<RouteStopAssignment> getRouteStopAssignments() {

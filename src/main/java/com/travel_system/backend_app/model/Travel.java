@@ -29,9 +29,6 @@ public class Travel extends BaseTenantEntity {
     private Instant createdAt;
     private Instant startHourTravel;
     private Instant endHourTravel;
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customerId", nullable = false)
-    private Customer customer;
 
     // rota (estáticos)
     @Column(columnDefinition = "text")
@@ -54,23 +51,22 @@ public class Travel extends BaseTenantEntity {
     public Travel() {
     }
 
-    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Instant createdAt, Instant startHourTravel, TravelPeriod travelPeriod, Instant endHourTravel, String polylineRoute, Double duration, Double distance, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, String destinationCity, Customer customer, StandardRoute standardRoute) {
+    public Travel(UUID id, TravelStatus travelStatus, Driver driver, TravelPeriod travelPeriod, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, String destinationCity, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, StandardRoute standardRoute) {
         this.id = id;
         this.travelStatus = travelStatus;
         this.driver = driver;
+        this.travelPeriod = travelPeriod;
         this.createdAt = createdAt;
         this.startHourTravel = startHourTravel;
-        this.travelPeriod = travelPeriod;
         this.endHourTravel = endHourTravel;
         this.polylineRoute = polylineRoute;
         this.duration = duration;
         this.distance = distance;
+        this.destinationCity = destinationCity;
         this.originLatitude = originLatitude;
         this.originLongitude = originLongitude;
         this.finalLatitude = finalLatitude;
         this.finalLongitude = finalLongitude;
-        this.destinationCity = destinationCity;
-        this.customer = customer;
         this.standardRoute = standardRoute;
     }
 
@@ -202,14 +198,6 @@ public class Travel extends BaseTenantEntity {
         this.destinationCity = destinationCity;
     }
 
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
-    }
-
     public StandardRoute getStandardRoute() {
         return standardRoute;
     }
@@ -217,4 +205,6 @@ public class Travel extends BaseTenantEntity {
     public void setStandardRoute(StandardRoute standardRoute) {
         this.standardRoute = standardRoute;
     }
+
+
 }

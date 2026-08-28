@@ -77,12 +77,14 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
         st.travel.driver.id,
         st.travel.driver.name,
         st.travel.travelPeriod,
-        st.travel.customer.city.id,
-        st.travel.customer.city.name
+        ct.id,
+        ct.name
         )
         FROM StudentTravel st
         JOIN st.travel t
         JOIN st.student s
+        LEFT JOIN Customer c ON c.id = s.customerId
+        LEFT JOIN c.city ct
         WHERE s.email = :studentEmail
         AND st.studentTravelStatus = :status
         AND t.travelStatus = :travelStatus

@@ -19,9 +19,6 @@ public class RouteStop extends BaseTenantEntity {
     private String description;
     private Double latitude;
     private Double longitude;
-    @ManyToOne
-    @JoinColumn(name = "customer_id")
-    private Customer customer;
     @OneToMany(mappedBy = "routeStop")
     private List<RouteStopAssignment> routeStopAssignments = new ArrayList<>();
     @OneToMany(mappedBy = "routeStop")
@@ -44,7 +41,6 @@ public class RouteStop extends BaseTenantEntity {
         this.description = description;
         this.latitude = latitude;
         this.longitude = longitude;
-        this.customer = customer;
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -88,14 +84,6 @@ public class RouteStop extends BaseTenantEntity {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
-    }
-
-    public Customer getCustomer() {
-        return customer;
-    }
-
-    public void setCustomer(Customer customer) {
-        this.customer = customer;
     }
 
     public List<RouteStopAssignment> getRouteStopAssignments() {

@@ -53,15 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     protected void resolveTenantContext(String token, HttpServletRequest request) {
-        UUID customerIdFromToken = tokenConfig.getCustomerIdFromToken(token);
-
-        // caso seja um usuário do tipo tenant
-        if (customerIdFromToken != null) {
-            TenantContext.setCurrentTenant(customerIdFromToken);
-            return;
-        }
-
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         boolean isPlatformAdmin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_PLATFORM_ADMIN"));
 
         // caso seja um administrador da plataforma
@@ -71,12 +64,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (impersonatedTenantHeader != null && !impersonatedTenantHeader.isBlank()) {
                 try {
                     TenantContext.setCurrentTenant(UUID.fromString(impersonatedTenantHeader));
+                    return;
                 } catch (IllegalArgumentException e) {
                     // se o UUID do header for inválido, limpa o contexto garantindo a consulta global sem crash
                     TenantContext.removeCurrentTenant();
+                    return;
                 }
             }
 
+        }
+
+        UUID customerIdFromToken = tokenConfig.getCustomerIdFromToken(token);
+
+        // caso seja um usuário do tipo tenant
+        if (customerIdFromToken != null) {
+            TenantContext.setCurrentTenant(customerIdFromToken);
         }
 
     }

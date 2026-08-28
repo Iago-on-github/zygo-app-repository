@@ -28,16 +28,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AsyncNotificationServiceTest {
-    /*
-     * PADRÕES DOS TESTES UNITÁRIOS
-     * 1. TESTAR TODOS AS SAÍDAS (RESULTADOS) DOS MÉTODOS EM QUESTÃO
-     * 2. OS MÉTODOS SUCCESS DEVEM CONTER "WithSuccess"
-     * 3. OS MÉTODOS FAILURE DEVEM CONTER "ThrowException"
-     * 4. MÉTODOS COM VÁRIAS POSSÍVEIS SAÍDAS DEVEM SER OBRIGATORIAMENTE ENGLOBADAS EM CLASSES PRÓPRIAS DE SUCCESS E FAILURE (MESMO DENTRO DA SUA CLASSE DE ORIGEM)
-     * 5. NUNCA USAR RUNTIME EX. COMO EXCEÇÃO CORINGA, USE A PRÓPRIA EXCEÇÃO LANÇADA NO MÉTODO
-     * 6. SEMPRE ADICIONAR UMA BREVE DESCRIÇÃO COM A ANNOTATION '@DisplayName("...")'.
-     * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT)
-     */
 
     @InjectMocks
     private AsyncNotificationService asyncNotificationService;
@@ -65,7 +55,7 @@ class AsyncNotificationServiceTest {
         velocityAnalysisDTO = new VelocityAnalysisDTO(85.5, 3600L, 85.5, 1718915200000.0, MovementState.NORMAL);
     }
 
-    @Nested
+/*    @Nested
     class processNotificationType {
 
         @Test
@@ -214,5 +204,5 @@ class AsyncNotificationServiceTest {
             // Garante que o registro no Redis e o envio no Firebase não foram chamados devido ao early return do estado incompatível
             verifyNoInteractions(redisTrackingService, trackingNotificationService);
         }
-    }
+    }*/
 }

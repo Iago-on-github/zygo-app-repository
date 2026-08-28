@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,4 +21,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     Optional<Customer> findByCnpj(@Param("cnpj") String cnpj);
 
     Optional<Customer> findBySlug(String slug);
+
+    // recuper o Id da City pelo ID do customer
+    Optional<UUID> findCityIdById(UUID customerId);
 }

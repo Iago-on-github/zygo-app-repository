@@ -92,7 +92,7 @@ public class TravelService {
         }
 
         // customer da viagem é herdado diretamente do driver
-        travel.setCustomer(driver.getCustomer());
+        travel.setCustomerId(driver.getCustomerId());
 
         travel.setOriginLongitude(travelRequestDTO.originLongitude());
         travel.setOriginLatitude(travelRequestDTO.originLatitude());
@@ -121,7 +121,7 @@ public class TravelService {
         }
 
         // verifica compatibilidade entre Customers
-        if (!isSameCustomer(travel.getCustomer().getId(), standardRoute.getCustomer().getId())) {
+        if (!isSameCustomer(travel.getCustomerId(), standardRoute.getCustomerId())) {
             throwTravelException("A Rota Padrão deve obrigariamente ser do mesmo customer da Viagem");
         }
 
@@ -221,11 +221,11 @@ public class TravelService {
             percentual = embarkedStudentsCount * 100 / totalStudentsCount;
         }
 
-        UUID baseCustomerId = actualTrip.getCustomer().getId();
+        UUID baseCustomerId = actualTrip.getCustomerId();
 
         // realiza o desvínculo de estudantes
         actualTrip.getStudentTravels().forEach(studentTravel -> {
-            UUID studentsCustomerId = studentTravel.getStudent().getCustomer().getId();
+            UUID studentsCustomerId = studentTravel.getStudent().getCustomerId();
 
             if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
                 studentTravel.setEmbark(false);
@@ -326,8 +326,8 @@ public class TravelService {
         Student student = studentRepository.findByEmail(studentEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Estudante com email " + studentEmail + " não encontrado"));
 
-        UUID baseCustomerId = trip.getCustomer().getId();
-        UUID studentsCustomerId = student.getCustomer().getId();
+        UUID baseCustomerId = trip.getCustomerId();
+        UUID studentsCustomerId = student.getCustomerId();
 
         if (!isSameCustomer(baseCustomerId, studentsCustomerId)) {
             throwTravelException("O estudante deve obrigariamente ser do mesmo customer");
@@ -358,8 +358,8 @@ public class TravelService {
             throwTravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
         }
 
-        UUID actuallyDriverCustomerId = actualTrip.getDriver().getCustomer().getId();
-        UUID driverCandidateCustomerId = driver.getCustomer().getId();
+        UUID actuallyDriverCustomerId = actualTrip.getDriver().getCustomerId();
+        UUID driverCandidateCustomerId = driver.getCustomerId();
 
         if (!isSameCustomer(actuallyDriverCustomerId, driverCandidateCustomerId)) {
             throw new CustomerMismatchException("Motoristas devem pertencer ao mesmo Customer");
@@ -385,12 +385,12 @@ public class TravelService {
         actualTrip.setTravelStatus(TravelStatus.CANCELED);
         actualTrip.setEndHourTravel(Instant.now());
 
-        UUID baseCustomerId = actualTrip.getCustomer().getId();
+        UUID baseCustomerId = actualTrip.getCustomerId();
 
         // verifica se existem estudantes vinculados e faz a deconexão
         if (!actualTrip.getStudentTravels().isEmpty()) {
             actualTrip.getStudentTravels().forEach(studentTravel -> {
-                UUID studentsCustomerId = studentTravel.getStudent().getCustomer().getId();
+                UUID studentsCustomerId = studentTravel.getStudent().getCustomerId();
 
                 if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
                     studentTravel.setEmbark(false);
@@ -545,7 +545,7 @@ public class TravelService {
         if (!routeStopCompatible) {
             // evento de incompatibilidade
             UUID studentId = studentTravel.getStudent().getId();
-            UUID customerId = travel.getCustomer().getId();
+            UUID customerId = travel.getCustomerId();
 
             studentTravelRouteStopService.validateStudentTravelRouteStop(travel.getId(), studentTravel.getId(), studentId, customerId);
         } else {
@@ -631,7 +631,7 @@ public class TravelService {
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips(),
-                driver.getCustomer().getId()
+                driver.getCustomerId()
         );
     }
 

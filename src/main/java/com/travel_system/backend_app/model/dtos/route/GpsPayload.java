@@ -10,5 +10,11 @@ public record GpsPayload(
         Double heading,
         Instant timestamp,
         UUID travelId,
-        UUID cityId) {
+        UUID cityId,
+        Double durationRemaining,
+        Double distanceRemaining,
+        String lastMovementState,
+        Double lastCalcLat,
+        Double lastCalcLng
+) {
 }

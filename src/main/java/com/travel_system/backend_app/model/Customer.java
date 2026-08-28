@@ -21,16 +21,8 @@ public class Customer {
     private boolean active;
     @ManyToOne
     private City city;
-    @OneToMany(mappedBy = "customer")
-    private Set<UserModel> users = new HashSet<>();
-    @OneToMany(mappedBy = "customer")
-    private List<StandardRoute> standardRoutes = new ArrayList<>();
-    @OneToMany(mappedBy = "customer")
-    private Set<RouteStop> routeStops = new HashSet<>();
     @Enumerated(EnumType.STRING)
     private ClientSector clientSector;
-    @OneToMany(mappedBy = "customer")
-    private Set<Travel> travels = new HashSet<>();
     private String profilePicture;
     @CreatedDate
     private Instant createdAt;
@@ -101,44 +93,12 @@ public class Customer {
         this.city = city;
     }
 
-    public Set<UserModel> getUsers() {
-        return users;
-    }
-
-    public void setUsers(Set<UserModel> users) {
-        this.users = users;
-    }
-
-    public List<StandardRoute> getStandardRoutes() {
-        return standardRoutes;
-    }
-
-    public void setStandardRoutes(List<StandardRoute> standardRoutes) {
-        this.standardRoutes = standardRoutes;
-    }
-
-    public Set<RouteStop> getRouteStops() {
-        return routeStops;
-    }
-
-    public void setRouteStops(Set<RouteStop> routeStops) {
-        this.routeStops = routeStops;
-    }
-
     public ClientSector getClientSector() {
         return clientSector;
     }
 
     public void setClientSector(ClientSector clientSector) {
         this.clientSector = clientSector;
-    }
-
-    public Set<Travel> getTravels() {
-        return travels;
-    }
-
-    public void setTravels(Set<Travel> travels) {
-        this.travels = travels;
     }
 
     public String getProfilePicture() {

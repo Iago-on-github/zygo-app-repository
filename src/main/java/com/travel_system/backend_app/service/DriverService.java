@@ -91,7 +91,7 @@ public class DriverService {
         newDriver.setCreatedAt(LocalDateTime.now());
         newDriver.setStatus(GeneralStatus.ACTIVE);
 
-        newDriver.setCustomer(customer);
+        newDriver.setCustomerId(customer.getId());
         newDriver.setPermissions(List.of(admPerm));
 
         Driver savedDriver = repository.save(newDriver);
@@ -198,7 +198,7 @@ public class DriverService {
                 driver.getStatus(),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips(),
-                driver.getCustomer().getId()
+                driver.getCustomerId()
         );
     }
 }

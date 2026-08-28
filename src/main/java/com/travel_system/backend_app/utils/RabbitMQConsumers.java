@@ -29,14 +29,6 @@ public class RabbitMQConsumers {
 
     private final Logger logger = LoggerFactory.getLogger(RabbitMQConsumers.class);
 
-    @RabbitListener(queues = RabbitMQConfig.QUEUE_NOTIFICATION_NAME)
-    public void receiveMessages(StudentProximityNotificationMessage event) {
-        logger.info("method receiveMessage received message: {}", event);
-
-        // envia notificação ao firebase
-        trackingNotificationService.sendCheckProximityAlertsNotification(event);
-    }
-
     @RabbitListener(queues = RabbitMQConfig.QUEUE_PROCESSING_COORDINATES)
     public void processingMessagesGpsCoordinates(GpsPayload gpsPayload) {
         if (gpsPayload == null

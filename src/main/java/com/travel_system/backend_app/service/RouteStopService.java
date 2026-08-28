@@ -80,13 +80,13 @@ public class RouteStopService {
 
         RouteStop routeStop = routeStopRequestMapper.toEntity(routeStopRequestDTO);// mapper DTO converte para entidade
 
-        routeStop.setCustomer(authenticatedUser.getCustomer()); // mesmo customer do user autenticado
+        routeStop.setCustomerId(authenticatedUser.getCustomerId()); // mesmo customer do user autenticado
 
         // valida mesmo Customer
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
+        validateSameCustomer(authenticatedUser.getCustomerId(), routeStop.getCustomerId());
 
         // duplicidade de "name"
-        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopRequestDTO.name(), authenticatedUser.getCustomer().getId());
+        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopRequestDTO.name(), authenticatedUser.getCustomerId());
 
         if (isAlreadyExistsRouteStopName) throw new DuplicateResourceException("Já existe um RouteStop com esse nome: " + routeStopRequestDTO.name());
 
@@ -106,7 +106,7 @@ public class RouteStopService {
                 if (student.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountException("Estudante Inativo no sistema: " + student.getId());
 
                 // devem ser do mesmo customer
-                validateSameCustomer(authenticatedUser.getCustomer().getId(), student.getCustomer().getId());
+                validateSameCustomer(authenticatedUser.getCustomerId(), student.getCustomerId());
 
                 StudentRouteStopAssignment studentRouteStopAssignment = new StudentRouteStopAssignment();
                 studentRouteStopAssignment.setStudent(student);
@@ -137,10 +137,10 @@ public class RouteStopService {
         checkAdminPrivileges(authenticatedUser);
 
         // valida mesmo Customer
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), routeStop.getCustomer().getId());
+        validateSameCustomer(authenticatedUser.getCustomerId(), routeStop.getCustomerId());
 
         // duplicidade de "name"
-        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopUpdateDTO.name(), authenticatedUser.getCustomer().getId());
+        boolean isAlreadyExistsRouteStopName = routeStopRepository.existsByNameAndCustomerId(routeStopUpdateDTO.name(), authenticatedUser.getCustomerId());
 
         if (isAlreadyExistsRouteStopName) throw new DuplicateResourceException("Já existe um RouteStop com esse nome: " + routeStopUpdateDTO.name());
 
@@ -174,7 +174,7 @@ public class RouteStopService {
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado"));
 
-        validateSameCustomer(routeStop.getCustomer().getId(), authenticatedUser.getCustomer().getId());
+        validateSameCustomer(routeStop.getCustomerId(), authenticatedUser.getCustomerId());
 
         if (routeStop.getStatus() == status) {
             throw new DuplicateResourceException("RouteStop já contém o status " + status);
@@ -230,7 +230,7 @@ public class RouteStopService {
     }
 
     private void checkValidAdmin(UserModel authenticatedUser) {
-        if (authenticatedUser.getCustomer() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
+        if (authenticatedUser.getCustomerId() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
         if (authenticatedUser.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountModificationException("Usuário não está ativo");
     }
 

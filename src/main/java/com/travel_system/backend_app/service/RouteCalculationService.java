@@ -15,14 +15,13 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.config.constants.GlobalAppConstants.EARTH_RADIUS_METERS;
+import static com.travel_system.backend_app.config.constants.GlobalAppConstants.TOLERANCE_DISTANCE;
+
 @Service
 public class RouteCalculationService {
     private final PolylineService polylineService;
     private final TravelRepository travelRepository;
-
-    private final double TOLERANCE_DISTANCE = 50.0;
-
-    private final double EARTH_RADIUS_METERS = 6371000;
 
     private Logger logger = LoggerFactory.getLogger(RouteCalculationService.class);
 

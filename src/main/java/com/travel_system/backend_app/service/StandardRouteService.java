@@ -111,7 +111,7 @@ public class StandardRouteService {
                 baseRoute.getStandardGeometry(),
                 baseRoute.getTravelPeriods(),
                 stops, // routeStops
-                baseRoute.getCustomer().getId(),
+                baseRoute.getCustomerId(),
                 baseRoute.getStatus(),
                 baseRoute.getCreatedAt(),
                 baseRoute.getUpdatedAt()
@@ -134,7 +134,7 @@ public class StandardRouteService {
 
         StandardRoute standardRoute = standardRouteRequestMapper.toEntity(standardRouteRequestDTO); // mapper DTO -> entity
 
-        boolean isDuplicatedName = standardRouteRepository.existsByRouteNameAndCustomerId(standardRouteRequestDTO.routeName(), authenticatedUser.getCustomer().getId());
+        boolean isDuplicatedName = standardRouteRepository.existsByRouteNameAndCustomerId(standardRouteRequestDTO.routeName(), authenticatedUser.getCustomerId());
 
         if (isDuplicatedName) throw new DuplicateResourceException("Já existe uma rota com o nome: " + standardRouteRequestDTO.routeName());
 
@@ -163,7 +163,7 @@ public class StandardRouteService {
             throw new DomainValidationException("Um mesmo RouteStop não pode ser utilizado mais de uma vez na mesma rota");
         }
 
-        standardRoute.setCustomer(authenticatedUser.getCustomer()); // deve ser o mesmo Customer do usuário autenticado
+        standardRoute.setCustomerId(authenticatedUser.getCustomerId()); // deve ser o mesmo Customer do usuário autenticado
 
         List<RouteStop> routeStops = routeStopRepository.findAllById(routeStopIds);
 
@@ -190,8 +190,8 @@ public class StandardRouteService {
                     if (routeStop == null) throw new EntityNotFoundException("RouteStop não encontrado");
 
                     validateSameCustomer(
-                            routeStop.getCustomer().getId(),
-                            standardRoute.getCustomer().getId());
+                            routeStop.getCustomerId(),
+                            standardRoute.getCustomerId());
 
                     RouteStopAssignment assignment = new RouteStopAssignment();
 
@@ -240,7 +240,7 @@ public class StandardRouteService {
         checkAdminPrivileges(authenticatedUser);
         checkValidAdmin(authenticatedUser); // verifca se o user é válido (status, customer existe)
 
-        boolean isDuplicatedName = standardRouteRepository.existsByRouteNameAndCustomerIdAndIdNot(standardRouteUpdateDTO.routeName(), authenticatedUser.getCustomer().getId(), standardRouteId);
+        boolean isDuplicatedName = standardRouteRepository.existsByRouteNameAndCustomerIdAndIdNot(standardRouteUpdateDTO.routeName(), authenticatedUser.getCustomerId(), standardRouteId);
 
         if (isDuplicatedName) throw new IllegalArgumentException("Já existe uma rota com o nome: " + standardRouteUpdateDTO.routeName());
 
@@ -248,7 +248,7 @@ public class StandardRouteService {
                 .orElseThrow(() -> new EntityNotFoundException("Rota padrão não encontrada: " + standardRouteId));
 
         // devem ser do mesmo Customer
-        validateSameCustomer(standardRoute.getCustomer().getId(), authenticatedUser.getCustomer().getId());
+        validateSameCustomer(standardRoute.getCustomerId(), authenticatedUser.getCustomerId());
 
         /*
         * valida o input das coordenadas de origem e destino
@@ -320,7 +320,7 @@ public class StandardRouteService {
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Entidade standardRoute não encontrada"));
 
-        validateSameCustomer(authenticatedUser.getCustomer().getId(), standardRoute.getCustomer().getId());
+        validateSameCustomer(authenticatedUser.getCustomerId(), standardRoute.getCustomerId());
 
         if (standardRouteStopsUpdateDTO == null || standardRouteStopsUpdateDTO.routeStops() == null || standardRouteStopsUpdateDTO.routeStops().isEmpty()) {
             throw new DomainValidationException("A rota padrão deve possuir ao menos um ponto de parada");
@@ -378,7 +378,7 @@ public class StandardRouteService {
         }
 
         for (RouteStop routeStop : routeStops) {
-            validateSameCustomer(routeStop.getCustomer().getId(), authenticatedUser.getCustomer().getId());
+            validateSameCustomer(routeStop.getCustomerId(), authenticatedUser.getCustomerId());
         }
 
         // cria os novos RouteStopAssignments
@@ -462,7 +462,7 @@ public class StandardRouteService {
     }
 
     private void checkValidAdmin(UserModel authenticatedUser) {
-        if (authenticatedUser.getCustomer() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
+        if (authenticatedUser.getCustomerId() == null) throw new DomainValidationException("O usuário autenticado não está associado a um Customer");
         if (authenticatedUser.getStatus().equals(GeneralStatus.INACTIVE)) throw new InactiveAccountModificationException("Usuário não está ativo");
     }
 

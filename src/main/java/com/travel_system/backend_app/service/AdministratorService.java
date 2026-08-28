@@ -106,7 +106,7 @@ public class AdministratorService {
         Administrator adm = admMapper(admRequestDTO);
 
         adm.setPermissions(List.of(admPerm));
-        adm.setCustomer(customer);
+        adm.setCustomerId(customer.getId());
 
         Administrator savedAdm = administratorRepository.save(adm);
         return admConverted(savedAdm);
@@ -245,7 +245,7 @@ public class AdministratorService {
     }
 
     private AdministratorResponseDTO admConverted(Administrator adm) {
-        UUID customerId = adm.getCustomer() != null ? adm.getCustomer().getId() : null;
+        UUID customerId = adm.getCustomerId() != null ? adm.getCustomerId() : null;
 
         return new AdministratorResponseDTO(
                 adm.getId(),

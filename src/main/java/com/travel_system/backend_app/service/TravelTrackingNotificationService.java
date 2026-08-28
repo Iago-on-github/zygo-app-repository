@@ -1,10 +1,10 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.model.dtos.notifications.StudentProximityNotificationDTO;
 import com.travel_system.backend_app.events.routestops_algorithm.CancelledStudentTravelRouteStopEvent;
 import com.travel_system.backend_app.events.routestops_algorithm.InvalidStudentTravelRouteStopEvent;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
-import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+
+import static com.travel_system.backend_app.config.constants.NotificationConstants.INVALID_ROUTE_LAST_NOTIFY_TIME;
 
 /*
 * notificações tracking da viagem
@@ -28,18 +29,13 @@ public class TravelTrackingNotificationService {
     private final FirebaseNotificationSender firebaseNotificationSender;
     private final RedisNotificationService redisNotificationService;
 
-    private static final long INVALID_ROUTE_LAST_NOTIFY_TIME = TimeUnit.MINUTES.toMillis(5);
-
     public TravelTrackingNotificationService(FirebaseNotificationSender firebaseNotificationSender, RedisNotificationService redisNotificationService) {
         this.firebaseNotificationSender = firebaseNotificationSender;
         this.redisNotificationService = redisNotificationService;
     }
 
     // SLOW
-    public void sendTrackingSlowMovementNotification(Travel travel, VelocityAnalysisDTO velocityAnalysis) {
-        UUID travelId = travel.getId();
-        UUID driverId = travel.getDriver().getId();
-        UUID customerId = travel.getCustomer().getId();
+    public void sendTrackingSlowMovementNotification(UUID travelId, UUID customerId, VelocityAnalysisDTO velocityAnalysis) {;
         MovementState movementState = velocityAnalysis.movementState();
 
         String title = "Alerta de ônibus lento";
@@ -53,14 +49,11 @@ public class TravelTrackingNotificationService {
         );
 
         // send to firebase through handle
-        handleMovementNotification(travelId, driverId, title, message, link, data, customerId);
+        handleMovementNotification(travelId, title, message, link, data, customerId);
     }
 
     // STOPPED
-    public void sendTrackingStoppedMovementNotification(Travel travel, VelocityAnalysisDTO velocityAnalysis) {
-        UUID travelId = travel.getId();
-        UUID driverId = travel.getDriver().getId();
-        UUID customerId = travel.getCustomer().getId();
+    public void sendTrackingStoppedMovementNotification(UUID travelId, UUID customerId, VelocityAnalysisDTO velocityAnalysis) {
         MovementState movementState = velocityAnalysis.movementState();
 
         String title = "Alerta de ônibus parado";
@@ -74,13 +67,13 @@ public class TravelTrackingNotificationService {
         );
 
         // send to firebase through handle
-        handleMovementNotification(travelId, driverId, title, message, link, data, customerId);
+        handleMovementNotification(travelId, title, message, link, data, customerId);
     }
 
     // AUTO DISCONNECTED
     public void sendAutoDisconnectStudentNotification(Travel travel, UUID studentId) {
         UUID travelId = travel.getId();
-        UUID customerId = travel.getCustomer().getId();
+        UUID customerId = travel.getCustomerId();
 
         NotificationAudience student = NotificationAudience.SPECIFIC_USER; // estudante específico no qual foi desvinculado
 
@@ -97,32 +90,6 @@ public class TravelTrackingNotificationService {
         // dto notificação estudante
         PushNotificationCommandDTO studentCommand = new PushNotificationCommandDTO(
                 student, studentId, customerId, travelId, title, message, link, Priority.NORMAL, data);
-
-        firebaseNotificationSender.sendPushNotification(studentCommand);
-    }
-
-    // STUDENT PROXIMITY
-    public void sendCheckProximityAlertsNotification(StudentProximityNotificationMessage event) {
-        UUID travelId = event.travelId();
-        UUID studentId = event.studentId();
-
-        NotificationAudience student = NotificationAudience.SPECIFIC_USER; // manda para o student
-
-        String title = "Alerta de ônibus se aproximando";
-        String message = "O ônibus está a " + Math.round(event.distance()) + " metros de você.";
-        String link = "/travels/" + travelId + "/tracking";
-
-        Map<String, String> data = Map.of(
-                "eventType", "STUDENT_PROXIMITY",
-                "travelId", travelId.toString(),
-                "distance", event.distance().toString(),
-                "zone", event.zone(),
-                "alertType", event.alertType(),
-                "timestamp", event.timestamp()
-        );
-
-        PushNotificationCommandDTO studentCommand =
-                new PushNotificationCommandDTO(student, studentId, null, travelId, title, message, link, Priority.NORMAL, data);
 
         firebaseNotificationSender.sendPushNotification(studentCommand);
     }
@@ -215,6 +182,47 @@ public class TravelTrackingNotificationService {
         firebaseNotificationSender.sendPushNotification(studentCommand);
     }
 
+    // STUDENT PROXIMITY ALERT (PUSHs)
+    public void sendStudentProximityNotification(StudentProximityNotificationDTO proximityEvents) {
+        Double distance = proximityEvents.distance();
+        UUID travelId = proximityEvents.travelId();
+        UUID studentId = proximityEvents.studentId();
+        UUID customerId = proximityEvents.customerId();
+        String zone = proximityEvents.zone();
+        String alertType = proximityEvents.alertType();
+
+        // manda somente para o user em questão
+        NotificationAudience specificUser = NotificationAudience.SPECIFIC_USER;
+
+        String title = "Alerta de Aproximação do Ônibus";
+        String message = "O ônibus está a " + Math.round(distance) + " metros de você.";
+        String link = "/travels/" + travelId + "/proximity/student/" + studentId;
+
+        Map<String, String> data = Map.of(
+                "eventType", "STUDENT_PROXIMITY",
+                "travelId", travelId.toString(),
+                "studentId", studentId.toString(),
+                "distance", distance.toString(),
+                "zone", zone,
+                "alertType", alertType
+        );
+
+        PushNotificationCommandDTO studentCommand = new PushNotificationCommandDTO(
+                specificUser,
+                studentId,
+                customerId,
+                travelId,
+                title,
+                message,
+                link,
+                Priority.NORMAL,
+                data
+        );
+
+        // envia notificação
+        firebaseNotificationSender.sendPushNotification(studentCommand);
+    }
+
     // decide quando enviar as notifications para InvalidRoute
     private void handleInvalidRouteNotification(UUID travelId, UUID studentId, int countInvalidRouteNotifications, PushNotificationCommandDTO studentCommand) {
         Long invalidRouteLastNotify = redisNotificationService.getInvalidRouteLastNotify(travelId, studentId);
@@ -263,20 +271,14 @@ public class TravelTrackingNotificationService {
     }
 
     // handle movement notification
-    private void handleMovementNotification(UUID travelId, UUID driverId, String title, String message, String link, Map<String, String> data, UUID customerId) {
+    private void handleMovementNotification(UUID travelId, String title, String message, String link, Map<String, String> data, UUID customerId) {
         NotificationAudience travelStudents = NotificationAudience.EMBARKED_TRAVEL_STUDENTS; // envia para os estudantes embarcados na viagem
-        NotificationAudience driverNotification = NotificationAudience.SPECIFIC_USER; // envia apenas para o motorista da viagem
 
         // dto notificação estudantes
         PushNotificationCommandDTO students = new PushNotificationCommandDTO(
                 travelStudents, null, customerId, travelId, title, message, link, Priority.HIGH, data);
 
-        // dto notificação driver
-        PushNotificationCommandDTO driver = new PushNotificationCommandDTO(
-                driverNotification, driverId, customerId, travelId, title, message, link, Priority.HIGH, data);
-
         // envia as notificações
         firebaseNotificationSender.sendPushNotification(students);
-        firebaseNotificationSender.sendPushNotification(driver);
     }
 }

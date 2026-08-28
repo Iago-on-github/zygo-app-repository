@@ -77,7 +77,7 @@ public class CurrentUserService {
 
         UUID customerId = null;
         if (!isPlatformAdmin) {
-            customerId = savedUser.getCustomer().getId();
+            customerId = savedUser.getCustomerId();
         }
 
         UUID userId = savedUser.getId();

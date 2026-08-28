@@ -18,7 +18,7 @@ public interface StandardRouteRequestMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "standardGeometry", ignore = true)
     @Mapping(target = "status", ignore = true)
-    @Mapping(target = "customer", ignore = true)
+    @Mapping(target = "customerId", ignore = true)
     @Mapping(target = "routeStopAssignments", ignore = true)
     StandardRoute toEntity(StandardRouteRequestDTO requestDTO);
 
