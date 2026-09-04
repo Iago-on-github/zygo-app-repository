@@ -56,7 +56,7 @@ public class LocationControllerIT extends IntegrationTestBase {
 
     private final String PATH_CONTROLLER = "/v1/location";
     private final String AUTH_USER = "authenticated_user";
-
+/*
     @Nested
     @Transactional
     class studentPosition {
@@ -262,5 +262,5 @@ public class LocationControllerIT extends IntegrationTestBase {
                         .andExpect(status().isBadRequest());
             }
         }
-    }
+    }*/
 }

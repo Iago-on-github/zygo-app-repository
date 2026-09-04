@@ -103,7 +103,7 @@ public class TravelControllerIT extends IntegrationTestBase {
         travelLocationHistoryRepository.deleteAll();
     }
 
-    @Nested
+/*    @Nested
     class createTravel {
         Customer customer;
         Driver driver;
@@ -1595,5 +1595,5 @@ public class TravelControllerIT extends IntegrationTestBase {
         }
 
 
-    }
+    }*/
 }

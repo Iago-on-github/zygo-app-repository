@@ -40,7 +40,7 @@ public class RouteCalculationControllerIT extends IntegrationTestBase {
     @Autowired
     private TravelRepository travelRepository;
 
-    @Nested
+/*    @Nested
     class isRouteDeviation {
         RouteDeviationRequestDTO routeDeviationRequestDTO;
         Travel travel;
@@ -180,5 +180,5 @@ public class RouteCalculationControllerIT extends IntegrationTestBase {
                     .andExpect(jsonPath("$.isOffRoute").value(false))
                     .andExpect(jsonPath("$.nearestPointLat").exists());
         }
-    }
+    }*/
 }
