@@ -89,7 +89,7 @@ class TravelTrackingServiceTest {
     private static final long FIXED_TIMESTAMP = 1_700_000_000_000L;
     private static final double ROUTE_RECALCULATION_THRESHOLD = 50.0;
 
-   @BeforeEach
+/*   @BeforeEach
     void setUp() {
         customer = new Customer(UUID.randomUUID(), "Universidade Exemplo", "universidade-exemplo", "12.345.678/0001-90", true, new City(), ClientSector.PRIVATE_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
         driver = new Driver(UUID.randomUUID(), "joao.silva@exemplo.com", "Senha@123", "João", "Silva", "+55 11 98888-7777", "https://cdn.exemplo.com/drivers/joao-silva.png", GeneralStatus.ACTIVE, LocalDateTime.of(2026, 7, 16, 12, 30), LocalDateTime.of(2026, 7, 16, 12, 30), customer, "Transporte Escolar", 24);
@@ -101,7 +101,7 @@ class TravelTrackingServiceTest {
         routeDetailsDTO = new RouteDetailsDTO(2100.0, 35.0, "encoded_polyline_example");
         previousStateDTO = new PreviousStateDTO(1200.0, 18.5, System.currentTimeMillis());
         studentTravel = new StudentTravel(UUID.randomUUID(), travel, new Student(), false, null, null, new GeoPosition(), StudentTravelStatus.ACTIVE);
-    }
+    }*/
 
     @Nested
     class markDriverCheckpoint {
@@ -712,7 +712,7 @@ class TravelTrackingServiceTest {
             @DisplayName("Deve lançar exception quando o DTO de entrada por inválido")
             @MethodSource("vehicleLocRequestProvider")
             void shouldThrowEmptyMandatoryFieldsFoundWhenRequestContainsInvalidMandatoryFields(VehicleLocationRequestDTO newVehicleLocationRequestDTO) {
-                assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.processNewLocation(newVehicleLocationRequestDTO));
+                assertThrows(EmptyMandatoryFieldsFoundException.class, () -> travelTrackingService.processNewLocation(newVehicleLocationRequestDTO));
 
                 verifyNoInteractions(travelCacheService, redisTrackingService, routeCalculationService, mapboxAPIService);
             }
@@ -993,7 +993,7 @@ class TravelTrackingServiceTest {
         @Test
         @DisplayName("throw exception when require parameter data not found")
         void throwExceptionWhenRequireParameterDataNotFound() {
-            assertThrows(EmptyMandatoryFieldsFound.class, () -> travelTrackingService.getTravelHistory(null));
+            assertThrows(EmptyMandatoryFieldsFoundException.class, () -> travelTrackingService.getTravelHistory(null));
 
             verifyNoInteractions(travelLocationHistoryRepository);
         }

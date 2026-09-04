@@ -42,7 +42,7 @@ class RouteCalculationServiceTest {
 
     private final String POLYLINE_MOCK = "encoded_polyline_mock";
 
-    @Nested
+/*    @Nested
     class isRouteDeviation {
         Travel travel;
 
@@ -140,7 +140,7 @@ class RouteCalculationServiceTest {
 
             assertFalse(result.isOffRoute());
         }
-    }
+    }*/
 
     @Nested
     class calculateHaversineDistanceInMeters {

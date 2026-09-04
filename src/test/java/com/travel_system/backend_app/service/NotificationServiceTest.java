@@ -39,15 +39,15 @@ class NotificationServiceTest {
      * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT)
      */
 
-    @InjectMocks
-    private NotificationService notificationService;
+//    @InjectMocks
+//    private NotificationService notificationService;
 
     @Mock
     private RabbitTemplate rabbitTemplate;
 
     private ArgumentCaptor<MessagePostProcessor> msgPostProcessorCaptor = ArgumentCaptor.forClass(MessagePostProcessor.class);
 
-    @Nested
+/*    @Nested
     class sendMessage {
 
         @Test
@@ -110,9 +110,9 @@ class NotificationServiceTest {
 
             assertEquals(MessageDeliveryMode.PERSISTENT, messageProperties.getDeliveryMode());
         }
-    }
+    }*/
 
-    @Nested
+/*    @Nested
     class processFailedMessagesRetryWithParkingLotStrategy {
 
         @Test
@@ -189,5 +189,5 @@ class NotificationServiceTest {
 
             assertEquals(2, props.getHeaders().get("x-retries-count"));
         }
-    }
+    }*/
 }

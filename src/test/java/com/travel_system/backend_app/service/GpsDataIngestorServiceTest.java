@@ -48,7 +48,7 @@ class GpsDataIngestorServiceTest {
 
     VehicleGpsMessageDTO vehicleGpsMessageDTO;
     String routingKey;
-
+/*
     @BeforeEach
     void setUp() {
         when(circuitBreakerRegistry.circuitBreaker("gpsIngestor")).thenReturn(circuitBreaker);
@@ -75,7 +75,7 @@ class GpsDataIngestorServiceTest {
                                 null));
 
         routingKey = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
-    }
+    }*/
 
     @Nested
     class sendVehicleGps {

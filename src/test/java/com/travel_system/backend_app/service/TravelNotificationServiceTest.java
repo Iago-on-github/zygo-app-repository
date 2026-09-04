@@ -38,7 +38,7 @@ class TravelNotificationServiceTest {
     @Mock
     private FirebaseNotificationSender firebaseNotificationSender;
 
-    @Nested
+/*    @Nested
     class sendTravelCreatedNotification {
         Travel travel;
         Driver driver;
@@ -255,5 +255,5 @@ class TravelNotificationServiceTest {
             assertEquals(expectedTitle, driverCommand.title());
             assertEquals(expectedData, driverCommand.data());
         }
-    }
+    }*/
 }

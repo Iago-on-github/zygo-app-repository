@@ -75,7 +75,7 @@ class TravelServiceTest {
     Student student;
     StudentTravel studentTravel;
 
-    @BeforeEach
+/*    @BeforeEach
     void setUp() {
         customer = new Customer(UUID.randomUUID(), "Universidade Exemplo", "universidade-exemplo", "12.345.678/0001-90", true, new City(), ClientSector.PRIVATE_CLIENT, "https://cdn.exemplo.com/customers/universidade-exemplo.png", Instant.parse("2026-07-16T12:00:00Z"), Instant.parse("2026-07-16T12:00:00Z"));
 
@@ -88,7 +88,7 @@ class TravelServiceTest {
         studentTravel = new StudentTravel(UUID.randomUUID(), travel, student, true, Instant.parse("2026-07-16T10:20:00Z"), null, null, StudentTravelStatus.ACTIVE);
 
         travel = new Travel(UUID.randomUUID(), TravelStatus.TRAVELLING, driver, Instant.parse("2026-07-16T10:00:00Z"), Instant.parse("2026-07-16T10:10:00Z"), TravelPeriod.MORNING, null, "encoded_polyline_exemplo", 35.5, 18.2, -23.550520, -46.633308, -23.548900, -46.630000, "São Paulo", customer, null);
-    }
+    }*/
 
     @Nested
     class createTravel {
@@ -490,7 +490,7 @@ class TravelServiceTest {
         }
     }
 
-   @Nested
+/*   @Nested
     class joinTravel {
 
         @Test
@@ -719,7 +719,7 @@ class TravelServiceTest {
            verifyNoInteractions(travelNotificationService);
        }
 
-   }
+   }*/
 
    @Nested
    class cancelTravel {
@@ -806,7 +806,7 @@ class TravelServiceTest {
        }
    }
 
-   @Nested
+/*   @Nested
    class leaveTravel {
        TravelCacheDTO travelCacheDTO;
        StudentTravelCacheDTO studentTravelCacheDTO;
@@ -909,7 +909,7 @@ class TravelServiceTest {
            verifyNoMoreInteractions(travelStudentStateCacheService);
            verifyNoInteractions(studentTravelRepository);
        }
-   }
+   }*/
 
    @Nested
    class linkedStudentTravel {

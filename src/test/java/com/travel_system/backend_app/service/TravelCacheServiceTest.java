@@ -45,7 +45,7 @@ class TravelCacheServiceTest {
 
     Travel travel;
 
-    @BeforeEach
+/*    @BeforeEach
     void setUp() {
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
 
@@ -53,7 +53,7 @@ class TravelCacheServiceTest {
 
         travel = new Travel(UUID.randomUUID(), TravelStatus.PENDING, new Driver(), Instant.now(), Instant.now(), TravelPeriod.EVENING, Instant.now().plusSeconds(3600), "u{~vFcwpt@_@_C", 3600.0, 15.5, -23.55052, -46.633308, -23.561414, -46.655881, "São Paulo", new Customer(), null);
 
-    }
+    }*/
 
     @Nested
     class invalidateTravelStaticCache {

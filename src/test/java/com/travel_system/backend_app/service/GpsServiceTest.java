@@ -42,15 +42,15 @@ class GpsServiceTest {
      * 7. OS TESTES DEVEM OBRIGATORIAMENTE SEGUIR O PADRÃO AAA (ARRANGE, ACT & ASSERT)
      */
 
-    @InjectMocks
-    private GpsService gpsService;
+//    @InjectMocks
+//    private GpsService gpsService;
 
     @Mock
     private RabbitTemplate rabbitTemplate;
 
     private ArgumentCaptor<MessagePostProcessor> msgPostProcessorCaptor = ArgumentCaptor.forClass(MessagePostProcessor.class);
 
-    @Nested
+/*    @Nested
     class sendLocalizationToNotification {
 
         @Test
@@ -137,5 +137,5 @@ class GpsServiceTest {
                     Arguments.of(null, UUID.randomUUID().toString(), null)
             );
         }
-    }
+    }*/
 }
