@@ -26,7 +26,7 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
             SELECT new com.travel_system.backend_app.model.dtos.StudentAwayStateDTO(
                 st.id,
                 st.student.id,
-                st.student.email,
+                st.student.userAccount.email,
                 st.studentTravelStatus,
                 st.embark
             )
@@ -52,15 +52,16 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
 
     boolean existsByIdAndTravelId(UUID studentId, UUID travelId);
 
-    @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.email = :studentEmail")
+    @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.userAccount.email = :studentEmail")
     Optional<StudentTravel> findByTravelIdAndStudentEmail(@Param("travelId") UUID travelId, @Param("studentEmail") String studentEmail);
 
+    @Query("SELECT CASE WHEN COUNT(st) > 0 THEN TRUE ELSE FALSE END FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.userAccount.email = :studentEmail AND st.embark = TRUE")
     boolean existsByTravelIdAndStudentEmailAndEmbarkTrue(UUID travelId, String studentEmail);
 
     @Query("""
             SELECT CASE WHEN COUNT(st) > 0 THEN TRUE ELSE FALSE END
                 FROM StudentTravel st     \s
-                WHERE st.student.email = :studentEmail
+                WHERE st.student.userAccount.email = :studentEmail
                 AND st.embark = TRUE
                 AND st.travel.id <> :travelId
                 AND st.travel.travelStatus = :travelStatus
@@ -85,7 +86,7 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
         JOIN st.student s
         LEFT JOIN Customer c ON c.id = s.customerId
         LEFT JOIN c.city ct
-        WHERE s.email = :studentEmail
+        WHERE s.userAccount.email = :studentEmail
         AND st.studentTravelStatus = :status
         AND t.travelStatus = :travelStatus
         AND st.embark = true

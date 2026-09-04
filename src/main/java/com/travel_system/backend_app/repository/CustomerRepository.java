@@ -24,4 +24,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     // recuper o Id da City pelo ID do customer
     Optional<UUID> findCityIdById(UUID customerId);
+
+    boolean existsByCnpj(@Param("cnpj") String cnpj);
+
 }
