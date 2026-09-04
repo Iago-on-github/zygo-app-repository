@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.interfaces.mappers;
+package com.travel_system.backend_app.interfaces.mappers.response;
 
 import com.travel_system.backend_app.model.RouteStop;
 import com.travel_system.backend_app.model.RouteStopAssignment;
@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring")
 public interface RouteStopResponseMapper {
 
-    @Mapping(target = "customerId", source = "customerId")
+    @Mapping(target = "customerId", ignore = true)
     RouteStopResponseDTO toDTO(RouteStop routeStop);
 
     // Mapeia individualmente cada elemento da coleção 'routeStopAssignments' para o UUID da parada

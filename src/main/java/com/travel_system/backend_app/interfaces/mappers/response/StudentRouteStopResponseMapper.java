@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.interfaces.mappers;
+package com.travel_system.backend_app.interfaces.mappers.response;
 
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.response.RouteStopAssignmentResponseDTO;

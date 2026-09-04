@@ -11,7 +11,6 @@ import org.mapstruct.*;
 public interface RouteStopRequestMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "customerId", ignore = true)
