@@ -1,11 +1,11 @@
-package com.travel_system.backend_app.service.profile;
+package com.travel_system.backend_app.service.strategies.profile;
 
+import com.travel_system.backend_app.interfaces.UserProfileStrategy;
 import com.travel_system.backend_app.model.PlatformAdministrator;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.PlatformAdministratorRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.apache.catalina.User;
 import org.springframework.stereotype.Component;
 
 @Component

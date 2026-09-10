@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.service.profile;
+package com.travel_system.backend_app.interfaces;
 
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.UserAccountType;

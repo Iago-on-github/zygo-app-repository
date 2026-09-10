@@ -1,5 +1,6 @@
-package com.travel_system.backend_app.service.profile;
+package com.travel_system.backend_app.service.strategies.profile;
 
+import com.travel_system.backend_app.interfaces.UserProfileStrategy;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.UserAccountType;
