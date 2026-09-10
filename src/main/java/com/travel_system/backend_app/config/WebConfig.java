@@ -16,6 +16,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(bootstrapRateLimitInterceptor).addPathPatterns("/v1/platform-admin/bootstrap");
+        registry.addInterceptor(bootstrapRateLimitInterceptor)
+                .addPathPatterns("/v1/platform-admin/bootstrap")
+                .addPathPatterns("/v1/security/sensitive-operations/**");
     }
 }

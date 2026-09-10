@@ -6,6 +6,7 @@ import com.travel_system.backend_app.security.JwtAuthenticationFilter;
 import com.travel_system.backend_app.service.CurrentUserService;
 import com.travel_system.backend_app.service.UserProfileResolverService;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.compress.archivers.dump.DumpArchiveEntry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -64,6 +65,7 @@ public class SecurityConfig {
                     configureAdminsEndpoints(auth);
                     configurePlatformAdministratorEndpoints(auth);
                     configureSetupAuthenticationEndpoints(auth);
+                    configureSensitiveOperationEndpoints(auth);
                     configureAnyRequireAuthEndpoints(auth);
                 })
                 // tratamento de exceptions do spring security
@@ -178,6 +180,11 @@ public class SecurityConfig {
         auth
                 .requestMatchers("/new").hasRole(ROLE_PLATFORM_ADMIN)
                 .requestMatchers("/v1/internal/platform-admin/bootstrap").permitAll();
+
+    }
+
+    private void configureSensitiveOperationEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/security/sensitive-operations/**").permitAll();
 
     }
 

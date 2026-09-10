@@ -11,4 +11,6 @@ import java.util.UUID;
 @Repository
 public interface SensitiveOperationRepository extends JpaRepository<SensitiveOperation, UUID> {
     Optional<SensitiveOperation> findByRequestedByUserAccountEmail(@Param("authenticatedUserEmail") String authenticatedUserEmail);
+
+    Optional<SensitiveOperation> findByVerificationTokenHash(@Param("hash") String hash);
 }
