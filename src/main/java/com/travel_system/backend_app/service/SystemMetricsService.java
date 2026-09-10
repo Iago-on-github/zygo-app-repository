@@ -24,6 +24,7 @@ public class SystemMetricsService {
     private final ThreadPoolTaskExecutor notificationExecutor;
     private final ThreadPoolTaskExecutor vehicleGpsExecutor;
     private final ThreadPoolTaskExecutor studentAwayStateExecutor;
+    private final ThreadPoolTaskExecutor sendSensitiveEmailExecutor;
 
     private final RedisTrackingService redisTrackingService;
     private final TravelService travelService;
@@ -36,10 +37,12 @@ public class SystemMetricsService {
 
     public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor,
                                 @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
-                                @Qualifier("studentAwayTaskExecutor") ThreadPoolTaskExecutor studentAwayStateExecutor, RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
+                                @Qualifier("studentAwayTaskExecutor") ThreadPoolTaskExecutor studentAwayStateExecutor,
+                                @Qualifier("sendSensitiveEmailTaskExecutor") ThreadPoolTaskExecutor sendSensitiveEmailExecutor, RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
         this.notificationExecutor = notificationExecutor;
         this.vehicleGpsExecutor = vehicleGpsExecutor;
         this.studentAwayStateExecutor = studentAwayStateExecutor;
+        this.sendSensitiveEmailExecutor = sendSensitiveEmailExecutor;
         this.redisTrackingService = redisTrackingService;
         this.travelService = travelService;
         this.travelRepository = travelRepository;
@@ -117,6 +120,9 @@ public class SystemMetricsService {
 
         // Executor de Métricas Travel-Tracking
         studentAwatStateMetrics();
+
+        // Executor de Métricas Send Sensitive Email
+        sendSensitiveEmailMetrics();
     }
 
     private void studentAwatStateMetrics() {
@@ -144,6 +150,34 @@ public class SystemMetricsService {
 
         if (studentAwayStatePoolSize > 5) {
             logger.warn("[Executor: Travel-Tracking] poolSize maior que o core. Threads extras criadas.");
+        }
+    }
+
+    private void sendSensitiveEmailMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+
+        int sensitiveEmailActiveCount = sendSensitiveEmailExecutor.getActiveCount();
+        int sensitiveEmailQueueSize = sendSensitiveEmailExecutor.getQueueSize();
+        int sensitiveEmailPoolSize = sendSensitiveEmailExecutor.getPoolSize();
+
+        int queueNinetyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 90);
+        int queueFortyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 40);
+
+        logger.info("[Executor: Send-Sensitive-Email] active: {} | queue: {} | pool: {} / {}",
+                sensitiveEmailActiveCount, sensitiveEmailQueueSize, sensitiveEmailPoolSize, sendSensitiveEmailExecutor.getMaxPoolSize());
+
+        if (sensitiveEmailActiveCount >= sensitiveEmailPoolSize) {
+            logger.warn("[Executor: Send-Sensitive-Email] todas as threads estão ocupadas.");
+        }
+
+        if (sensitiveEmailQueueSize >= queueNinetyPercent) {
+            logger.warn("[Executor: Send-Sensitive-Email] RED ALERT: fila ultrapassou 90%");
+        } else if (sensitiveEmailQueueSize >= queueFortyPercent) {
+            logger.warn("[Executor: Send-Sensitive-Email] YELLOW ALERT: fila ultrapassou 40%");
+        }
+
+        if (sensitiveEmailPoolSize > 5) {
+            logger.warn("[Executor: Send-Sensitive-Email] poolSize maior que o core. Threads extras criadas.");
         }
     }
 
