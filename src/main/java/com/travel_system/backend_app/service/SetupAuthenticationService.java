@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travel_system.backend_app.events.send_emails.SensitiveOperationCreatedEvent;
 import com.travel_system.backend_app.model.SensitiveOperation;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
@@ -13,6 +14,8 @@ import com.travel_system.backend_app.repository.SensitiveOperationRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +31,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.config.constants.SensitiveOperationConstants.EXPIRES_SENSITIVE_ENTITY_TTL;
+import static com.travel_system.backend_app.service.HmacTokenService.calculateTokenHMAC;
+import static com.travel_system.backend_app.service.HmacTokenService.generateRandomPureToken;
 
 @Service
 public class SetupAuthenticationService {
@@ -39,15 +44,18 @@ public class SetupAuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Value("${secret.hash.token-key}")
     private String secretHashTokenKey;
 
-    public SetupAuthenticationService(UserAccountRepository userAccountRepository, SensitiveOperationRepository sensitiveOperationRepository, RedisSetupAuthenticationService redisSetupAuthenticationService, PasswordEncoder passwordEncoder, ObjectMapper objectMapper) {
+    public SetupAuthenticationService(UserAccountRepository userAccountRepository, SensitiveOperationRepository sensitiveOperationRepository, RedisSetupAuthenticationService redisSetupAuthenticationService, PasswordEncoder passwordEncoder, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.userAccountRepository = userAccountRepository;
         this.sensitiveOperationRepository = sensitiveOperationRepository;
         this.redisSetupAuthenticationService = redisSetupAuthenticationService;
         this.passwordEncoder = passwordEncoder;
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     // verifica se a senha do user logado bate com a senha cadastrada no banco
@@ -100,7 +108,9 @@ public class SetupAuthenticationService {
         sensitiveOperation.setSensitiveOperationStatus(SensitiveOperationStatus.PENDING);
         sensitiveOperation.setExpiresAt(Instant.now().plus(EXPIRES_SENSITIVE_ENTITY_TTL));
 
-        sensitiveOperationRepository.save(sensitiveOperation);
+        SensitiveOperation savedSensitiveOperation = sensitiveOperationRepository.save(sensitiveOperation);
+
+        eventPublisher.publishEvent(new SensitiveOperationCreatedEvent(randomPureToken, sensitiveOperationType, savedSensitiveOperation.getExpiresAt()));
 
         // disponibiliza o pure token para ser usado em serviços como envio de email
         return new SensitiveOperationAuthorizationResult(randomPureToken, sensitiveOperation);
@@ -112,44 +122,6 @@ public class SetupAuthenticationService {
         redisSetupAuthenticationService.putTemporarySetupSensitiveOperation(userEmail);
     }
 
-    // gera um token puro com SecureRandom
-    private String generateRandomPureToken() {
-        SecureRandom secureRandom = new SecureRandom();
-
-        // tamanho, em bytes, do token
-        int byteLength = 32;
-        byte[] tokenBytes = new byte[byteLength];
-
-        secureRandom.nextBytes(tokenBytes);
-
-        // converte para str hex
-        return bytesToHex(tokenBytes);
-    }
-
-    // converte bytes para string hexadecimal
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder strBuilder = new StringBuilder();
-
-        for (byte b : bytes) {
-            strBuilder.append(String.format("%02x", b));
-        }
-
-        return strBuilder.toString();
-    }
-
-    // calcula o hashtoken a partir do token puro gerado e da secret key
-    private String calculateTokenHMAC(String secretKey, String pureToken) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-
-            mac.init(new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] hmacBytes = mac.doFinal(pureToken.getBytes(StandardCharsets.UTF_8));
-
-            return bytesToHex(hmacBytes);
-        } catch (Exception e) {
-            throw new RuntimeException("Falha ao calcular HMAC", e);
-        }
-    }
 }
 
 /*
