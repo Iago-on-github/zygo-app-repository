@@ -71,6 +71,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(PayloadNotFoundException.class)
+    public final ResponseEntity<StandardError> PayloadNotFoundException(PayloadNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(TravelStudentAssociationNotFoundException.class)
     public final ResponseEntity<StandardError> TravelStudentAssociationNotFoundException(TravelStudentAssociationNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -99,6 +104,11 @@ public class CapturedAndCustomizedExceptions {
     @ExceptionHandler(StandardRouteException.class)
     public final ResponseEntity<StandardError> StandardRouteException(StandardRouteException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResourceGoneException.class)
+    public final ResponseEntity<StandardError> ResourceGoneException(ResourceGoneException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.GONE);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
