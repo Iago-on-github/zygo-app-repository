@@ -15,14 +15,17 @@ public class PlatformAdministrator {
     @OneToOne(optional = false)
     @JoinColumn(name = "user_account_id", nullable = false, unique = true)
     private UserAccount userAccount;
-    private String name;
+    private String name = "ZYGGO ADMINISTRATOR";
     private String profilePicture;
 
-    public PlatformAdministrator(UUID id, UserAccount userAccount, String profilePicture) {
+    public PlatformAdministrator() {
+    }
+
+    public PlatformAdministrator(UUID id, UserAccount userAccount, String name, String profilePicture) {
         this.id = id;
         this.userAccount = userAccount;
+        this.name = name;
         this.profilePicture = profilePicture;
-        this.name = "ZYGGO ADMINISTRATOR";
     }
 
     public UUID getId() {

@@ -43,7 +43,7 @@ public class PlatformAdministratorService {
     @Value("${secret.bootstrap-key}")
     private String secretBootstrap;
 
-    @Value("${platform-admin.bootstrap-approval-email}")
+    @Value("${platform-admin.approval-email}")
     private String bootstrapApprovalEmail;
 
     public PlatformAdministratorService(PlatformAdministratorRepository platformAdministratorRepository, SensitiveOperationRepository sensitiveOperationRepository, SetupAuthenticationService setupAuthenticationService, RedisSetupAuthenticationService redisSetupAuthenticationService, PasswordEncoder passwordEncoder) {

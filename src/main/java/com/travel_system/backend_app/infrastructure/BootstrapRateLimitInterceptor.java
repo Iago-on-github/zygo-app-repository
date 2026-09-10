@@ -15,7 +15,7 @@ public class BootstrapRateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimitService rateLimitService;
 
-    @Value("security.rate-limit-trust-forwarded-header")
+    @Value("${security.rate-limit-trust-forwarded-header}")
     private boolean trustForwardedHeader;
 
     public BootstrapRateLimitInterceptor(RateLimitService rateLimitService) {

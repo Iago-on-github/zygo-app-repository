@@ -2,11 +2,10 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.exceptions.DomainValidationException;
-import com.travel_system.backend_app.exceptions.ProfilePictureNotFoundException;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.UserAccountRepository;
-import com.travel_system.backend_app.service.profile.UserProfileStrategy;
+import com.travel_system.backend_app.interfaces.UserProfileStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

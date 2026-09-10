@@ -22,7 +22,6 @@ public class PlatformAdministratorController {
         this.platformAdministratorService = platformAdministratorService;
     }
 
-    // adc no spring security ainda
     @PostMapping("/new")
     public ResponseEntity<SensitiveOperationResponseDTO> createPlatformAdm(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdministratorRequestDTO) throws JsonProcessingException {
         return ResponseEntity.accepted().body(platformAdministratorService.createPlatformAdm(platformAdministratorRequestDTO));
