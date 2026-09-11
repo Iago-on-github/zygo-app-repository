@@ -91,6 +91,8 @@ public class CustomerService {
         Customer customer = customerRequestMapper.toEntity(customerRequestDTO);
         customer.setCity(city);
 
+        customer.getCity().getCustomers().add(customer);
+
         Customer savedCustomer = customerRepository.save(customer);
 
         return customerResponseMapper.toDTO(savedCustomer);

@@ -48,11 +48,6 @@ public class CityController {
         return ResponseEntity.created(uri).body(newCity);
     }
 
-    @PatchMapping("/{cityId}/addCustomer/{customerId}")
-    public ResponseEntity<CityResponseDTO> addCustomer(@PathVariable UUID cityId, @PathVariable UUID customerId) {
-        return ResponseEntity.ok().body(cityService.addCustomer(cityId, customerId));
-    }
-
     @PatchMapping("/{cityId}/removeCustomer/{customerId}")
     public ResponseEntity<Void> removeCustomer(@PathVariable UUID cityId, @PathVariable UUID customerId) {
         cityService.removeCustomer(cityId, customerId);

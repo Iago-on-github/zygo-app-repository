@@ -43,11 +43,6 @@ public class City {
         this.id = id;
     }
 
-    public void addCustomer(Customer customer) {
-        this.customers.add(customer);
-        customer.setCity(this);
-    }
-
     public void removeCustomer(Customer customer) {
         this.customers.remove(customer);
         customer.setCity(null);

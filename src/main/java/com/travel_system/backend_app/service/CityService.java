@@ -73,22 +73,6 @@ public class CityService {
         return cityResponseMapper.toDTO(savedEntity);
     }
 
-    @Transactional
-    public CityResponseDTO addCustomer(UUID cityId, UUID customerId) {
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new EntityNotFoundException("Customer não encontrado pelo Id: " + customerId));
-
-        if (customer.getStatus() == GeneralStatus.INACTIVE) {
-            throw new InactiveAccountException("Não é possível adicionar um Customer que está inativo");
-        }
-
-        City city = cityRepository.findById(cityId)
-                .orElseThrow(() -> new EntityNotFoundException("City não encontrada pelo id: " + cityId));
-
-        city.addCustomer(customer);
-
-        return cityResponseMapper.toDTO(city);
-    }
 
     @Transactional
     public void removeCustomer(UUID cityId, UUID customerId) {
