@@ -2,6 +2,7 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,8 +17,6 @@ import java.util.UUID;
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
-    List<Customer> findAllByActive(Boolean active);
-
     Optional<Customer> findByCnpj(@Param("cnpj") String cnpj);
 
     Optional<Customer> findBySlug(String slug);
@@ -27,4 +26,5 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     boolean existsByCnpj(@Param("cnpj") String cnpj);
 
+    List<Customer> findAllByStatus(@Param("status") GeneralStatus status);
 }

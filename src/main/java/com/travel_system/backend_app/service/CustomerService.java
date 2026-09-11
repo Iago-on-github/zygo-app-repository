@@ -9,7 +9,9 @@ import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.dtos.request.CustomerRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerResponseDTO;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.CityRepository;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
@@ -50,7 +52,7 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public CustomerResponseDTO findCustomerById(UUID id) {
+    public CustomerResponseDTO findById(UUID id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Customer com o id '" + id + "' não encontrado"));
 
@@ -66,10 +68,10 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public List<CustomerResponseDTO> findAllByActive(Boolean active) {
-        boolean targetStatus = Boolean.TRUE.equals(active);
+    public List<CustomerResponseDTO> findByStatus(GeneralStatus status) {
+        if (status == null) status = GeneralStatus.ACTIVE;
 
-        List<Customer> customersByStatus = customerRepository.findAllByActive(targetStatus);
+        List<Customer> customersByStatus = customerRepository.findAllByStatus(status);
 
         return customersByStatus.stream().map(customerResponseMapper::toDTO).toList();
     }
@@ -99,7 +101,7 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Customer com o id '" + id + "' não encontrado"));
 
-        if (!customer.isActive()) throw new InactiveAccountModificationException("Customer não está ativo.");
+        if (customer.getStatus() == GeneralStatus.INACTIVE) throw new InactiveAccountModificationException("Customer não está ativo.");
 
         customerRequestMapper.updateEntityFromDTO(customerUpdateDTO, customer);
 
@@ -107,13 +109,13 @@ public class CustomerService {
     }
 
     @Transactional
-    public void updateCustomerActive(UUID id, boolean isEnabled) {
+    public void updateCustomerActive(UUID id, UpdateEntityStatusDTO dto) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Customer com o id '" + id + "' não encontrado"));
 
-        if (customer.isActive() == isEnabled) throw new InactiveAccountModificationException("Customer já inativo no sistema");
+        if (customer.getStatus() == dto.status()) throw new DuplicateResourceException("Customer já possui o status: " + dto.status());
 
-        customer.setActive(isEnabled);
+        customer.setStatus(dto.status());
 
         customerRepository.save(customer);
     }

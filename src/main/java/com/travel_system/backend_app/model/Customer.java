@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.model;
 
 import com.travel_system.backend_app.model.enums.ClientSector;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -20,7 +21,7 @@ public class Customer {
     @Column(unique = true)
     private String slug;
     private String cnpj;
-    private boolean active = true;
+    private GeneralStatus status = GeneralStatus.ACTIVE;
     @ManyToOne
     private City city;
     @Enumerated(EnumType.STRING)
@@ -34,12 +35,12 @@ public class Customer {
     public Customer() {
     }
 
-    public Customer(UUID id, String name, String slug, String cnpj, boolean active, City city, ClientSector clientSector, String profilePicture, Instant createdAt, Instant updatedAt) {
+    public Customer(UUID id, String name, String slug, String cnpj, GeneralStatus status, City city, ClientSector clientSector, String profilePicture, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.slug = slug;
         this.cnpj = cnpj;
-        this.active = active;
+        this.status = status;
         this.city = city;
         this.clientSector = clientSector;
         this.profilePicture = profilePicture;
@@ -79,12 +80,12 @@ public class Customer {
         this.cnpj = cnpj;
     }
 
-    public boolean isActive() {
-        return active;
+    public GeneralStatus getStatus() {
+        return status;
     }
 
-    public void setActive(boolean active) {
-        this.active = active;
+    public void setStatus(GeneralStatus status) {
+        this.status = status;
     }
 
     public City getCity() {

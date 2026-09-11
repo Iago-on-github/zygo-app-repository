@@ -2,8 +2,10 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.CustomerRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerResponseDTO;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -71,8 +73,8 @@ public class CustomerController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping("/{id}")
-    public ResponseEntity<CustomerResponseDTO> findCustomerById(@PathVariable UUID id) {
-        return ResponseEntity.ok().body(customerService.findCustomerById(id));
+    public ResponseEntity<CustomerResponseDTO> findById(@PathVariable UUID id) {
+        return ResponseEntity.ok().body(customerService.findById(id));
     }
 
     @Operation(
@@ -113,8 +115,8 @@ public class CustomerController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping
-    public ResponseEntity<List<CustomerResponseDTO>> findAllByActive(@RequestParam(required = false) Boolean enabled) {
-        return ResponseEntity.ok().body(customerService.findAllByActive(enabled));
+    public ResponseEntity<List<CustomerResponseDTO>> findAllByActive(@RequestParam(required = false) GeneralStatus status) {
+        return ResponseEntity.ok().body(customerService.findByStatus(status));
     }
 
     @Operation(
@@ -191,9 +193,10 @@ public class CustomerController {
             @ApiResponse(responseCode = "404", description = "Customer não encontrado no banco de dados.",
                     content = @Content(schema = @Schema(hidden = true)))
     })
-    @PatchMapping("/{id}/enabled")
-    public ResponseEntity<Void> updateCustomerActive(@PathVariable UUID id, @RequestParam boolean isEnabled) {
-        customerService.updateCustomerActive(id, isEnabled);
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Void> updateCustomerActive(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO dto) {
+        customerService.updateCustomerActive(id, dto);
+
         return ResponseEntity.noContent().build();
     }
 }
