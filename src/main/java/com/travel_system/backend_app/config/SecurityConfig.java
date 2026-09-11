@@ -66,6 +66,7 @@ public class SecurityConfig {
                     configurePlatformAdministratorEndpoints(auth);
                     configureSetupAuthenticationEndpoints(auth);
                     configureSensitiveOperationEndpoints(auth);
+                    configureCitiesEndpoints(auth);
                     configureAnyRequireAuthEndpoints(auth);
                 })
                 // tratamento de exceptions do spring security
@@ -190,6 +191,11 @@ public class SecurityConfig {
 
     private void configureSetupAuthenticationEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers("/v1/auth/set-up").hasRole(ROLE_PLATFORM_ADMIN);
+
+    }
+
+    private void configureCitiesEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/cities/**").hasRole(ROLE_PLATFORM_ADMIN);
 
     }
 
