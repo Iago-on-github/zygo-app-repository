@@ -2,14 +2,19 @@ package com.travel_system.backend_app.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travel_system.backend_app.model.enums.CitySize;
+import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "CITY_TABLE")
+@Table(name = "city_table")
 public class City {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -17,18 +22,35 @@ public class City {
     private String name;
     @Enumerated(EnumType.STRING)
     private CitySize size;
-    private boolean isActive = true;
+    @Enumerated(EnumType.STRING)
+    private GeneralStatus status = GeneralStatus.ACTIVE;
     @OneToMany(mappedBy = "city")
     private Set<Customer> customers = new HashSet<>();
+    @CreatedDate
+    private LocalDate createdAt;
+    @LastModifiedDate
+    private LocalDate updatedAt;
 
     public City() {
     }
 
-    public City(UUID id, String name, CitySize size, boolean isActive) {
-        this.id = id;
-        this.name = name;
+    public City(LocalDate updatedAt, LocalDate createdAt, GeneralStatus status, CitySize size, String name, UUID id) {
+        this.updatedAt = updatedAt;
+        this.createdAt = createdAt;
+        this.status = status;
         this.size = size;
-        this.isActive = isActive;
+        this.name = name;
+        this.id = id;
+    }
+
+    public void addCustomer(Customer customer) {
+        this.customers.add(customer);
+        customer.setCity(this);
+    }
+
+    public void removeCustomer(Customer customer) {
+        this.customers.remove(customer);
+        customer.setCity(null);
     }
 
     public UUID getId() {
@@ -55,12 +77,12 @@ public class City {
         this.size = size;
     }
 
-    public boolean isActive() {
-        return isActive;
+    public GeneralStatus getStatus() {
+        return status;
     }
 
-    public void setActive(boolean active) {
-        isActive = active;
+    public void setStatus(GeneralStatus status) {
+        this.status = status;
     }
 
     @JsonIgnore
@@ -70,5 +92,21 @@ public class City {
 
     public void setCustomers(Set<Customer> customers) {
         this.customers = customers;
+    }
+
+    public LocalDate getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDate createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDate getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDate updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
