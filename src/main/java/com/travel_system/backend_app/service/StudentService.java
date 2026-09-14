@@ -4,20 +4,15 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.StudentRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StudentResponseMapper;
-import com.travel_system.backend_app.model.Customer;
-import com.travel_system.backend_app.model.Permissions;
-import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.model.enums.UserAccountType;
-import com.travel_system.backend_app.repository.CustomerRepository;
-import com.travel_system.backend_app.repository.PermissionsRepository;
-import com.travel_system.backend_app.repository.StudentRepository;
-import com.travel_system.backend_app.model.Student;
+import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.repository.UserAccountRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,28 +21,34 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static com.travel_system.backend_app.config.constants.ResponsibleAdultConstants.MAX_STUDENTS_PER_RESPONSIBLE_ADULT;
+import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 @Service
 public class StudentService {
     private final StudentRepository studentRepository;
     private final PermissionsRepository permissionsRepository;
     private final UserAccountRepository userAccountRepository;
+    private final ResponsibleAdultRepository responsibleAdultRepository;
 
     private final PasswordEncoder passwordEncoder;
-
 
     private final StudentResponseMapper studentResponseMapper;
     private final StudentRequestMapper studentRequestMapper;
 
-    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, UserAccountRepository userAccountRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper) {
+    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper) {
         this.studentRepository = studentRepository;
         this.permissionsRepository = permissionsRepository;
         this.userAccountRepository = userAccountRepository;
+        this.responsibleAdultRepository = responsibleAdultRepository;
         this.passwordEncoder = passwordEncoder;
         this.studentResponseMapper = studentResponseMapper;
         this.studentRequestMapper = studentRequestMapper;
@@ -73,6 +74,16 @@ public class StudentService {
         return students.map(studentResponseMapper::toDTO);
     }
 
+    @Transactional(readOnly = true)
+    public StudentResponseDTO getCurrentStudent() {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student student = studentRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrato: " + authenticatedUserEmail));
+
+        return studentResponseMapper.toDTO(student);
+    }
+
     @Transactional
     public StudentResponseDTO createStudent(StudentRequestDTO requestDTO) {
         verifyFieldsIsNull(requestDTO);
@@ -84,10 +95,6 @@ public class StudentService {
         if (studentRepository.existsByTelephone(requestDTO.telephone())) {
             throw new DuplicateResourceException("O telefone " + requestDTO.telephone() + " já existe");
         }
-
-/*        final String PERM = "ROLE_USER";
-        Permissions studentPermission = permissionsRepository.findByDescription(PERM)
-                .orElseThrow(() -> new PermissionNotFoundException("Permissão " + PERM + " não encontrada."));*/
 
         UserAccount userAccount = new UserAccount();
         userAccount.setPassword(passwordEncoder.encode(requestDTO.password()));
@@ -112,7 +119,63 @@ public class StudentService {
     }
 
     @Transactional
-    public StudentResponseDTO updateCurrentStudent(String authenticatedUserEmail, StudentUpdateDTO studentUpdateDTO) {
+    public void addResponsibleAdult(ResponsibleAdultLinkRequestDTO dto) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student student = studentRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + authenticatedUserEmail));
+
+        if (student.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountException("Estudante inativo no sistema: " + authenticatedUserEmail);
+        }
+
+        // um estudante só pode possuir um responsável.
+        // caso já possua, a alteração deve ser feita através do fluxo de transferência por parte do responsável ou, em casos de estuadntes > 18, o auto desvínculo
+        if (student.getResponsibleAdult() != null) {
+            throw new StudentAlreadyHasResponsibleAdultException("O estudante já possui um responsável vinculado");
+        }
+
+        UUID responsibleAdultId = dto.responsibleAdultId();
+
+        ResponsibleAdult responsibleAdult = responsibleAdultRepository.findById(responsibleAdultId)
+                .orElseThrow(() -> new EntityNotFoundException("Responsável não encontrado pelo ID: " + responsibleAdultId));
+
+        // valida mesmo customer
+        validateSameCustomer(student.getCustomerId(), responsibleAdult.getCustomerId());
+
+        if (responsibleAdult.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountException("Responsável inativo no sistema");
+        }
+
+        if (responsibleAdult.getBirthdate() == null) {
+            throw new IllegalStateException("O responsável não possui data de nascimento cadastrada");
+        }
+
+        int responsibleAdultAge = Period.between(responsibleAdult.getBirthdate(), LocalDate.now()).getYears();
+
+        // O responsável precisa ser maior de idade.
+        if (responsibleAdultAge < 18) {
+            throw new UnderageResponsibleAdultException("O responsável deve ser maior de idade");
+        }
+
+        if (student.getBirthdate() == null) {
+            throw new IllegalStateException("O estudante não possui data de nascimento cadastrada");
+        }
+
+        long currentStudents = studentRepository.countByResponsibleAdultId(responsibleAdult.getId());
+
+        if (currentStudents >= MAX_STUDENTS_PER_RESPONSIBLE_ADULT) {
+            throw new ResponsibleAdultStudentLimitExceededException("O responsável atingiu a quantidade máxima permitida de estudantes");
+        }
+
+        student.setResponsibleAdult(responsibleAdult);
+        student.setStudentRelationshipType(dto.studentRelationshipType());
+    }
+
+    @Transactional
+    public StudentResponseDTO updateCurrentStudent(StudentUpdateDTO studentUpdateDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
         Student studentEntity = studentRepository.findByEmail(authenticatedUserEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + authenticatedUserEmail));
 
@@ -149,12 +212,31 @@ public class StudentService {
         return studentResponseMapper.toDTO(savedStudent);
     }
 
-    @Transactional(readOnly = true)
-    public StudentResponseDTO getCurrentStudent(String email) {
-        Student student = studentRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrato: " + email));
+    @Transactional
+    public void removeResponsibleAdult() {
+        // se o estudante for menor, lançar exception e essa responsabilidade com a parte do responsável
 
-        return studentResponseMapper.toDTO(student);
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student studentEntity = studentRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + authenticatedUserEmail));
+
+        if (studentEntity.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountException("Estudante inativo no sistema: " + authenticatedUserEmail);
+        }
+
+        // calcula a idade do estudante
+        int studentAge = Period.between(studentEntity.getBirthdate(), LocalDate.now()).getYears();
+
+        // estudantes menores de idade não podem se auto-desvincular de um responsável
+        if (studentAge < 18) {
+           throw new MinorStudentResponsibleAdultTransferRequiredException("Estudante menor de idade necessita de um responsável vinculado");
+        }
+
+        // realiza a remoção
+        studentEntity.setResponsibleAdult(null);
+
+        studentRepository.save(studentEntity);
     }
 
     @Transactional
@@ -178,4 +260,9 @@ public class StudentService {
         }
     }
 
+    private void validateSameCustomer(UUID customerOne, UUID customerTwo) {
+        if (!customerOne.equals(customerTwo)) {
+            throw new CustomerMismatchException("Divergência entre customer identificada entre as entidades.");
+        }
+    }
 }

@@ -34,4 +34,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     Optional<Student> findByUserAccountId(@Param("userAccountId") UUID userAccountId);
 
     boolean existsByTelephone(@Param("telephone") String telephone);
+
+    long countByResponsibleAdultId(@Param("responsibleAdultId") UUID responsibleAdultId);
 }

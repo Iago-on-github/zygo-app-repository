@@ -15,9 +15,11 @@ public record StudentResponseDTO(
         String telephone,
         GeneralStatus status,
         String profilePicture,
-        Instant createdAt,
         InstitutionType institutionType,
         String course,
-        UUID customerId
+        UUID responsibleAdultId,
+        UUID customerId,
+        Instant createdAt,
+        Instant updatedAt
         ) {
 }

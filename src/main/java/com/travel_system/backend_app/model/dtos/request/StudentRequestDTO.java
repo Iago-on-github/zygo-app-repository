@@ -3,6 +3,7 @@ package com.travel_system.backend_app.model.dtos.request;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.Shift;
+import com.travel_system.backend_app.model.enums.StudentRelationshipType;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.validation.constraints.*;

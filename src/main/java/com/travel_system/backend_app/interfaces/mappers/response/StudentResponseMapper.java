@@ -8,6 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface StudentResponseMapper {
 
-    @Mapping(target = "email", source = "student.userAccount.email")
+    @Mapping(target = "email", source = "userAccount.email")
+    @Mapping(target = "responsibleAdultId", source = "responsibleAdult.id")
     StudentResponseDTO toDTO(Student student);
 }

@@ -4,6 +4,7 @@ import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.InstitutionType;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.Shift;
+import com.travel_system.backend_app.model.enums.StudentRelationshipType;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -41,10 +42,15 @@ public class Student extends BaseTenantEntity {
     @Enumerated(EnumType.STRING)
     private InstitutionType institutionType;
     private String course;
+    @Enumerated(EnumType.STRING)
+    private StudentRelationshipType studentRelationshipType;
     @OneToMany(mappedBy = "student")
     private Set<StudentTravel> studentTravels = new HashSet<>();
     @OneToMany(mappedBy = "student")
     private List<StudentRouteStopAssignment> studentRouteStopAssignments = new ArrayList<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsible_adult_id")
+    private ResponsibleAdult responsibleAdult;
     @CreatedDate
     private Instant createdAt;
     @LastModifiedDate
@@ -53,7 +59,7 @@ public class Student extends BaseTenantEntity {
     public Student() {
     }
 
-    public Student(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String profilePicture, LocalDate birthdate, GeneralStatus status, InstitutionType institutionType, String course, Instant updatedAt, Instant createdAt) {
+    public Student(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String profilePicture, LocalDate birthdate, GeneralStatus status, InstitutionType institutionType, String course, ResponsibleAdult responsibleAdult, Instant createdAt, Instant updatedAt, StudentRelationshipType studentRelationshipType) {
         this.id = id;
         this.userAccount = userAccount;
         this.name = name;
@@ -64,8 +70,10 @@ public class Student extends BaseTenantEntity {
         this.status = status;
         this.institutionType = institutionType;
         this.course = course;
-        this.updatedAt = updatedAt;
+        this.responsibleAdult = responsibleAdult;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.studentRelationshipType = studentRelationshipType;
     }
 
     public UUID getId() {
@@ -156,6 +164,14 @@ public class Student extends BaseTenantEntity {
         this.course = course;
     }
 
+    public StudentRelationshipType getStudentRelationshipType() {
+        return studentRelationshipType;
+    }
+
+    public void setStudentRelationshipType(StudentRelationshipType studentRelationshipType) {
+        this.studentRelationshipType = studentRelationshipType;
+    }
+
     public Set<StudentTravel> getStudentTravels() {
         return studentTravels;
     }
@@ -170,6 +186,14 @@ public class Student extends BaseTenantEntity {
 
     public void setStudentRouteStopAssignments(List<StudentRouteStopAssignment> studentRouteStopAssignments) {
         this.studentRouteStopAssignments = studentRouteStopAssignments;
+    }
+
+    public ResponsibleAdult getResponsibleAdult() {
+        return responsibleAdult;
+    }
+
+    public void setResponsibleAdult(ResponsibleAdult responsibleAdult) {
+        this.responsibleAdult = responsibleAdult;
     }
 
     public Instant getCreatedAt() {

@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
@@ -88,10 +89,8 @@ public class StudentController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @GetMapping("/me")
-    public ResponseEntity<StudentResponseDTO> getCurrentStudent(Authentication auth) {
-        String email = auth.getName();
-
-        return ResponseEntity.ok().body(studentService.getCurrentStudent(email));
+    public ResponseEntity<StudentResponseDTO> getCurrentStudent() {
+        return ResponseEntity.ok().body(studentService.getCurrentStudent());
     }
 
     @Operation(
@@ -122,6 +121,13 @@ public class StudentController {
         return ResponseEntity.created(uri).body(student);
     }
 
+    @PatchMapping("/add/responsible")
+    public ResponseEntity<Void> addResponsibleAdult(@Valid @RequestBody ResponsibleAdultLinkRequestDTO dto) {
+        studentService.addResponsibleAdult(dto);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(
             summary = "Atualizar dados do estudante logado",
             description = "Permite que o estudante atualmente autenticado atualize suas próprias informações de perfil (como e-mail, telefone, senha, etc.). " +
@@ -145,11 +151,17 @@ public class StudentController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @PatchMapping("/me")
-    public ResponseEntity<StudentResponseDTO> updateCurrentStudent(Authentication auth, @Valid @RequestBody StudentUpdateDTO studentUpdateDTO) {
-        String email = auth.getName();
-
-        return ResponseEntity.ok().body(studentService.updateCurrentStudent(email, studentUpdateDTO));
+    public ResponseEntity<StudentResponseDTO> updateCurrentStudent(@Valid @RequestBody StudentUpdateDTO studentUpdateDTO) {
+        return ResponseEntity.ok().body(studentService.updateCurrentStudent(studentUpdateDTO));
     }
+
+    @PatchMapping("/remove/responsible")
+    public ResponseEntity<Void> removeResponsibleAdult() {
+        studentService.removeResponsibleAdult();
+
+        return ResponseEntity.noContent().build();
+    }
+
 
     @Operation(
             summary = "Atualiza o status do estudante",
