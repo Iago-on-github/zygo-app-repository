@@ -1,12 +1,10 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.model.Administrator;
-import com.travel_system.backend_app.model.Driver;
-import com.travel_system.backend_app.model.Student;
-import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.AdministratorRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
+import com.travel_system.backend_app.repository.ResponsibleAdultRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -24,11 +22,13 @@ public class UserProfileResolverService {
     private final StudentRepository studentRepository;
     private final DriverRepository driverRepository;
     private final AdministratorRepository administratorRepository;
+    private final ResponsibleAdultRepository responsibleAdultRepository;
 
-    public UserProfileResolverService(StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository) {
+    public UserProfileResolverService(StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository) {
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
         this.administratorRepository = administratorRepository;
+        this.responsibleAdultRepository = responsibleAdultRepository;
     }
 
     public UUID resolveCustomerId(UserAccount userAccount) {
@@ -52,6 +52,10 @@ public class UserProfileResolverService {
             case ADMINISTRATOR -> administratorRepository.findByUserAccountId(userAccount.getId())
                     .map(Administrator::getCustomerId)
                     .orElseThrow(() -> new IllegalStateException("UserAccount do tipo ADMINISTRATOR não possui perfil Administrator associado"));
+
+            case RESPONSIBLE_ADULT -> responsibleAdultRepository.findByUserAccountId(userAccount.getId())
+                    .map(ResponsibleAdult::getCustomerId)
+                    .orElseThrow(() -> new IllegalStateException("UserAccount do tipo RESPONSIBLE_ADULT não possui perfil ResponsibleAdult associado"));
 
             case PLATFORM_ADMINISTRATOR -> null;
 

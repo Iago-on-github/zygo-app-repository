@@ -9,5 +9,6 @@ public enum UserAccountType {
     DRIVER,
     ADMINISTRATOR,
     PLATFORM_ADMINISTRATOR,
+    RESPONSIBLE_ADULT,
     UNASSIGNED // usuário global sem tenant (estado padrão assim que criado a conta)
 }
