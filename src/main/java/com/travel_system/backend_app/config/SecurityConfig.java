@@ -41,6 +41,7 @@ public class SecurityConfig {
     final String ROLE_PLATFORM_ADMIN = "PLATFORM_ADMIN";
     final String ROLE_DRIVER = "DRIVER";
     final String ROLE_USER = "USER";
+    final String ROLE_RESPONSIBLE_ADULT = "RESPONSIBLE_ADULT";
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(TokenConfig tokenConfig, CurrentUserService currentUserService, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, UserAccountRepository userAccountRepository) {
@@ -63,6 +64,7 @@ public class SecurityConfig {
                     configureStandardRouteEndpoints(auth);
                     configureCustomersEndpoints(auth);
                     configureAdminsEndpoints(auth);
+                    configureResponsibleAdultsEndpoints(auth);
                     configurePlatformAdministratorEndpoints(auth);
                     configureSetupAuthenticationEndpoints(auth);
                     configureSensitiveOperationEndpoints(auth);
@@ -136,6 +138,20 @@ public class SecurityConfig {
 //        auth.requestMatchers("/v1/admins/**").permitAll();
     }
 
+    private void configureResponsibleAdultsEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/responsibles/create").permitAll();
+
+        auth.requestMatchers("/v1/responsibles/students/*").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/me").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/update").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/status").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/student/add").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/*/transfer/*").hasRole(ROLE_RESPONSIBLE_ADULT);
+        auth.requestMatchers("/v1/responsibles/student/*/remove").hasRole(ROLE_RESPONSIBLE_ADULT);
+
+        auth.requestMatchers("/v1/responsibles/**").hasAnyRole(ROLE_PLATFORM_ADMIN, ROLE_ADMIN);
+    }
+
     private void configureDriverEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers(HttpMethod.POST, "/v1/drivers").permitAll();
 
@@ -147,6 +163,8 @@ public class SecurityConfig {
         auth.requestMatchers(HttpMethod.POST, "/v1/students/").permitAll();
 
         auth.requestMatchers("/v1/students/me").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
+        auth.requestMatchers("/v1/students/add/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
+        auth.requestMatchers("/v1/students/remove/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
         auth.requestMatchers("/v1/students/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
