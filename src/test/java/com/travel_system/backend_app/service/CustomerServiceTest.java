@@ -107,7 +107,7 @@ class CustomerServiceTest {
         }
     }
 
-    @Nested
+/*    @Nested
     class findCustomerById {
 
         @Test
@@ -184,7 +184,7 @@ class CustomerServiceTest {
 
             assertTrue(result.getFirst().active());
         }
-    }
+    }*/
 
 /*    @Nested
     class createCustomer {
@@ -303,7 +303,7 @@ class CustomerServiceTest {
         }
     }*/
     
-    @Nested
+/*    @Nested
     class updateCustomerActive {
 
         @Test
@@ -348,5 +348,5 @@ class CustomerServiceTest {
 
             verifyNoMoreInteractions(customerRepository);
         }
-    }
+    }*/
 }

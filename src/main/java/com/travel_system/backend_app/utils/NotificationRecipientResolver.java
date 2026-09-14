@@ -43,11 +43,6 @@ public class NotificationRecipientResolver {
         return deviceTokenRepository.findTokensByCustomerIdAndUserType(adminRole);
     }
 
-    // notifica mais de um customer (exemplo: student + driver) ou todos eles de vez
-    public Set<String> resolveCustomerUsers(UUID customerId, List<String> roles) {
-        return deviceTokenRepository.findActiveTokensByCustomerIdAndRoles(roles);
-    }
-
     // notifica os alunos vinculados a uma viagem
     public Set<String> resolveTravelStudents(UUID travelId) {
         return deviceTokenRepository.findActiveTokensByTravelId(travelId);
