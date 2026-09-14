@@ -56,6 +56,21 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(StudentAlreadyHasResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> StudentAlreadyHasResponsibleAdultException(StudentAlreadyHasResponsibleAdultException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(MinorStudentResponsibleAdultTransferRequiredException.class)
+    public final ResponseEntity<StandardError> MinorStudentResponsibleAdultTransferRequiredException(MinorStudentResponsibleAdultTransferRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResponsibleAdultStudentLimitExceededException.class)
+    public final ResponseEntity<StandardError> ResponsibleAdultStudentLimitExceededException(ResponsibleAdultStudentLimitExceededException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(BootstrapAlreadyCompletedException.class)
     public final ResponseEntity<StandardError> BootstrapAlreadyCompletedException(BootstrapAlreadyCompletedException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
@@ -73,6 +88,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(PayloadNotFoundException.class)
     public final ResponseEntity<StandardError> PayloadNotFoundException(PayloadNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ResponsibleAdultHasNoStudentsException.class)
+    public final ResponseEntity<StandardError> ResponsibleAdultHasNoStudentsException(ResponsibleAdultHasNoStudentsException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
@@ -126,8 +146,18 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(StudentNotAssociatedWithResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> StudentNotAssociatedWithResponsibleAdultException (StudentNotAssociatedWithResponsibleAdultException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(DuplicateResourceException.class)
     public final ResponseEntity<StandardError> DuplicateResourceException (DuplicateResourceException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(CannotTransferStudentToSameResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> CannotTransferStudentToSameResponsibleAdultException (CannotTransferStudentToSameResponsibleAdultException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
@@ -148,6 +178,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(PermissionNotFoundException.class)
     public final ResponseEntity<StandardError> PermissionNotFoundException (PermissionNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UnderageResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> UnderageResponsibleAdultException (UnderageResponsibleAdultException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
