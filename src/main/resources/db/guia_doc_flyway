@@ -1,0 +1,4 @@
+- versões devem ser sempre as congruentes, nunca repetidas ou menores do que uma já existente
+- deve-se sempre separar a versão da descrição com o padrao: "V<version>__<description>.sql", obrigatorio do flyway
+
+sempre adicionar uma breve descrição em cada migration explicando o motivo de ter feito isso, inclusive, correlaçoes com migrations já realizadas anteiormente (caso haja)
