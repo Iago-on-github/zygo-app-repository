@@ -89,7 +89,7 @@ public class AsyncNotificationService {
         redisTrackingService.markNotificationAsSent(travelId);
 
         // envia notificação para o firebase
-        trackingNotificationService.sendTrackingSlowMovementNotification(travelId, customerId, velocityAnalysis);
+        trackingNotificationService.sendTrackingSlowMovementNotification(travelId, velocityAnalysis);
     }
 
     /*
@@ -105,6 +105,6 @@ public class AsyncNotificationService {
         redisTrackingService.markNotificationAsSent(travelId);
 
         // envia notificação para o firebase
-        trackingNotificationService.sendTrackingStoppedMovementNotification(travelId, customerId, velocityAnalysis);
+        trackingNotificationService.sendTrackingStoppedMovementNotification(travelId, velocityAnalysis);
     }
 }

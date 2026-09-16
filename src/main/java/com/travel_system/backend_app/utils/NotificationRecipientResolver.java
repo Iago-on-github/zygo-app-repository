@@ -1,8 +1,10 @@
 package com.travel_system.backend_app.utils;
 
+import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.repository.PushNotificationDeviceTokenRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -15,40 +17,63 @@ public class NotificationRecipientResolver {
         this.deviceTokenRepository = deviceTokenRepository;
     }
 
-    // notificar um student/driver/admin específico
-    public Set<String> resolveSpecificUser(UUID userAccountId) {
-        return deviceTokenRepository.findTokensByUserId(userAccountId);
+    public Set<String> resolveAllCustomerUsers(UUID customerId) {
+        Set<String> allTokens = new HashSet<>();
+
+        allTokens.addAll(deviceTokenRepository.findTokensByCustomerIdStudents(customerId));
+        allTokens.addAll(deviceTokenRepository.findTokensByCustomerIdDrivers(customerId));
+        allTokens.addAll(deviceTokenRepository.findTokensByCustomerIdAdmins(customerId));
+        allTokens.addAll(deviceTokenRepository.findTokensByCustomerIdResponsibles(customerId));
+
+        return allTokens;
     }
 
-    // notificação geral do customer
-    public Set<String> resolveAllCustomerUsers(UUID customerId)  {
-        return deviceTokenRepository.findTokensByCustomerId();
-    }
-
-    // notifica somente students
     public Set<String> resolveCustomerStudents(UUID customerId) {
-        String studentRole = "ROLE_USER";
-        return deviceTokenRepository.findTokensByCustomerIdAndUserType(studentRole);
+        return deviceTokenRepository.findTokensByCustomerIdStudents(customerId);
     }
 
-    // notifica somente drivers
     public Set<String> resolveCustomerDrivers(UUID customerId) {
-        String driverRole = "ROLE_DRIVER";
-        return deviceTokenRepository.findTokensByCustomerIdAndUserType(driverRole);
+        return deviceTokenRepository.findTokensByCustomerIdDrivers(customerId);
     }
 
-    // notifica somente admins
     public Set<String> resolveCustomerAdmins(UUID customerId) {
-        String adminRole = "ROLE_ADMIN";
-        return deviceTokenRepository.findTokensByCustomerIdAndUserType(adminRole);
+        return deviceTokenRepository.findTokensByCustomerIdAdmins(customerId);
     }
 
-    // notifica os alunos vinculados a uma viagem
+    // notifica todos os responsibleAdult do customer
+    public Set<String> resolveCustomerResponsibles(UUID customerId) {
+        return deviceTokenRepository.findTokensByCustomerIdResponsibles(customerId);
+    }
+
+    // notifica apenas o customer do(s) estudante(s) especifico(s)
+    public Set<String> resolveStudentResponsible(UUID studentId) {
+        return deviceTokenRepository.findActiveTokensByStudentResponsible(studentId);
+    }
+
+    // notifica os responsibleAdult do customer que estão vinculados a estudantes de uma viagem
+    public Set<String> resolveCustomerResponsiblesByTravel(UUID travelId) {
+        return deviceTokenRepository.findActiveTokensByTravelResponsibles(travelId);
+    }
+
+    // usado para notificar um estudante de um período especifico
+    public Set<String> resolvePeriodStudents(UUID customerId, Shift shift) {
+        return deviceTokenRepository.findActiveTokensByCustomerAndShift(customerId, shift);
+    }
+
+    // usado para notificar apenas o STUDENT específico
+    public Set<String> resolveSpecificStudent(UUID studentId) {
+        return deviceTokenRepository.findActiveTokensBySpecificStudent(studentId);
+    }
+
+    // usado para notificar apenas o DRIVER específico
+    public Set<String> resolveSpecificDriver(UUID driverId) {
+        return deviceTokenRepository.findActiveTokensBySpecificDriver(driverId);
+    }
+
     public Set<String> resolveTravelStudents(UUID travelId) {
         return deviceTokenRepository.findActiveTokensByTravelId(travelId);
     }
 
-    // notifica os alunos vinculados e embarcados em uma viagem
     public Set<String> resolveEmbarkedTravelStudents(UUID travelId) {
         return deviceTokenRepository.findActiveTokensByTravelIdAndEmbarkTrue(travelId);
     }

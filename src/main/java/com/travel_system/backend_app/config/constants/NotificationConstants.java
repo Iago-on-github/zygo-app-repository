@@ -10,6 +10,8 @@ public class NotificationConstants {
 
     public static final long INVALID_ROUTE_LAST_NOTIFY_TIME = TimeUnit.MINUTES.toMillis(5);
 
+    // quantidade máxima de notificações de não associação de route stop
+    public static final int MAX_SENT_NOT_ASSOCIATED_ROUTE_STOP_NOTIFICATIONS = 4;
 
     // processVehicleMovement
     public static final long STATE_TIME_LIMIT_MS = 4_000;

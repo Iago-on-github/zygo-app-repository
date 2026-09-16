@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.DomainValidationException;
 import com.travel_system.backend_app.model.PushNotificationDeviceToken;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
+import com.travel_system.backend_app.model.enums.NotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -66,11 +67,12 @@ public class FirebaseNotificationSender {
 
     // envia notificação ao firebase
     public void sendPushNotification(PushNotificationCommandDTO pushNotificationCommand) {
-        UUID userId = pushNotificationCommand.userId();
+        NotificationAudience audience = pushNotificationCommand.notificationAudience();
+
         Set<String> tokensByAudience = resolveTokensByAudience(pushNotificationCommand);
 
         if (tokensByAudience == null || tokensByAudience.isEmpty()) {
-            logger.info("Nenhum token ativo para o user {}, pulando notificação.", userId);
+            logger.info("Nenhum token ativo para o user {}, pulando notificação para a audiência: ", audience);
             return;
         }
 
@@ -85,7 +87,7 @@ public class FirebaseNotificationSender {
 
             if (response.getFailureCount() > 0) {
                 List<String> failureTokens = getFailureDeviceTokens(response, deviceTokens);
-                logger.error("Falha crítica no FCM para o user: {} {}", userId, response.getFailureCount());
+                logger.error("Falha crítica no FCM para a audiência: {}, {} ", audience, response.getFailureCount());
 
                 if (!failureTokens.isEmpty()) {
                     logger.warn("Desativando {} tokens inválidos no banco.", failureTokens.size());
@@ -93,7 +95,7 @@ public class FirebaseNotificationSender {
                 }
             }
         } catch (FirebaseMessagingException e) {
-            logger.error("Erro no envio da mensagem para o Firebase: {}", e.getMessagingErrorCode());
+            logger.error("Erro no envio da mensagem para o Firebase: {} ", e.getMessagingErrorCode());
         }
     }
 
@@ -170,11 +172,11 @@ public class FirebaseNotificationSender {
         }
 
         return switch (command.notificationAudience()) {
-            case SPECIFIC_USER -> {
-                if (command.userId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] userId obrigatório para SPECIFIC_USER");
+            case CUSTOMER_RESPONSIBLES -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_RESPONSIBLES");
                 }
-                yield notificationRecipientResolver.resolveSpecificUser(command.userId());
+                yield notificationRecipientResolver.resolveCustomerResponsibles(command.customerId());
             }
 
             case ALL_CUSTOMER_USERS -> {
@@ -184,7 +186,7 @@ public class FirebaseNotificationSender {
                 yield notificationRecipientResolver.resolveAllCustomerUsers(command.customerId());
             }
 
-            case STUDENT_ONLY -> {
+            case CUSTOMER_STUDENTS -> {
                 if (command.customerId() == null) {
                     throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_STUDENTS");
                 }
@@ -192,7 +194,7 @@ public class FirebaseNotificationSender {
                 yield notificationRecipientResolver.resolveCustomerStudents(command.customerId());
             }
 
-            case DRIVER_ONLY -> {
+            case CUSTOMER_DRIVERS -> {
                 if (command.customerId() == null) {
                     throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_DRIVERS");
                 }
@@ -200,12 +202,36 @@ public class FirebaseNotificationSender {
                 yield notificationRecipientResolver.resolveCustomerDrivers(command.customerId());
             }
 
-            case ADMIN_ONLY -> {
+            case CUSTOMER_ADMINS -> {
                 if (command.customerId() == null) {
                     throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_ADMINS");
                 }
 
                 yield notificationRecipientResolver.resolveCustomerAdmins(command.customerId());
+            }
+
+            case SPECIFIC_STUDENT -> {
+                if (command.studentId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] studentId obrigatório para SPECIFIC_STUDENT");
+                }
+
+                yield notificationRecipientResolver.resolveSpecificStudent(command.studentId());
+            }
+
+            case SPECIFIC_DRIVER -> {
+                if (command.driverId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] driverId obrigatório para SPECIFIC_DRIVER");
+                }
+
+                yield notificationRecipientResolver.resolveSpecificDriver(command.driverId());
+            }
+
+            case PERIOD_STUDENTS -> {
+                if (command.customerId() == null || command.shift() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] customerId e shift obrigatórios para PERIOD_STUDENTS");
+                }
+
+                yield notificationRecipientResolver.resolvePeriodStudents(command.customerId(), command.shift());
             }
 
             case TRAVEL_STUDENTS -> {
@@ -214,6 +240,22 @@ public class FirebaseNotificationSender {
                 }
 
                 yield notificationRecipientResolver.resolveTravelStudents(command.travelId());
+            }
+
+            case TRAVEL_RESPONSIBLES -> {
+                if (command.travelId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para TRAVEL_RESPONSIBLES");
+                }
+
+                yield notificationRecipientResolver.resolveCustomerResponsiblesByTravel(command.travelId());
+            }
+
+            case STUDENT_RESPONSIBLE -> {
+                if (command.studentId() == null) {
+                    throw new DomainValidationException("[resolveTokensByAudience] studentId obrigatório para STUDENT_RESPONSIBLE");
+                }
+
+                yield notificationRecipientResolver.resolveStudentResponsible(command.studentId());
             }
 
             case EMBARKED_TRAVEL_STUDENTS -> {

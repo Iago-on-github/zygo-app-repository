@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "push_notification_device_tokens")
-public class PushNotificationDeviceToken extends BaseTenantEntity {
+public class PushNotificationDeviceToken {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
