@@ -542,6 +542,9 @@ public class TravelService {
 
         studentTravelRepository.save(studentTravel);
 
+        // manda notificação de embarque para os responsáveis dos estudantes que estão embarcados
+        travelNotificationService.sendEmbarkStudentNotificationToResponsible(travel, student);
+
         // carrega os dados iniciais da viagem para o cache assim que a viagem é iniciada
         loadTravelDataToCache(travel, student, studentTravel);
 
@@ -578,6 +581,9 @@ public class TravelService {
 
         // faz a persistencia, validando o desvinculo
         studentTravelRepository.disconnectedStudentFromTrip(List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
+
+        // envia notificação de desembarque do estudante para o responsável
+        travelNotificationService.sendDisembarkStudentNotificationToResponsible(travelId, studentTravelCache.name(), studentTravelCache.studentId(), disembarkHour);
 
         // remove as respectivas keys do redis para o aluno em específico
         travelStudentStateCacheService.evictStudentTravelCachedData(travelId, studentEmail);

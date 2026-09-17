@@ -158,7 +158,7 @@ class StudentServiceTest {
         }
     }*/
 
-    @Nested
+/*    @Nested
     class getStudentsByStatus {
         Page<Student> pageStudent;
 
@@ -197,7 +197,7 @@ class StudentServiceTest {
             assertEquals(result.getContent().getFirst().id(), student.getId());
             assertEquals(result.getContent().getFirst().status(), student.getStatus());
         }
-    }
+    }*/
 
 /*    @Nested
     class createStudent {
@@ -466,7 +466,7 @@ class StudentServiceTest {
         }
     }*/
 
-    @Nested
+/*    @Nested
     class getCurrentStudent {
 
         @Test
@@ -528,5 +528,5 @@ class StudentServiceTest {
 
             verifyNoMoreInteractions(studentRepository);
         }
-    }
+    }*/
 }

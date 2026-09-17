@@ -3,6 +3,8 @@ package com.travel_system.backend_app.repository;
 import com.travel_system.backend_app.model.StandardRoute;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
+import com.travel_system.backend_app.model.enums.Shift;
+import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;

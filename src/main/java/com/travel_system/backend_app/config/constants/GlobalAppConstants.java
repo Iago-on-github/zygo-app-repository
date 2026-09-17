@@ -9,12 +9,13 @@ public class GlobalAppConstants {
     }
 
     // ## routestop monitoring
-    public static final Double MONITORING_THRESHOLD = 4.0;
-    public static final Double APPROACHING_THRESHOLD = 1.5;
-    public static final Double REACHED_THRESHOLD = 50.0;
+    public static final double MONITORING_THRESHOLD = 4.0;
+    public static final double APPROACHING_THRESHOLD = 1.5;
+    public static final double REACHED_THRESHOLD = 50.0;
 
     // ## location
-    public static final double AUTO_DISCONNECT_DISTANCE_METERS = 350;
+    public static final double AUTO_DISCONNECT_DISTANCE_METERS = 350.0;
+    public static final double AUTO_CONNECTED_DISTANCE_METERS = 50.0;
     public static final long AUTO_DISCONNECT_TIME = TimeUnit.MINUTES.toMillis(5);
 
     // ## route

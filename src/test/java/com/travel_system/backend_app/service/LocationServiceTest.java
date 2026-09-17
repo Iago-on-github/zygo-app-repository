@@ -1,23 +1,11 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
-import com.travel_system.backend_app.exceptions.TravelException;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
-import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
-import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
-import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
-import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.InstitutionType;
-import com.travel_system.backend_app.model.enums.StudentTravelStatus;
-import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -32,9 +20,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;

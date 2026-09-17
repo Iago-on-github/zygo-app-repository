@@ -1,18 +1,15 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
-import com.travel_system.backend_app.exceptions.InactiveAccountException;
 import com.travel_system.backend_app.exceptions.TravelException;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
+import com.travel_system.backend_app.model.dtos.route.StudentStateProcessingDTO;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
-import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveCoordinates;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
-import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.repository.GeoPositionRepository;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
@@ -25,10 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
-import static com.travel_system.backend_app.config.constants.GlobalAppConstants.AUTO_DISCONNECT_DISTANCE_METERS;
-import static com.travel_system.backend_app.config.constants.GlobalAppConstants.AUTO_DISCONNECT_TIME;
+import static com.travel_system.backend_app.config.constants.GlobalAppConstants.*;
 
 @Service
 public class LocationService {
@@ -76,7 +71,7 @@ public class LocationService {
 
         List<DistanceResponseDTO> distanceBetweenPositions = distanceBetweenPositions(travelId, liveLocationDTO);
 
-        List<StudentAwayStateDTO> studentsForAwayState = studentTravelRepository.findStudentsForAwayState(travelId);
+        List<StudentStateProcessingDTO> studentsForStateProcessing = studentTravelRepository.findStudentsForStateProcessing(travelId);
 
         TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
 
@@ -84,14 +79,14 @@ public class LocationService {
             throw new TravelException("[processStudentAwayState] Viagem " + travelId + " não está em andamento");
         }
 
-        if (studentsForAwayState == null || studentsForAwayState.isEmpty()) {
+        if (studentsForStateProcessing == null || studentsForStateProcessing.isEmpty()) {
             log.warn("[processStudentAwayState] - nenhum estudante encontrado na viagem {} ", travelId);
             return;
         }
 
-        Map<UUID, StudentAwayStateDTO> mapping = new HashMap<>(); // armazena os IDs dos estudantes
+        Map<UUID, StudentStateProcessingDTO> mapping = new HashMap<>(); // armazena os IDs dos estudantes
 
-        studentsForAwayState.forEach(eachStudent -> mapping.put(eachStudent.studentId(), eachStudent));
+        studentsForStateProcessing.forEach(eachStudent -> mapping.put(eachStudent.studentId(), eachStudent));
 
         List<UUID> studentTravelsToMarkAway = new ArrayList<>(); // Ids de estudantes que caíram em: AWAY_FROM_BUS
         List<UUID> studentTravelsToAutoDisconnect = new ArrayList<>(); // Ids de estudantes que caíram em: AUTO_DISCONNECTED
@@ -103,12 +98,13 @@ public class LocationService {
         // ids de estudantes que irão ser limpos no redis
         Set<UUID> studentIdsToClear = new HashSet<>();
 
-        Set<UUID> studentIdsToAutoDisconnect = new HashSet<>(); // students auto-disconnected
+        Set<UUID> studentIdsToAutoDisconnect = new HashSet<>(); // students auto-disconnect algorithm
+        Map<UUID, Instant> studentsToAutoConnect = new HashMap<>(); // students to auto-connect algorithm
 
         Map<UUID, Long> awayStudents = redisTrackingService.getStudentAwayTimestamp(travelId);
 
         distanceBetweenPositions.forEach(dist -> {
-            StudentAwayStateDTO student = mapping.get(dist.studentId());
+            StudentStateProcessingDTO student = mapping.get(dist.studentId());
 
             if (student == null) {
                 log.warn("[processStudentAwayState] - estudante {} ignorado, não passou na validação para a viagem {} ", dist.studentId(), travelId );
@@ -126,7 +122,33 @@ public class LocationService {
             }
 
             if (student.studentTravelStatus() == StudentTravelStatus.AUTO_DISCONNECTED) {
-                log.warn("[processStudentAwayState] - estudante {} stá com o Status AUTO_DISCONNECTED", student.studentId());
+                log.warn("[processStudentAwayState] - estudante {} está com o Status AUTO_DISCONNECTED", student.studentId());
+                return;
+            }
+
+            /*
+             * algorito de auto conexão do estudante
+             * */
+            if (student.boardedAt() == null) {
+                log.warn("[processStudentAwayState] - estudante {} não está embarcado. Começando algoritmo de auto-connect.", student.studentId());
+
+                Map<UUID, Instant> studentIdsAndBoardedAtMap = processStudentConfirmBoarding(student.studentTravelId(), dist);
+
+                // armazena o studentId e o boardedAt no map para update em lote
+                for (Map.Entry<UUID, Instant> autoConnectMapping : studentIdsAndBoardedAtMap.entrySet()) {
+                    UUID key = autoConnectMapping.getKey();
+                    Instant value = autoConnectMapping.getValue();
+
+                    studentsToAutoConnect.put(key, value);
+                }
+
+                return;
+            }
+
+            // verifica se pode seguir fluxo normalmente, com aluno já embarcado
+            if (!(dist.distance() > AUTO_CONNECTED_DISTANCE_METERS)) {
+                log.warn("[processStudentAwayState] - estudante está embarcado mas ocorreu uma divergência na distância limiar e a distância atual. Estudante: {} .", student.studentId());
+
                 return;
             }
 
@@ -167,6 +189,7 @@ public class LocationService {
             } else {
                 log.info("[processStudentAwayState] - estudante não atende mais as regras do auto-desvinculo. Limpando redis");
 
+                // verifica se o estudante está apenas vinculado ou ainda está de fato embarcado
                 if (student.studentTravelStatus() != StudentTravelStatus.ACTIVE) {
                     studentTravelsToActive.add(student.studentTravelId());
                 }
@@ -176,6 +199,13 @@ public class LocationService {
         });
 
         // UPDATES EM LOTE - REDIS E BANCO - atualiza tudo uma única vez com base nos dados armazenados dentro do loop
+
+        // auto connect algorithm
+        if (!studentsToAutoConnect.isEmpty()) {
+            Instant boardedAt = Instant.now();
+
+            studentTravelRepository.connectStudentFromTrip(studentsToAutoConnect.keySet(), boardedAt, StudentTravelStatus.BOARD);
+        }
 
         // limpa o registro dos estudantes com base no ID da viagem
         redisTrackingService.clearStudentAwayState(travelId, studentIdsToClear);
@@ -207,8 +237,34 @@ public class LocationService {
                 // manda notificação
                 trackingNotificationService.sendAutoDisconnectStudentNotification(travel, studentId);
             });
-
         }
+    }
+
+    /*
+    * realiza a auto conexção do aluno na viagem (embark = vinculado / boarding = embarcado)
+    * reaproveita os cálculos já feitos por processStudentAwayState
+    * retorna o UUID do estudante + o boardedAt para lidar com o update em lote
+    * */
+    public Map<UUID, Instant> processStudentConfirmBoarding(UUID studentTravelId, DistanceResponseDTO dto) {
+        // se cair aqui significa que sempre o boardedAt será null
+
+        if (dto == null || dto.studentId() == null || dto.distance() == null) {
+            log.warn("[processStudentConfirmBoarding] - dados de entrada null ou inválidos");
+            return Map.of();
+        }
+
+        double distance = dto.distance();
+
+        Instant boardedAt = null;
+
+        if (distance <= AUTO_CONNECTED_DISTANCE_METERS) {
+            boardedAt = Instant.now();
+        } else if (distance > AUTO_CONNECTED_DISTANCE_METERS) {
+            // ainda não embarcou (validando novamente por segurança)
+            return Map.of();
+        }
+
+        return boardedAt != null ? Map.of(studentTravelId, boardedAt) : Map.of();
     }
 
     // distância entre o motorista e o estudante

@@ -34,6 +34,7 @@ public class TravelStudentStateCacheService {
     private final String TRAVEL_STUDENTS_EMBARK_KEY = "travel:students:embark:";
     private final String TRAVEL_STUDENTS_ID_KEY = "travel:students:studentId:";
     private final String TRAVEL_STUDENTS_TRAVEL_ID_KEY = "travel:students:studentTravelId:";
+    private final String TRAVEL_STUDENTS_NAME_KEY = "travel:students:name:";
 
     public TravelStudentStateCacheService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) {
         this.travelRepository = travelRepository;
@@ -41,6 +42,48 @@ public class TravelStudentStateCacheService {
         this.redisTemplate = redisTemplate;
         this.redisOperations = redisTemplate.opsForHash();
         this.objectMapper = objectMapper;
+    }
+
+    // retorna o nome do estudante armazenado
+    private String getStudentTravelName(UUID travelId, String studentEmail) {
+        if (travelId == null || studentEmail == null) {
+            log.warn("[getStudentTravelName] - parâmetros com dados inválidos ou insuficientes");
+            return null;
+        }
+
+        String key = TRAVEL_STUDENTS_NAME_KEY + travelId;
+
+        return redisOperations.get(key, studentEmail);
+    }
+
+    // armazena o nome do estudante
+    private void putStudentTravelName(UUID travelId, Map<String, String> studentTravelStatuses) {
+        if (travelId == null || studentTravelStatuses == null || studentTravelStatuses.isEmpty()) {
+            log.warn("[putStudentTravelName] - parâmetros com dados inválidos ou insuficientes");
+            return;
+        }
+
+        String key = TRAVEL_STUDENTS_NAME_KEY + travelId;
+
+        Map<String, String> convertedMap = studentTravelStatuses.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue
+                ));
+
+        redisOperations.putAll(key, convertedMap);
+    }
+
+    // remove o cache do StudentTravelName
+    private void removeStudentTravelName(UUID travelId, String studentEmail) {
+        if (travelId == null || studentEmail == null ) {
+            log.warn("[removeStudentTravelName] - parâmetros com dados inválidos ou insuficientes");
+            return;
+        }
+
+        String key = TRAVEL_STUDENTS_NAME_KEY + travelId;
+
+        redisOperations.delete(key, studentEmail);
     }
 
     // retorna o status armazenado
@@ -231,6 +274,7 @@ public class TravelStudentStateCacheService {
         removeStudentTravelEmbark(travelId, studentEmail);
         removeStudentId(travelId, studentEmail);
         removeStudentTravelId(travelId, studentEmail);
+        removeStudentTravelName(travelId, studentEmail);
     }
 
     // deleta todas as keys *usado em eventos que afetam toda a viagem
@@ -263,8 +307,9 @@ public class TravelStudentStateCacheService {
         UUID studentId = getStudentId(travelId, studentEmail);
         Boolean studentEmbark = getStudentEmbark(travelId, studentEmail);
         StudentTravelStatus stStatus = getStudentTravelStatus(travelId, studentEmail);
+        String studentTravelName = getStudentTravelName(travelId, studentEmail);
 
-        if (studentTravelId == null || studentId == null || studentEmbark == null || stStatus == null) {
+        if (studentTravelId == null || studentId == null || studentEmbark == null || stStatus == null || studentTravelName == null) {
             StudentTravel studentTravel = studentTravelRepository.findByTravelIdAndStudentEmail(travelId, studentEmail)
                     .orElseThrow(EntityNotFoundException::new);
 
@@ -274,6 +319,7 @@ public class TravelStudentStateCacheService {
             boolean embark = studentTravel.isEmbark();
             StudentTravelStatus studentTravelStatus = studentTravel.getStudentTravelStatus();
             List<StudentTravelRouteStop> studentTravelRouteStops = studentTravel.getStudentTravelRouteStops();
+            String studentName = studentTravel.getStudent().getName();
 
             // mapping de cada campo
             Map<String, UUID> mapStudentTravelId = new HashMap<>();
@@ -281,23 +327,26 @@ public class TravelStudentStateCacheService {
             Map<String, Boolean> mapEmbark = new HashMap<>();
             Map<String, StudentTravelStatus> mapStatus = new HashMap<>();
             Map<String, List<StudentTravelRouteStop>> mapRouteStops = new HashMap<>();
+            Map<String, String> mapName = new HashMap<>();
 
             mapStudentTravelId.put(studentEmail, storedStudentTravelId);
             mapStudentId.put(studentEmail, storedStudentId);
             mapEmbark.put(studentEmail, embark);
             mapStatus.put(studentEmail, studentTravelStatus);
             mapRouteStops.put(studentEmail, studentTravelRouteStops);
+            mapName.put(studentEmail, studentName);
 
             // armazena cada campo em seus respectivos métodos dedicados
             putStudentTravelId(travelId, mapStudentTravelId);
             putStudentId(travelId, mapStudentId);
             putStudentEmbark(travelId, mapEmbark);
             putStudentTravelStatus(travelId, mapStatus);
+            putStudentTravelName(travelId, mapName);
 
-            return new StudentTravelCacheDTO(storedStudentTravelId, studentEmail, storedStudentId ,studentTravelStatus, embark);
+            return new StudentTravelCacheDTO(storedStudentTravelId, studentName, studentEmail, storedStudentId ,studentTravelStatus, embark);
         }
 
-        return new StudentTravelCacheDTO(studentTravelId, studentEmail, studentId, stStatus, studentEmbark);
+        return new StudentTravelCacheDTO(studentTravelId, studentTravelName, studentEmail, studentId, stStatus, studentEmbark);
     }
 
 }

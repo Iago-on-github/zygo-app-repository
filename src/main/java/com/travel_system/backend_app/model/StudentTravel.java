@@ -30,11 +30,12 @@ public class StudentTravel extends BaseTenantEntity {
     private List<StudentTravelRouteStop> studentTravelRouteStops = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     private StudentTravelStatus studentTravelStatus;
+    private Instant boardedAt;
 
     public StudentTravel() {
     }
 
-    public StudentTravel(UUID id, Travel travel, Student student, boolean embark, Instant embarkHour, Instant disembarkHour, GeoPosition position, StudentTravelStatus studentTravelStatus) {
+    public StudentTravel(UUID id, Travel travel, Student student, boolean embark, Instant embarkHour, Instant disembarkHour, GeoPosition position, StudentTravelStatus studentTravelStatus, Instant boardedAt) {
         this.id = id;
         this.travel = travel;
         this.student = student;
@@ -43,6 +44,7 @@ public class StudentTravel extends BaseTenantEntity {
         this.disembarkHour = disembarkHour;
         this.position = position;
         this.studentTravelStatus = studentTravelStatus;
+        this.boardedAt = boardedAt;
     }
 
     public UUID getId() {
@@ -115,5 +117,13 @@ public class StudentTravel extends BaseTenantEntity {
 
     public void setStudentTravelStatus(StudentTravelStatus studentTravelStatus) {
         this.studentTravelStatus = studentTravelStatus;
+    }
+
+    public Instant getBoardedAt() {
+        return boardedAt;
+    }
+
+    public void setBoardedAt(Instant boardedAt) {
+        this.boardedAt = boardedAt;
     }
 }

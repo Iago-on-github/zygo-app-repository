@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record StudentTravelCacheDTO(
         UUID studentTravelId,
+        String name,
         String studentEmail,
         UUID studentId,
         StudentTravelStatus status,

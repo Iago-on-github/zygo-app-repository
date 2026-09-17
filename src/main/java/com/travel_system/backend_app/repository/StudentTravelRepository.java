@@ -1,39 +1,38 @@
 package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.StudentTravel;
-import com.travel_system.backend_app.model.dtos.StudentAwayStateDTO;
+import com.travel_system.backend_app.model.dtos.route.StudentStateProcessingDTO;
 import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
-import com.travel_system.backend_app.model.dtos.response.StudentTravelResponseDTO;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.model.enums.TravelStatus;
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.keyvalue.repository.config.QueryCreatorType;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
 public interface StudentTravelRepository extends JpaRepository<StudentTravel, UUID> {
 
     @Query("""
-            SELECT new com.travel_system.backend_app.model.dtos.StudentAwayStateDTO(
+            SELECT new com.travel_system.backend_app.model.dtos.route.StudentStateProcessingDTO(
                 st.id,
                 st.student.id,
                 st.student.userAccount.email,
                 st.studentTravelStatus,
-                st.embark
+                st.embark,
+                st.boardedAt
             )
             FROM StudentTravel st
             WHERE st.travel.id = :travelId
         """)
-    List<StudentAwayStateDTO> findStudentsForAwayState(@Param("travelId") UUID travelId);
+    List<StudentStateProcessingDTO> findStudentsForStateProcessing(@Param("travelId") UUID travelId);
 
     @Modifying
     @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status WHERE st.id IN :studentTravelId")
@@ -98,4 +97,8 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
 
     @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.id = :studentTravelId")
     Optional<StudentTravel> findByTravelIdAndStudentTravelId(UUID travelId, UUID studentTravelId);
+
+    @Modifying
+    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status, st.boardedAt = :boardedAt WHERE st.id IN :studentTravelIds")
+    void connectStudentFromTrip(@Param("studentTravelIds") Set<UUID> studentTravelIds, @Param("boardedAt") Instant boardedAt, @Param("status") StudentTravelStatus status);
 }

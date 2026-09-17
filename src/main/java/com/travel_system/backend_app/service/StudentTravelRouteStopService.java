@@ -90,7 +90,7 @@ public class StudentTravelRouteStopService {
     }
 
     /*
-    * faz o processamento da aproximação do veículo ao ponto de parada do estudante ( add no método principal)
+    * faz o processamento da aproximação do veículo ao ponto de parada do estudante (método principal de tracking)
     * */
     public void processRouteStopApproach(UUID travelId, UUID studentTravelId) {
         if (travelId == null || studentTravelId == null) {
