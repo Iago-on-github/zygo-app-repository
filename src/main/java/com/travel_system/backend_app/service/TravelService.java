@@ -551,7 +551,7 @@ public class TravelService {
         boolean routeStopCompatible = isRouteStopCompatible(travel, studentTravel);
 
         /*
-        * verifica se o estudante tem pontos de parada vinculados à viagem,
+        * verifica se o estudante tem pontos de parada vinculados à viagem com base no período e na direção
         * se não tiver chama método p/ publicar evento de incompatibilidade de rota + lançamento de notificação
         * */
         if (!routeStopCompatible) {
@@ -723,8 +723,9 @@ public class TravelService {
         List<UUID> studentRouteStopIds = studentTravel.getStudentTravelRouteStops().stream()
                 .map(routeStopIds -> routeStopIds.getRouteStop().getId()).toList();
 
-        // verifica se existe algum ponto de parada do estudante vinculado na rota padrão
+        // verifica se existe algum ponto de parada do estudante vinculado na rota padrão com base na direção da viagem e no período
         return standardRoute.getStudentRouteStopAssignments().stream()
+                .filter(rs -> rs.getTravelDirection() == travel.getTravelDirection() && rs.getTravelPeriod() == travel.getTravelPeriod())
                 .anyMatch(id -> studentRouteStopIds.contains(id.getRouteStop().getId()));
     }
 }

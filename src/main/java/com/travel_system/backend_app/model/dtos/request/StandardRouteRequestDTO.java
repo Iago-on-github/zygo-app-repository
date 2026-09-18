@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model.dtos.request;
 
+import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 
 import javax.validation.Valid;
@@ -22,6 +23,8 @@ public record StandardRouteRequestDTO(
         Double destinationLatitude,
         @NotNull(message = "A longitude de destino é obrigatória")
         Double destinationLongitude,
+        @NotNull(message = "A direção da Rota Padrão é obrigatória")
+        TravelDirection travelDirection,
         @NotNull(message = "O período de viagem é obrigatório")
         Set<TravelPeriod> periods,
         @NotEmpty(message = "A lista de paradas não pode ser nula nem vazia")

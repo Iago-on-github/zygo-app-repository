@@ -174,6 +174,10 @@ public class SecurityConfig {
     }
 
     private void configureStandardRouteEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/standard-route/all").hasAnyRole(ROLE_USER);
+        auth.requestMatchers("/v1/standard-route/{standardRouteId}").hasAnyRole(ROLE_USER);
+        auth.requestMatchers("/v1/standard-route/{standardRouteId}/route-stops").hasAnyRole(ROLE_USER);
+
         auth.requestMatchers("/v1/standard-route/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
