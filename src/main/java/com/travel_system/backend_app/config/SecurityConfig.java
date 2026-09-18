@@ -182,7 +182,8 @@ public class SecurityConfig {
     }
 
     private void configureRouteStopEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers("/v1/route-stops/{customerId}/customer").hasRole(ROLE_PLATFORM_ADMIN);
+        auth.requestMatchers("/v1/route-stops/{name}").hasRole(ROLE_USER);
+        auth.requestMatchers("/v1/route-stops/{routeStopId}/route").hasRole(ROLE_USER);
 
         auth.requestMatchers("/v1/route-stops/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }

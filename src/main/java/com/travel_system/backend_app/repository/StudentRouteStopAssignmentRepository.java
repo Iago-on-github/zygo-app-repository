@@ -37,7 +37,7 @@ public interface StudentRouteStopAssignmentRepository extends JpaRepository<Stud
         FROM StudentRouteStopAssignment s 
         JOIN s.standardRoute sr 
         WHERE s.student.id = :studentId 
-        AND s.travelDirection
+        AND s.travelDirection = :travelDirection
         AND :travelPeriod MEMBER OF sr.travelPeriods
             """)
     boolean existsByStudentIdAndStandardRouteTravelPeriods(@Param("studentId") UUID studentId, @Param("travelPeriod") TravelPeriod travelPeriod, @Param("travelDirection") TravelDirection travelDirection);

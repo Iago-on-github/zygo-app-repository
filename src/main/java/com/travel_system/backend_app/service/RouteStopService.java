@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
 
+import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+
 @Service
 public class RouteStopService {
 
@@ -39,39 +41,39 @@ public class RouteStopService {
     }
 
     @Transactional(readOnly = true)
-    public List<RouteStopResponseDTO> getRouteStopsByCustomer() {
-        UUID customerId = TenantContext.getCurrentTenant(); // pega o atual customer do Administrator
-
-        List<RouteStop> routeStopsByCustomerId = routeStopRepository.findRouteStopsByCustomerId(customerId);
-
-        return routeStopsByCustomerId.stream().map(routeStopResponseMapper::toDTO).toList();
-    }
-
-    @Transactional(readOnly = true)
     public RouteStopResponseDTO getRouteStopByName(String routeName) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student student = getAndValidateActiveStudent(authenticatedUserEmail);
+
         RouteStop routeStop = routeStopRepository.findByName(routeName)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado pelo nome: " + routeName));
+
+        validateSameCustomer(student.getCustomerId(), routeStop.getCustomerId());
 
         return routeStopResponseMapper.toDTO(routeStop);
     }
 
     @Transactional(readOnly = true)
     public RouteStopResponseDTO getRouteStopById(UUID routeStopId) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student student = getAndValidateActiveStudent(authenticatedUserEmail);
+
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
+
+        validateSameCustomer(student.getCustomerId(), routeStop.getCustomerId());
 
         return routeStopResponseMapper.toDTO(routeStop);
     }
 
     @Transactional
-    public RouteStopResponseDTO createRouteStop(String authenticatedEmail, RouteStopRequestDTO routeStopRequestDTO) {
-        UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
+    public RouteStopResponseDTO createRouteStop(RouteStopRequestDTO routeStopRequestDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
 
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
-
-        // verifica se o user é válido (admin, platform_admin)
-        checkValidAdmin(authenticatedUser);
-        checkAdminPrivileges(authenticatedUser);
+        // verifica se é um admin válido
+        checkValidAdmin(authenticatedUserEmail);
 
         // obtém o customerID do contexto atual e valida existência
         UUID customerId = TenantContext.getCurrentTenant();
@@ -94,17 +96,14 @@ public class RouteStopService {
     }
 
     @Transactional
-    public RouteStopResponseDTO updateRouteStop(String authenticatedEmail, UUID routeStopId, RouteStopUpdateDTO routeStopUpdateDTO) {
-        UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+    public RouteStopResponseDTO updateRouteStop(UUID routeStopId, RouteStopUpdateDTO routeStopUpdateDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
 
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado: " + routeStopId));
 
         // verifica se o administrador é válido
-        checkValidAdmin(authenticatedUser);
-        checkAdminPrivileges(authenticatedUser);
+        checkValidAdmin(authenticatedUserEmail);
 
         // obtém o customerID do contexto atual e valida existência
         UUID customerId = TenantContext.getCurrentTenant();
@@ -138,14 +137,10 @@ public class RouteStopService {
     }
 
     @Transactional
-    public void updateRouteStopStatus(UUID routeStopId, String authenticatedEmail, GeneralStatus status) {
-        UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
+    public void updateRouteStopStatus(UUID routeStopId, GeneralStatus status) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
 
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
-
-        // verifica se é um ADMIN
-        checkAdminPrivileges(authenticatedUser);
-        checkValidAdmin(authenticatedUser); // verifca se o user é válido (status, customer existe)
+        checkValidAdmin(authenticatedUserEmail);
 
         RouteStop routeStop = routeStopRepository.findById(routeStopId)
                 .orElseThrow(() -> new EntityNotFoundException("RouteStop não encontrado"));
@@ -167,28 +162,29 @@ public class RouteStopService {
         routeStopRepository.save(routeStop);
     }
 
-    private void checkAdminPrivileges(UserAccount authenticatedUser) {
-        boolean isAdmin = authenticatedUser.getPermissions().stream()
-                .anyMatch(permission -> permission.getDescription().equals("ROLE_ADMIN") ||
-                        permission.getDescription().equals("ROLE_PLATFORM_ADMIN"));
-
-        if (!isAdmin) {
-            throw new NotAuthorizedException("Apenas Administradores e Administradores de Plataforma podem criar ou modificar rotas.");
-        }
-    }
-
-    private void checkValidAdmin(UserAccount authenticatedUser) {
+    private void checkValidAdmin(String email) {
         // realiza a validação p/ ver se o Filter do Spring Security conseguiu associar o Tenant (seja pelo JWT ou as act)
         if (TenantContext.getCurrentTenant() == null) {
             throw new DomainValidationException("O usuário autenticado não está associado a um Customer nesta requisição.");
         }
 
-        Administrator admin = administratorRepository.findByEmail(authenticatedUser.getEmail())
+        Administrator admin = administratorRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("Perfil de Administrador não encontrado para este usuário."));
 
         if (admin.getStatus() == GeneralStatus.INACTIVE) {
             throw new InactiveAccountModificationException("Usuário não está ativo.");
         }
+    }
+
+    private Student getAndValidateActiveStudent(String email) {
+        Student student = studentRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Email " + email + " não encontrado para nenhum estudante no sistema"));
+
+        if (student.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountException("Não é possível realizar operações em contas inativas no sistema");
+        }
+
+        return student;
     }
 
     private void validateSameCustomer(UUID firstCustomerId, UUID secondCustomerId) {

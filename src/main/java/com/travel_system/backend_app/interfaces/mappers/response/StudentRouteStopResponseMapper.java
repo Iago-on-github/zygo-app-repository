@@ -44,6 +44,7 @@ public interface StudentRouteStopResponseMapper {
                 .map(assignment -> new RouteStopAssignmentResponseDTO(
                         assignment.getRouteStop().getId(),
                         assignment.getRouteStop().getName(),
+                        assignment.getTravelDirection(),
                         assignment.getSequence(),
                         assignment.isOptionalSpot()
 

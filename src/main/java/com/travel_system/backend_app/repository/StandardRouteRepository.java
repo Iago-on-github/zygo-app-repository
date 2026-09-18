@@ -60,9 +60,10 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
     @Query("""
         SELECT sr FROM StandardRoute sr 
         LEFT JOIN FETCH sr.travelPeriods 
+        LEFT JOIN FETCH routeStopAssignments rsa
         WHERE sr.id = :standardRouteId 
         AND sr.status = :status
-        AND sr.travelDirection = :travelDirection
+        AND rsa.travelDirection = :travelDirection
     """)
     Optional<StandardRoute> findRouteBaseByIdAndStatusAndTravelDirection(
             @Param("standardRouteId") UUID standardRouteId,
