@@ -276,7 +276,7 @@ public class StudentRouteStopService {
     }
 
     @Transactional
-    public StudentRouteStopAssociateResponseDTO updateStudentRouteStops(UUID studentId, UUID standardRouteId, RouteStopStudentUpdateDTO routeStopStudentUpdateDTO) {
+    public StudentRouteStopAssociateResponseDTO updateStudentRouteStops(UUID standardRouteId, RouteStopStudentUpdateDTO routeStopStudentUpdateDTO) {
         String authenticatedEmail = getAuthenticatedUserEmail();
 
         UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
@@ -291,8 +291,8 @@ public class StudentRouteStopService {
             throw new DomainValidationException("É necessário estar atuando sobre um Customer válido");
         }
 
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + studentId));
+        Student student = studentRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Perfil de estudante não encontrado para a conta com email: " + authenticatedEmail));
 
         validateSameCustomer(customerId, student.getCustomerId());
 
@@ -339,12 +339,15 @@ public class StudentRouteStopService {
                 .anyMatch(assignment -> assignment.getTravelDirection().equals(routeStopStudentUpdateDTO.travelDirection()));
 
         if (!isSameTravelDirection) {
-            throw new InvalidTravelDirectionException("A direção da viagem: " + routeStopStudentUpdateDTO.travelDirection() + " deve ser o mesmo da Rota Padrão e do Ponto de parada.")
+            throw new InvalidTravelDirectionException("A direção da viagem: " + routeStopStudentUpdateDTO.travelDirection() + " deve ser o mesmo da Rota Padrão e do Ponto de parada.");
         }
 
-        // busca a associação atual para realizar a troca
-        StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository
-                .findByStudentIdAndStandardRouteIdAndTravelDirection(studentId, standardRouteId, routeStopStudentUpdateDTO.travelDirection())
+        // busca a associação atual para realizar a troca com base no período e na direção
+        StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository.findByStudentIdAndStandardRouteIdAndTravelPeriodAndTravelDirection(
+                        student.getId(),
+                        standardRouteId,
+                        travelPeriodFromDTO,
+                        routeStopStudentUpdateDTO.travelDirection())
                 .orElseThrow(() -> new EntityAssignmentNotFoundException("Estudante sem vínculo ativo nesta Rota Padrão para a direção: " + routeStopStudentUpdateDTO.travelDirection()));
 
         // verifica se JÁ EXISTE outro assignment (diferente do atual) para este estudante, nesta rota, neste turno e nesta direção
@@ -366,12 +369,14 @@ public class StudentRouteStopService {
         studentRouteStopAssignmentRepository.save(assignment);
 
         Set<UUID> studentIds = resolveStudentIds(assignment.getRouteStop().getId(), standardRoute.getId());
-
+ 
         return studentRouteStopResponseMapper.toDTO(assignment, studentIds);
     }
 
     @Transactional
-    public StudentRouteStopAssociateResponseDTO removeStudentFromRouteStop(String authenticatedEmail, UUID routeStopId, UUID standardRouteId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
+    public StudentRouteStopAssociateResponseDTO removeStudentFromRouteStop(UUID routeStopId, UUID standardRouteId, RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
+        String authenticatedEmail = getAuthenticatedUserEmail();
+
         UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
 
         if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
@@ -384,10 +389,8 @@ public class StudentRouteStopService {
             throw new DomainValidationException("É necessário estar atuando sobre um Customer válido");
         }
 
-        UUID studentId = routeStopStudentsRequestDTO.studentId();
-
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + studentId));
+        Student student = studentRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante com o email: " + authenticatedEmail + "não encontrado"));
 
         validateSameCustomer(customerId, student.getCustomerId());
 
@@ -400,25 +403,26 @@ public class StudentRouteStopService {
 
         validateSameCustomer(customerId, routeStop.getCustomerId());
 
-        if (routeStop.getStatus().equals(GeneralStatus.INACTIVE)) {
+        /*if (routeStop.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new InactiveAccountException("Ponto de Parada está INATIVO no sistema: " + routeStopId);
-        }
+        }*/
 
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
 
         validateSameCustomer(customerId, standardRoute.getCustomerId());
 
-        if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
+        /*if (standardRoute.getStatus().equals(GeneralStatus.INACTIVE)) {
             throw new InactiveAccountException("Rota padrão está INATIVA no sistema: " + standardRouteId);
-        }
+        }*/
 
-        // verifica se o ponto de parada pertence a esta rota padrão
+        // verifica se o ponto de parada pertence a esta rota padrão com base na direção
         boolean belongsToRoute = standardRoute.getRouteStopAssignments() != null && standardRoute.getRouteStopAssignments().stream()
+                .filter(rs -> rs.getTravelDirection() == routeStopStudentsRequestDTO.travelDirection())
                 .anyMatch(assignment -> assignment.getRouteStop().getId().equals(routeStopId));
 
         if (!belongsToRoute) {
-            throw new EntityAssignmentNotFoundException("Ponto de Parada: " + routeStopId + " não faz parte da Rota Padrão: " + standardRouteId);
+            throw new EntityAssignmentNotFoundException("Ponto de Parada: " + routeStopId + " não faz parte da Rota Padrão: " + standardRouteId + " para a direção: " + routeStopStudentsRequestDTO.travelDirection());
         }
 
         TravelPeriod travelPeriodFromDTO = routeStopStudentsRequestDTO.travelPeriod();
@@ -429,8 +433,8 @@ public class StudentRouteStopService {
         }
 
         StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository
-                .findByStudentIdAndStandardRouteIdAndRouteStopId(studentId, standardRouteId, routeStopId)
-                .orElseThrow(() -> new EntityAssignmentNotFoundException("O estudante " + studentId + " não possui vínculo com o Ponto de Parada " + routeStopId + " nesta Rota Padrão."));
+                .findByStudentIdAndStandardRouteIdAndRouteStopIdAndTravelDirection(student.getId(), standardRouteId, routeStopId, routeStopStudentsRequestDTO.travelDirection())
+                .orElseThrow(() -> new EntityAssignmentNotFoundException("O estudante " + student.getId() + " não possui vínculo com o Ponto de Parada " + routeStopId + " nesta Rota Padrão para a direção: " + routeStopStudentsRequestDTO.travelDirection()));
 
         // remoção agora é direta no repositório da entidade de relacionamento
         studentRouteStopAssignmentRepository.delete(assignment);

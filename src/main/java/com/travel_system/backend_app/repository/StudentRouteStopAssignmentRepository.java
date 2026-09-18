@@ -26,6 +26,12 @@ public interface StudentRouteStopAssignmentRepository extends JpaRepository<Stud
             UUID standardRouteId,
             TravelDirection travelDirection);
 
+    Optional<StudentRouteStopAssignment> findByStudentIdAndStandardRouteIdAndTravelPeriodAndTravelDirection(
+            @Param("studentId") UUID studentId,
+            @Param("standardRouteId") UUID standardRouteId,
+            @Param("travelPeriod") TravelPeriod travelPeriod,
+            @Param("travelDirection") TravelDirection travelDirection);
+
     @Query("""
     SELECT COUNT(s) > 0 
         FROM StudentRouteStopAssignment s 
@@ -36,7 +42,11 @@ public interface StudentRouteStopAssignmentRepository extends JpaRepository<Stud
             """)
     boolean existsByStudentIdAndStandardRouteTravelPeriods(@Param("studentId") UUID studentId, @Param("travelPeriod") TravelPeriod travelPeriod, @Param("travelDirection") TravelDirection travelDirection);
 
-    Optional<StudentRouteStopAssignment> findByStudentIdAndStandardRouteIdAndRouteStopId(UUID studentId, UUID standardRouteId, UUID routeStopId);
+    Optional<StudentRouteStopAssignment> findByStudentIdAndStandardRouteIdAndRouteStopIdAndTravelDirection(
+            @Param("studentId") UUID studentId,
+            @Param("standardRouteId") UUID standardRouteId,
+            @Param("routeStopId") UUID routeStopId,
+            @Param("travelDirection") TravelDirection travelDirection);
 
     @Query("""
     SELECT DISTINCT rsa

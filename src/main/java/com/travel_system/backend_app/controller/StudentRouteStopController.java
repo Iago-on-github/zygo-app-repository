@@ -50,40 +50,14 @@ public class StudentRouteStopController {
     }
 
 
-    @PutMapping("/{studentId}/update/{standardRouteId}")
-    public ResponseEntity<StudentRouteStopAssociateResponseDTO> updateStudentRouteStops(
-            @Parameter(hidden = true) Authentication auth,
-            @Parameter(description = "ID do estudante que terá o ponto de parada atualizado.", required = true)
-            @PathVariable UUID studentId,
-            @Parameter(description = "ID da Rota Padrão onde a atualização ocorrerá.", required = true)
-            @PathVariable UUID standardRouteId,
-            @Parameter(description = "Dados da atualização: ID do novo ponto de parada e o período da viagem.", required = true)
-            @Valid @RequestBody RouteStopStudentUpdateDTO routeStopStudentUpdateDTO) {
-
-        String authenticatedEmail = auth.getName();
-
-        return ResponseEntity.ok().body(studentRouteStopService.updateStudentRouteStops(authenticatedEmail, studentId, standardRouteId, routeStopStudentUpdateDTO));
+    @PutMapping("/update/{standardRouteId}")
+    public ResponseEntity<StudentRouteStopAssociateResponseDTO> updateStudentRouteStops(@PathVariable UUID standardRouteId, @Valid @RequestBody RouteStopStudentUpdateDTO routeStopStudentUpdateDTO) {
+        return ResponseEntity.ok().body(studentRouteStopService.updateStudentRouteStops(standardRouteId, routeStopStudentUpdateDTO));
     }
 
     @DeleteMapping("/{routeStopId}/remove/{standardRouteId}")
-    public ResponseEntity<StudentRouteStopAssociateResponseDTO> removeStudentToRouteStop(
-            @Parameter(hidden = true) Authentication auth,
-            @Parameter(description = "ID do Ponto de Parada (Route Stop) que será desvinculado.", required = true)
-            @PathVariable UUID routeStopId,
-            @Parameter(description = "ID da Rota Padrão (Standard Route) de onde o estudante será removido.", required = true)
-            @PathVariable UUID standardRouteId,
-            @Parameter(description = "Dados da remoção: ID do estudante e o período da viagem (TravelPeriod) do vínculo.", required = true)
-            @Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
-
-        String authenticatedEmail = auth.getName();
-
-        StudentRouteStopAssociateResponseDTO response = studentRouteStopService.removeStudentFromRouteStop(
-                authenticatedEmail,
-                routeStopId,
-                standardRouteId,
-                routeStopStudentsRequestDTO
-        );
-
+    public ResponseEntity<StudentRouteStopAssociateResponseDTO> removeStudentToRouteStop(@PathVariable UUID routeStopId, @PathVariable UUID standardRouteId, @Valid @RequestBody RouteStopStudentsRequestDTO routeStopStudentsRequestDTO) {
+        StudentRouteStopAssociateResponseDTO response = studentRouteStopService.removeStudentFromRouteStop(routeStopId, standardRouteId, routeStopStudentsRequestDTO);
         return ResponseEntity.ok().body(response);
     }
 }
