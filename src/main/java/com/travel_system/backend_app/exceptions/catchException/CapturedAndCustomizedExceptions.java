@@ -1,0 +1,245 @@
+package com.travel_system.backend_app.exceptions.catchException;
+
+import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.exceptions.standardError.StandardError;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+
+import java.time.LocalDate;
+
+@ControllerAdvice
+public class CapturedAndCustomizedExceptions {
+
+    @ExceptionHandler(InvalidJwtAuthenticationToken.class)
+    public final ResponseEntity<StandardError> invalidJwtAuthenticationException(InvalidJwtAuthenticationToken ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(NotAuthorizedException.class)
+    public final ResponseEntity<StandardError> NotAuthorizedException(NotAuthorizedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(CustomerMismatchException.class)
+    public final ResponseEntity<StandardError> CustomerMismatchException(CustomerMismatchException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(EmptyMandatoryFieldsFoundException.class)
+    public final ResponseEntity<StandardError> emptyMandatoryFieldsException(EmptyMandatoryFieldsFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(NoSuchCoordinates.class)
+    public final ResponseEntity<StandardError> noSuchCoordinatesException(NoSuchCoordinates ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DomainValidationException.class)
+    public final ResponseEntity<StandardError> DomainValidationException(DomainValidationException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(TripNotFound.class)
+    public final ResponseEntity<StandardError> tripNotFoundException(TripNotFound ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(TravelException.class)
+    public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(StudentAlreadyHasResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> StudentAlreadyHasResponsibleAdultException(StudentAlreadyHasResponsibleAdultException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(MinorStudentResponsibleAdultTransferRequiredException.class)
+    public final ResponseEntity<StandardError> MinorStudentResponsibleAdultTransferRequiredException(MinorStudentResponsibleAdultTransferRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResponsibleAdultStudentLimitExceededException.class)
+    public final ResponseEntity<StandardError> ResponsibleAdultStudentLimitExceededException(ResponsibleAdultStudentLimitExceededException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(BootstrapAlreadyCompletedException.class)
+    public final ResponseEntity<StandardError> BootstrapAlreadyCompletedException(BootstrapAlreadyCompletedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RecalculateEtaException.class)
+    public final ResponseEntity<StandardError> recalculateEtaException(RecalculateEtaException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_GATEWAY);
+    }
+
+    @ExceptionHandler(LiveLocationDataNotFoundException.class)
+    public final ResponseEntity<StandardError> LiveLocationDataNotFoundException(LiveLocationDataNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(PayloadNotFoundException.class)
+    public final ResponseEntity<StandardError> PayloadNotFoundException(PayloadNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ResponsibleAdultHasNoStudentsException.class)
+    public final ResponseEntity<StandardError> ResponsibleAdultHasNoStudentsException(ResponsibleAdultHasNoStudentsException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(TravelStudentAssociationNotFoundException.class)
+    public final ResponseEntity<StandardError> TravelStudentAssociationNotFoundException(TravelStudentAssociationNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(BoardingAlreadyConfirmedException.class)
+    public final ResponseEntity<StandardError> BoardingAlreadyConfirmedException(BoardingAlreadyConfirmedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(TravelDirectionRequiredException.class)
+    public final ResponseEntity<StandardError> TravelDirectionRequiredException(TravelDirectionRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(TravelPeriodRequiredException.class)
+    public final ResponseEntity<StandardError> TravelPeriodRequiredException(TravelPeriodRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InactiveDriverException.class)
+    public final ResponseEntity<StandardError> InactiveDriverException(InactiveDriverException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
+    public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidTravelDirectionException.class)
+    public final ResponseEntity<StandardError> InvalidTravelDirectionException(InvalidTravelDirectionException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InactiveAccountException.class)
+    public final ResponseEntity<StandardError> InactiveAccountException(InactiveAccountException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(StandardRouteException.class)
+    public final ResponseEntity<StandardError> StandardRouteException(StandardRouteException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResourceGoneException.class)
+    public final ResponseEntity<StandardError> ResourceGoneException(ResourceGoneException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.GONE);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public final ResponseEntity<StandardError> MethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public final ResponseEntity<StandardError> EntityNotFoundException (EntityNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(ProfilePictureNotFoundException.class)
+    public final ResponseEntity<StandardError> ProfilePictureNotFoundException (ProfilePictureNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(StudentNotAssociatedWithResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> StudentNotAssociatedWithResponsibleAdultException (StudentNotAssociatedWithResponsibleAdultException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public final ResponseEntity<StandardError> DuplicateResourceException (DuplicateResourceException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(CannotTransferStudentToSameResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> CannotTransferStudentToSameResponsibleAdultException (CannotTransferStudentToSameResponsibleAdultException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InactiveAccountModificationException.class)
+    public final ResponseEntity<StandardError> InactiveAccountModificationException (InactiveAccountModificationException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public final ResponseEntity<StandardError> IllegalStateException (IllegalStateException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public final ResponseEntity<StandardError> IllegalArgumentException (IllegalArgumentException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(PermissionNotFoundException.class)
+    public final ResponseEntity<StandardError> PermissionNotFoundException (PermissionNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(UnderageResponsibleAdultException.class)
+    public final ResponseEntity<StandardError> UnderageResponsibleAdultException (UnderageResponsibleAdultException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(StepUpRequiredException.class)
+    public final ResponseEntity<StandardError> StepUpRequiredException (StepUpRequiredException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.PRECONDITION_REQUIRED);
+    }
+
+    @ExceptionHandler(InvalidBootstrapSecretException.class)
+    public final ResponseEntity<StandardError> InvalidBootstrapSecretException (InvalidBootstrapSecretException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(RateLimitExceededException .class)
+    public final ResponseEntity<StandardError> RateLimitExceededException  (RateLimitExceededException   ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public final ResponseEntity<StandardError> RedisConnectionFailureException (RedisConnectionFailureException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(RateLimitServiceUnavailableException .class)
+    public final ResponseEntity<StandardError> RateLimitServiceUnavailableException  (RateLimitServiceUnavailableException   ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public final ResponseEntity<StandardError> StorageException (StorageException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
+        StandardError standardError = new StandardError(
+                LocalDate.now(),
+                httpStatus.value(),
+                ex.getMessage(),
+                webRequest.getDescription(false)
+        );
+
+        return ResponseEntity.status(httpStatus).body(standardError);
+    }
+
+}

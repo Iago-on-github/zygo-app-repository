@@ -1,0 +1,73 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-dev
+    user: root
+    ports:
+      - "5676:5672"   # AMQP (Backend -> RabbitMQ)
+      - "15672:15672" # Management (Browser)
+      - "1883:1883"   # MQTT (Testes/IoT)
+      - "15675:15675" # Web-MQTT (App Mobile via WebSocket)
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      - mynet
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=abcd
+      - MINIO_ROOT_PASSWORD=abcd2345
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"     # API MinIO
+      - "9001:9001"     # Console MinIO
+    command: server /data --console-address ":9001"
+    networks:
+      mynet:
+        aliases:
+          - my-localhost
+
+  app:
+    volumes:
+      - ./travels-app-firebase-config.json:/app/firebase-config.json
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-app
+    ports:
+      - "9090:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_RABBITMQ_HOST=rabbitmq-dev
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - CACHE_PASSWORD=${CACHE_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - MAPBOX-ACCESS-TOKEN=${MAPBOX-ACCESS-TOKEN}
+      - FIREBASE_CONFIG_PATH=/app/firebase-config.json
+    depends_on:
+      - rabbitmq
+      - minio
+    restart: unless-stopped
+    networks:
+      - mynet
+
+networks:
+  mynet:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  minio_data:
+    driver: local

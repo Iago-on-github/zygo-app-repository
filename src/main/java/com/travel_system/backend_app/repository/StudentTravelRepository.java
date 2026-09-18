@@ -1,0 +1,104 @@
+package com.travel_system.backend_app.repository;
+
+import com.travel_system.backend_app.model.StudentTravel;
+import com.travel_system.backend_app.model.dtos.route.StudentStateProcessingDTO;
+import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
+import com.travel_system.backend_app.model.enums.StudentTravelStatus;
+import com.travel_system.backend_app.model.enums.TravelStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+
+@Repository
+public interface StudentTravelRepository extends JpaRepository<StudentTravel, UUID> {
+
+    @Query("""
+            SELECT new com.travel_system.backend_app.model.dtos.route.StudentStateProcessingDTO(
+                st.id,
+                st.student.id,
+                st.student.userAccount.email,
+                st.studentTravelStatus,
+                st.embark,
+                st.boardedAt
+            )
+            FROM StudentTravel st
+            WHERE st.travel.id = :travelId
+        """)
+    List<StudentStateProcessingDTO> findStudentsForStateProcessing(@Param("travelId") UUID travelId);
+
+    @Modifying
+    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status WHERE st.id IN :studentTravelId")
+    void updateStudentTravelStatus(@Param("studentTravelId") List<UUID> studentTravelId, @Param("status") StudentTravelStatus status);
+
+    @Modifying
+    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status, st.disembarkHour = :disembarkHour, st.embark = :embark WHERE st.id IN :studentTravelIds")
+    void disconnectedStudentFromTrip(@Param("studentTravelIds") List<UUID> studentTravelIds, @Param("status") StudentTravelStatus status, @Param("disembarkHour") Instant disembarkHour, @Param("embark") boolean embark);
+
+    Optional<StudentTravel> findByStudentIdAndTravelId(UUID studentId, UUID travelId);
+
+    Optional<StudentTravel> findByTravelIdAndStudentId(UUID id, UUID studentId);
+
+    @Query(value = "SELECT st.student.id from StudentTravel st WHERE st.travel.id = :travelId AND st.disembarkHour IS NULL ")
+    List<UUID> findStudentIdsByTravelIdAndDisembarkHourIsNull(UUID travelId);
+
+    boolean existsByIdAndTravelId(UUID studentId, UUID travelId);
+
+    @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.userAccount.email = :studentEmail")
+    Optional<StudentTravel> findByTravelIdAndStudentEmail(@Param("travelId") UUID travelId, @Param("studentEmail") String studentEmail);
+
+    @Query("SELECT CASE WHEN COUNT(st) > 0 THEN TRUE ELSE FALSE END FROM StudentTravel st WHERE st.travel.id = :travelId AND st.student.userAccount.email = :studentEmail AND st.embark = TRUE")
+    boolean existsByTravelIdAndStudentEmailAndEmbarkTrue(UUID travelId, String studentEmail);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(st) > 0 THEN TRUE ELSE FALSE END
+                FROM StudentTravel st     \s
+                WHERE st.student.userAccount.email = :studentEmail
+                AND st.embark = TRUE
+                AND st.travel.id <> :travelId
+                AND st.travel.travelStatus = :travelStatus
+           \s""")
+    boolean existsByStudentEmailAndEmbarkTrue(@Param("studentEmail") String studentEmail, @Param("travelStatus") TravelStatus travelStatus, @Param("travelId") UUID travelId);
+
+    @Query("""
+    SELECT new com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO(
+        st.id,
+        st.travel.id,
+        st.travel.standardRoute.id,
+        st.travel.standardRoute.routeName,
+        st.travel.standardRoute.routeDescription,
+        st.travel.driver.id,
+        st.travel.driver.name,
+        st.travel.travelPeriod,
+        ct.id,
+        ct.name
+        )
+        FROM StudentTravel st
+        JOIN st.travel t
+        JOIN st.student s
+        LEFT JOIN Customer c ON c.id = s.customerId
+        LEFT JOIN c.city ct
+        WHERE s.userAccount.email = :studentEmail
+        AND st.studentTravelStatus = :status
+        AND t.travelStatus = :travelStatus
+        AND st.embark = true
+           """)
+    Optional<ActiveStudentTravelDTO> findActiveTravelByStudentTravelId(
+            @Param("studentEmail") String studentEmail,
+            @Param("status") StudentTravelStatus status,
+            @Param("travelStatus") TravelStatus travelStatus);
+
+    @Query("SELECT st FROM StudentTravel st WHERE st.travel.id = :travelId AND st.id = :studentTravelId")
+    Optional<StudentTravel> findByTravelIdAndStudentTravelId(UUID travelId, UUID studentTravelId);
+
+    @Modifying
+    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status, st.boardedAt = :boardedAt WHERE st.id IN :studentTravelIds")
+    void connectStudentFromTrip(@Param("studentTravelIds") Set<UUID> studentTravelIds, @Param("boardedAt") Instant boardedAt, @Param("status") StudentTravelStatus status);
+}

@@ -1,0 +1,430 @@
+package com.travel_system.backend_app.service;
+
+import com.travel_system.backend_app.model.dtos.notifications.VehicleMovementNotificationDTO;
+import com.travel_system.backend_app.model.dtos.AnalyzeMovementStateDTO;
+import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
+import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
+import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.PreviousStateDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteCalculationReferenceDTO;
+import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
+import com.travel_system.backend_app.model.dtos.notifications.StudentProximityNotificationDTO;
+import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
+import com.travel_system.backend_app.model.dtos.response.DistanceResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.LastLocationDTO;
+import com.travel_system.backend_app.model.dtos.response.NotificationStateDTO;
+import com.travel_system.backend_app.model.enums.MovementState;
+import com.travel_system.backend_app.model.enums.ShouldNotify;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.travel_system.backend_app.config.constants.NotificationConstants.*;
+
+@Service
+public class PushNotificationService {
+    private final TravelService travelService;
+    private final RouteCalculationService routeCalculationService;
+    private final RedisNotificationService redisNotificationService;
+    private final RedisTrackingService redisTrackingService;
+    private final LocationService locationService;
+    private final TravelCacheService travelCacheService;
+    private final AsyncNotificationService asyncNotificationService;
+
+    private final ApplicationEventPublisher eventPublisher;
+
+    private static final Logger logger = LoggerFactory.getLogger(PushNotificationService.class);
+
+    public PushNotificationService(TravelService travelService, RouteCalculationService routeCalculationService, RedisNotificationService redisNotificationService, RedisTrackingService redisTrackingService, LocationService locationService, TravelCacheService travelCacheService, AsyncNotificationService asyncNotificationService, ApplicationEventPublisher eventPublisher) {
+        this.travelService = travelService;
+        this.routeCalculationService = routeCalculationService;
+        this.redisNotificationService = redisNotificationService;
+        this.redisTrackingService = redisTrackingService;
+        this.locationService = locationService;
+        this.travelCacheService = travelCacheService;
+        this.asyncNotificationService = asyncNotificationService;
+        this.eventPublisher = eventPublisher;
+    }
+
+    /*
+      gera pushs de notificações por distância <aluno - ônibus>
+      ex.: Ônibus está há 200M de você
+    */
+    @Retryable(
+            retryFor = Exception.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
+    public void checkProximityAlerts(VehicleLocationRequestDTO vehicleLocationRequest) {
+        UUID travelId = vehicleLocationRequest.travelId();
+        Double latitude = vehicleLocationRequest.latitude();
+        Double longitude = vehicleLocationRequest.longitude();
+        Double speed = vehicleLocationRequest.speed();
+        Double heading = vehicleLocationRequest.heading();
+        Instant currentVehicleLocationTimestamp = Instant.now();
+
+        // adicionar travel cache aqui para ter o dado de customerId para o DTO
+        TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);
+
+        LiveLocationDTO driverPosition = new LiveLocationDTO(latitude, longitude, null, 0.0, null, null, currentVehicleLocationTimestamp);
+        Set<StudentTrackingPositionDTO> linkedStudentTravel = travelService.linkedStudentTravel(travelId);
+        List<DistanceResponseDTO> differencePosition = locationService.distanceBetweenPositions(travelId, driverPosition);
+
+        Map<UUID, Double> distances = differencePosition.stream()
+                .collect(Collectors.toMap(DistanceResponseDTO::studentId, DistanceResponseDTO::distance));
+
+        linkedStudentTravel.forEach(student -> {
+            NotificationStateDTO readNotificationState = redisNotificationService.readNotificationState(travelId, student.studentId());
+
+            Double distance = distances.get(student.studentId());
+            if (distance == null) {
+                // Segurança caso o aluno não tenha distância calculada
+                logger.warn("[checkProximityAlerts] aluno sem propriedade 'distance' calculada, retornando... {}", student.studentId());
+                return;
+            }
+
+            String zone = distance >= 1000 ? "FAR" : "NEAR";
+            String nowMillis = String.valueOf(Instant.now().toEpochMilli());
+            String timestamp = String.valueOf(Instant.now());
+
+                Boolean shouldPushNotification = redisNotificationService.verifyNotificationState(
+                    travelId,
+                    student.studentId(),
+                    distance,
+                    readNotificationState);
+
+            String alertType = "INITIAL_STATE";
+
+            if (readNotificationState != null && readNotificationState.zone() != null) {
+                // Se a zona mudou
+                if (!zone.equals(readNotificationState.zone())) {
+                    alertType = "ZONE_CHANGED";
+                } else {
+                    // Se a zona é a mesma, verifica-se o tempo ou distância percorrida
+                    try {
+                        long lastTime = Long.parseLong(readNotificationState.lastNotificationAt());
+                        long elapsedMillis = Instant.now().toEpochMilli() - lastTime;
+
+                        if (elapsedMillis >= 720000) { // 12 minutos
+                            alertType = "TIME_ELAPSED";
+                        } else {
+                            double lastDistance = Double.parseDouble(readNotificationState.lastDistanceNotified());
+                            double deltaDistance = Math.abs(distance - lastDistance);
+                            double step = zone.equals("FAR") ? 200.0 : 30.0;
+
+                            if (deltaDistance >= step) {
+                                alertType = "DISTANCE_STEP_REACHED";
+                            } else {
+                                alertType = "PERIODIC_UPDATE"; // Caso passe no verify mas não mude zona/step
+                            }
+                        }
+                    } catch (Exception e) {
+                        // caso os dados do redis estejam corrompidos, reseta para um estado limpo e retorna sem notificar
+                        alertType = "STATE_RECOVERY";
+
+                        logger.warn("[checkProximityAlerts] corrupted redis data for the student {} trip {}. recovery state...",
+                                student.studentId(), travelId);
+
+                        redisNotificationService.updateNotificationState(travelId,
+                                student.studentId(),
+                                new NotificationStateDTO(zone, distance.toString(), nowMillis, timestamp));
+
+                        return;
+                    }
+                }
+            }
+
+            // envia notificação async e realiza update no redis p/ notificação enviada
+            if (shouldPushNotification) {
+                StudentProximityNotificationDTO studentProximityNotificationDTO =
+                        new StudentProximityNotificationDTO(travelId,
+                        student.studentId(),
+                        travelStaticCache.customerId(),
+                        distance,
+                        zone,
+                        timestamp,
+                        alertType);
+
+                // notificação async
+                asyncNotificationService.processStudentProximity(studentProximityNotificationDTO);
+
+                logger.info("Notificação do tipo: [{}] enviada p/ aluno {} na viagem {}", alertType, student.studentId(), travelId);
+
+                redisNotificationService.updateNotificationState(travelId, student.studentId(),
+                        new NotificationStateDTO(zone,
+                                distance.toString(),
+                                nowMillis,
+                                timestamp));
+            }
+        });
+    }
+
+    @Recover
+    public void recoverCheckProximityAlerts(Exception e, VehicleLocationRequestDTO request) {
+        logger.error("[FALLBACK] Falha definitiva em checkProximityAlerts. Viagem: {}", request.travelId());
+    }
+
+    @Retryable(
+            retryFor = Exception.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 1000)
+    )
+    public void processVehicleMovement(VehicleLocationRequestDTO vehicleLocationRequest) {
+        UUID traceId = UUID.randomUUID();
+
+        UUID travelId = vehicleLocationRequest.travelId();
+        Double latitude = vehicleLocationRequest.latitude();
+        Double longitude = vehicleLocationRequest.longitude();
+        Double speed = vehicleLocationRequest.speed();
+        Double heading = vehicleLocationRequest.heading();
+
+        logger.info("[Trace: {}] Iniciando processamento para viagem: {}", traceId, travelId);
+        VelocityAnalysisDTO velocityAnalysis = analyzeVehicleMovement(new VehicleLocationRequestDTO(
+                travelId,
+                latitude,
+                longitude,
+                speed,
+                heading));
+
+        ShouldNotify decision = shouldSendNotification(travelId, velocityAnalysis, traceId);
+
+        VehicleMovementNotificationDTO vehicleMovementNotificationDTO = new VehicleMovementNotificationDTO(travelId, velocityAnalysis, decision, traceId);
+
+        // manda notificação async
+        asyncNotificationService.processNotificationType(vehicleMovementNotificationDTO, decision);
+
+    }
+
+    @Recover
+    public void recoverProcessVehicleMovement(Exception e, VehicleLocationRequestDTO request) {
+        logger.error("[PushNotificationService] Fallback: falha definitiva em processVehicleMovement. Viagem: {}", request.travelId());
+    }
+
+    // usa analyzeVehicleMovement e decide se deve notificar
+    private ShouldNotify shouldSendNotification(UUID travelId, VelocityAnalysisDTO velocityAnalysis, UUID traceId) {
+        // verificar mudanças de estado
+        AnalyzeMovementStateDTO lastMovementState = redisTrackingService.getLastMovementState(travelId);
+        MovementState actualMovementState = velocityAnalysis.movementState();
+
+        Instant lastEtaNotifyAt = (lastMovementState != null) ? lastMovementState.lastEtaNotificationAt() : null;
+        Instant lastGeneralNotifySendAt = (lastMovementState != null) ? lastMovementState.lastNotificationSendAt() : null;
+
+        Instant now = Instant.now();
+
+        // primeiro ciclo: sem estado anterior - seta posição atual como a antiga position registrada
+        MovementState movementState;
+        if (lastMovementState == null || lastMovementState.movementState() == null) {
+            logger.info("[Trace: {}] Primeiro ciclo: Inicializando estado no Redis", traceId);
+            redisTrackingService.saveAnalyzedMovementState(travelId, new AnalyzeMovementStateDTO(actualMovementState, now, null, null));
+            return ShouldNotify.SHOULD_NO_NOTIFY;
+        } else {
+            movementState = lastMovementState.movementState();
+        }
+        logger.info("DEBUG: Estado no Redis: {} | Estado Atual: {}", movementState, actualMovementState);
+
+        // comparar estados
+        // se o estado mudou, ainda nao notifica mas salva a mudança no Redis
+        if (!actualMovementState.equals(movementState)) {
+            logger.info("Estado mudou, ainda não notifica e salva o estado no Redis");
+            redisTrackingService.saveAnalyzedMovementState(travelId, new AnalyzeMovementStateDTO(
+                    actualMovementState,
+                    now,
+                    lastGeneralNotifySendAt,
+                    lastEtaNotifyAt));
+            return ShouldNotify.SHOULD_NO_NOTIFY;
+        }
+
+        if (actualMovementState.equals(MovementState.NORMAL)) {
+            logger.info("Estado não mudou, não notifica");
+            redisTrackingService.saveAnalyzedMovementState(travelId, new AnalyzeMovementStateDTO(
+                    actualMovementState,
+                    now,
+                    lastGeneralNotifySendAt,
+                    lastEtaNotifyAt));
+            return ShouldNotify.SHOULD_NO_NOTIFY;
+        }
+
+        long durationOnState = now.toEpochMilli() - (lastMovementState != null ? lastMovementState.stateStartedAt().toEpochMilli() : now.toEpochMilli());
+
+        boolean cooldownExpired = lastEtaNotifyAt == null || hasEnoughCooldownForStopped(lastEtaNotifyAt, now, NOTIFICATION_COOLDOWN_MS);
+        boolean stayedLongEnough = durationOnState >= STATE_TIME_LIMIT_MS;
+
+        Instant stateStartedAt = (lastMovementState != null) ? lastMovementState.stateStartedAt() : null;
+
+        if (stayedLongEnough && cooldownExpired) {
+            if (actualMovementState.equals(MovementState.SLOW)) {
+                logger.info("[Trace: {}] Decisão: SHOULD_NOTIFY_SLOW", traceId);
+                redisTrackingService.saveAnalyzedMovementState(travelId, new AnalyzeMovementStateDTO(actualMovementState, stateStartedAt, now, now));
+                return ShouldNotify.SHOULD_NOTIFY_SLOW;
+            }
+            if (actualMovementState.equals(MovementState.STOPPED) && hasEnoughCooldownForStopped(lastEtaNotifyAt, now, NOTIFICATION_COOLDOWN_MS_STOPPED)) {
+                logger.info("[Trace: {}] Decisão: NOTIFY_STOPPED", traceId);
+                redisTrackingService.saveAnalyzedMovementState(travelId, new AnalyzeMovementStateDTO(actualMovementState, stateStartedAt, now, now));
+                return ShouldNotify.SHOULD_NOTIFY_STOPPED;
+            }
+        }
+
+        logger.info("[Trace: {}] Decisão: NO_NOTIFY (Motivo: Cooldown/Tempo de estado não atingido)", traceId);
+        return ShouldNotify.SHOULD_NO_NOTIFY;
+    }
+
+    /*
+    gera pushs de notificações por anomalias (detector de problemas) <aluno - ônibus>
+    ex.: Ônibus está há 12 minutos parado
+    */
+    private VelocityAnalysisDTO analyzeVehicleMovement(VehicleLocationRequestDTO vehicleLocationRequest) {
+        if (vehicleLocationRequest == null
+                || vehicleLocationRequest.travelId() == null
+                || vehicleLocationRequest.latitude() == null
+                || vehicleLocationRequest.longitude() == null) {
+            logger.warn("[analyzeVehicleMovement] vehicleLocationRequest null ou com dados inválidos, {}", vehicleLocationRequest);
+            throw new IllegalStateException();
+        }
+
+        UUID travelId = vehicleLocationRequest.travelId();
+        Double latitude = vehicleLocationRequest.latitude();
+        Double longitude = vehicleLocationRequest.longitude();
+
+        RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
+        Optional<RouteDetailsDTO> routeStateOpt = redisTrackingService.getRouteState(travelId);
+
+        LastLocationDTO lastLocation = redisTrackingService.getLastLocation(travelId);
+        LiveLocationDTO actuallyPosition = getLiveLocationDTO(latitude, longitude, routeCalculateReference, routeStateOpt);
+
+        VelocityAnalysisDTO result;
+
+        // Primeiro ping
+        if (lastLocation == null) {
+            logger.warn("[analyzeVehicleMovement] lastLocation is null, that's fist ping. Return silently. Travel: {}", travelId);
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
+        }
+
+        if (lastLocation.latitude() == null || lastLocation.longitude() == null || lastLocation.timestamp() == null) {
+            logger.warn("[analyzeVehicleMovement] dados do lastLocation nulos ou inválidos no redis: {}, {}, {} ",
+                    lastLocation.latitude(), lastLocation.longitude(), lastLocation.timestamp());
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
+        }
+
+        long elapsedSeconds = Duration
+                .between(Instant.ofEpochMilli(lastLocation.timestamp()), Instant.now())
+                .toSeconds();
+
+        final int MIN_SECONDS = 5;
+        if (elapsedSeconds < MIN_SECONDS) {
+            logger.warn("[analyzeVehicleMovement] elapsedSeconds {} is less than min seconds, return silently. Travel: {} ", elapsedSeconds, travelId);
+            return new VelocityAnalysisDTO(null, null, null, null, MovementState.INSUFFICIENT_DATA);
+        }
+
+        Double distanceBetweenPings =
+                routeCalculationService.calculateHaversineDistanceInMeters(
+                        latitude, longitude,
+                        lastLocation.latitude(),
+                        lastLocation.longitude()
+                        );
+
+        if (distanceBetweenPings == null) {
+            logger.warn("[analyzeVehicleMovement] cálculo Haversine retornando null para a viagem: {}", travelId);
+            return new VelocityAnalysisDTO(
+                    null,
+                    null,
+                    null,
+                    null,
+                    MovementState.INSUFFICIENT_DATA);
+        }
+
+        // update da prop 'accumulatedDistance' no redis
+        redisTrackingService.updateAccumulatedDistance(travelId, distanceBetweenPings);
+
+        // atualiza última posição no redis mesmo se algo falhar
+        redisTrackingService.keepMemoryBetweenDriverPings(travelId, actuallyPosition);
+
+        PreviousStateDTO previousEta = redisTrackingService.getPreviousEta(travelId);
+
+        Double newETA = null;
+        double distanceRemaining = 0;
+        MovementState state;
+        double avgSpeed = distanceBetweenPings / elapsedSeconds;
+        final double MIN_SPEED_THRESHOLD = 0.5;
+        final int MIN_SOLID_SPEED_DISTANCE = 1;
+
+        if (previousEta != null) {
+            distanceRemaining = previousEta.distanceRemaining();
+        }
+
+        logger.info("[analyzeVehicleMovement] Travel: {} | Elapsed: {}s | Distance: {}m | Speed: {}m/s | Threshold: {}m/s | Lat/Lng: {} , {}",
+                travelId, elapsedSeconds, String.format("%.2f", distanceBetweenPings), String.format("%.2f", avgSpeed), MIN_SPEED_THRESHOLD, latitude, longitude);
+
+        // moveu menos q 1m = está parado
+        if (distanceBetweenPings < MIN_SOLID_SPEED_DISTANCE) {
+            state = MovementState.STOPPED;
+        } else if (avgSpeed <= MIN_SPEED_THRESHOLD) {
+            state = MovementState.SLOW;
+        } else {
+            state = MovementState.NORMAL;
+            if (distanceRemaining > 0 && avgSpeed > MIN_SPEED_THRESHOLD) {
+                newETA = distanceRemaining / avgSpeed;
+
+                redisTrackingService.updateTripEtaState(
+                        travelId,
+                        distanceRemaining,
+                        newETA,
+                        Instant.now()
+                );
+            }
+        }
+
+        result = new VelocityAnalysisDTO(
+                avgSpeed,
+                elapsedSeconds,
+                distanceBetweenPings,
+                newETA,
+                state
+        );
+
+        return result;
+    }
+
+    private LiveLocationDTO getLiveLocationDTO(Double latitude, Double longitude, RouteCalculationReferenceDTO routeCalculateReference, Optional<RouteDetailsDTO> routeState) {
+        String geometry = routeState.map(RouteDetailsDTO::geometry).orElse(null);
+        Double distance = routeState.map(RouteDetailsDTO::distance).orElse(null);
+
+        double lastCalcLat = (routeCalculateReference != null && routeCalculateReference.lastCalcLat() != null) ? routeCalculateReference.lastCalcLat() : 0.0;
+        double lastCalcLng = (routeCalculateReference != null && routeCalculateReference.lastCalcLng() != null) ? routeCalculateReference.lastCalcLng() : 0.0;
+
+        Instant currentVehicleLocationTimestamp = Instant.now();
+
+        return new LiveLocationDTO(
+                latitude,
+                longitude,
+                geometry,
+                distance,
+                lastCalcLat,
+                lastCalcLng,
+                currentVehicleLocationTimestamp);
+    }
+
+    private boolean hasEnoughCooldownForStopped(Instant lastEtaNotify, Instant now, long notificationCooldown) {
+        if (lastEtaNotify == null) return true;
+        return Duration.between(lastEtaNotify, now).toMillis() >= notificationCooldown;
+    }
+}
