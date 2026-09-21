@@ -8,7 +8,6 @@ import com.travel_system.backend_app.model.enums.TravelPeriod;
 import java.util.UUID;
 
 public record TravelRequestDTO(
-        UUID driverId,
         UUID standardRouteId,
         TravelPeriod travelPeriod,
         TravelDirection travelDirection,

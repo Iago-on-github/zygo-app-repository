@@ -5,5 +5,5 @@
 -- ao UserAccount do token, eliminando a possibilidade de divergência
 -- entre as duas fontes.
 
-ALTER TABLE push_notification_device_tokens
-DROP COLUMN IF EXISTS customer_id;
+/*ALTER TABLE push_notification_device_tokens
+DROP COLUMN IF EXISTS customer_id;*/

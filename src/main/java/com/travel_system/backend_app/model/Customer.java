@@ -22,7 +22,8 @@ public class Customer {
     private String slug;
     private String cnpj;
     private GeneralStatus status = GeneralStatus.ACTIVE;
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", referencedColumnName = "id", nullable = false)
     private City city;
     @Enumerated(EnumType.STRING)
     private ClientSector clientSector;

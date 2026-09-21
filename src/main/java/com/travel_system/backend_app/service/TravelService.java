@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.*;
 
 import static com.travel_system.backend_app.config.constants.GlobalAppConstants.MONITORING_THRESHOLD;
+import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 @Service
 public class TravelService {
@@ -80,7 +81,11 @@ public class TravelService {
 
     @Transactional
     public TravelResponseDTO createTravel(TravelRequestDTO travelRequestDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
         Travel travel = new Travel();
+
+        System.out.println("bateu aqui (0)");
 
         // recupera o customerId e valida
         UUID customerId = TenantContext.getCurrentTenant();
@@ -88,8 +93,8 @@ public class TravelService {
             throw new DomainValidationException("É necessário estar atuando sobre um Customer válido para criar uma viagem.");
         }
 
-        Driver driver = driverRepository.findById(travelRequestDTO.driverId())
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado"));
+        Driver driver = driverRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado com o email: " + authenticatedUserEmail));
 
         if (driver.getStatus() == GeneralStatus.INACTIVE) {
             throw new InactiveDriverException("Motorista inativo, não é possível prosseguir. driverId: " + driver.getId());
