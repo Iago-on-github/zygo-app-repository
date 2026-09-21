@@ -33,25 +33,17 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 public class PlatformAdministratorService {
 
     private final PlatformAdministratorRepository platformAdministratorRepository;
-    private final SensitiveOperationRepository sensitiveOperationRepository;
 
     private final SetupAuthenticationService setupAuthenticationService;
     private final RedisSetupAuthenticationService redisSetupAuthenticationService;
 
-    private final PasswordEncoder passwordEncoder;
-
     @Value("${secret.bootstrap-key}")
     private String secretBootstrap;
 
-    @Value("${platform-admin.approval-email}")
-    private String bootstrapApprovalEmail;
-
-    public PlatformAdministratorService(PlatformAdministratorRepository platformAdministratorRepository, SensitiveOperationRepository sensitiveOperationRepository, SetupAuthenticationService setupAuthenticationService, RedisSetupAuthenticationService redisSetupAuthenticationService, PasswordEncoder passwordEncoder) {
+    public PlatformAdministratorService(PlatformAdministratorRepository platformAdministratorRepository, SetupAuthenticationService setupAuthenticationService, RedisSetupAuthenticationService redisSetupAuthenticationService, PasswordEncoder passwordEncoder) {
         this.platformAdministratorRepository = platformAdministratorRepository;
-        this.sensitiveOperationRepository = sensitiveOperationRepository;
         this.setupAuthenticationService = setupAuthenticationService;
         this.redisSetupAuthenticationService = redisSetupAuthenticationService;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -86,7 +78,6 @@ public class PlatformAdministratorService {
                 sensitiveOperation.getExpiresAt()
         );
     }
-
 
     @Transactional
     public SensitiveOperationResponseDTO createFirstPlatformAdministrator(PlatformAdministratorRequestDTO platformAdministratorRequestDTO, HttpServletRequest request) throws JsonProcessingException {
