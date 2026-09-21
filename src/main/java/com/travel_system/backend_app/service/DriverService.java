@@ -72,7 +72,7 @@ public class DriverService {
 
         // plano básico: até 04 drivers por sistema
         if (countDrivers >= GlobalAppConstants.DRIVER_RECORD_LIMIT) {
-            throw new EntityLimitExceededException("O limite de cadastro para Administradores no seu plano é de " + GlobalAppConstants.DRIVER_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+            throw new EntityLimitExceededException("O limite de cadastro para Motoristas no seu plano é de " + GlobalAppConstants.DRIVER_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
         }
 
         // validações evitando duplicação de recursos no sistema
@@ -162,7 +162,7 @@ public class DriverService {
                 .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado para o email: " + authenticatedUserEmail));
 
         if (driver.getStatus() == driverStatus.status()) {
-            throw new IllegalStateException("Motorista já com o status " + driverStatus);
+            throw new DuplicateResourceException("Motorista já com o status " + driverStatus);
         }
 
         driverRequestMapper.driverUpdateStatusFromDTO(driverStatus, driver);

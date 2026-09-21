@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.config.constants.GlobalAppConstants;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.StudentRequestMapper;
@@ -55,18 +56,14 @@ public class StudentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<StudentResponseDTO> getAllStudents() {
-        Pageable pageable = PageRequest.of(0, 10);
-
+    public Page<StudentResponseDTO> getAllStudents(Pageable pageable) {
         Page<Student> getAllStudents = studentRepository.findAll(pageable);
 
         return getAllStudents.map(studentResponseMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
-    public Page<StudentResponseDTO> getStudentsByStatus(GeneralStatus status) {
-        Pageable pageable = PageRequest.of(0, 10);
-
+    public Page<StudentResponseDTO> getStudentsByStatus(GeneralStatus status, Pageable pageable) {
         if (status == null) status = GeneralStatus.ACTIVE;
 
         Page<Student> students = studentRepository.findAllByStatus(status, pageable);
@@ -87,6 +84,12 @@ public class StudentService {
     @Transactional
     public StudentResponseDTO createStudent(StudentRequestDTO requestDTO) {
         verifyFieldsIsNull(requestDTO);
+
+        long countStudents = studentRepository.count();
+
+        if (countStudents >= GlobalAppConstants.STUDENT_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Estudantes no seu plano é de " + GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
 
         if (userAccountRepository.existsByEmail(requestDTO.email())) {
             throw new DuplicateResourceException("O email " + requestDTO.email() + " já existe");
@@ -240,12 +243,14 @@ public class StudentService {
     }
 
     @Transactional
-    public void updateStudentStatus(UUID studentId, GeneralStatus newStatus) {
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado, " + studentId));
+    public void updateStudentStatus(GeneralStatus newStatus) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Student student = studentRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado para o email: " + authenticatedUserEmail));
 
         if (student.getStatus() == newStatus) {
-            throw new DomainValidationException("Estudante " + studentId + " já com o status " + newStatus);
+            throw new DuplicateResourceException("Estudante já com o status " + newStatus);
         }
 
         student.setStatus(newStatus);
