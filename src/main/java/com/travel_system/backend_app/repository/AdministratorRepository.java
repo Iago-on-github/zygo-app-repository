@@ -24,11 +24,6 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
 
     Page<Administrator> findByStatus(GeneralStatus generalStatus, Pageable pageable);
 
-    Optional<Administrator> findByTelephone(String telephone);
-
-    @Query("SELECT a FROM Administrator a WHERE a.customerId IS NOT NULL")
-    Page<Administrator> findAllWithCustomerId(Pageable pageable);
-
     @Query("SELECT a FROM Administrator a WHERE a.status = :status AND a.customerId IS NOT NULL")
     Page<Administrator> findByStatusWithCustomerId(GeneralStatus status, Pageable pageable);
 

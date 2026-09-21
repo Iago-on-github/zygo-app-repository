@@ -23,4 +23,9 @@ public class GlobalAppConstants {
     public static final double EARTH_RADIUS_METERS = 6371000;
 
     public static final int TOTAL_ROUTE_STOP_POINTS_PER_STUDENT = 6;
+
+    // limite de entidades cadastradas no sistema
+    public static final int ADMINISTRATOR_RECORD_LIMIT = 2;
+    public static final int DRIVER_RECORD_LIMIT = 4;
+    public static final int STUDENT_RECORD_LIMIT = 50;
 }

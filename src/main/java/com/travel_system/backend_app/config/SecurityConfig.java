@@ -174,16 +174,17 @@ public class SecurityConfig {
     }
 
     private void configureStandardRouteEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers("/v1/standard-route/all").hasAnyRole(ROLE_USER);
-        auth.requestMatchers("/v1/standard-route/{standardRouteId}").hasAnyRole(ROLE_USER);
-        auth.requestMatchers("/v1/standard-route/{standardRouteId}/route-stops").hasAnyRole(ROLE_USER);
+        auth.requestMatchers(HttpMethod.GET, "/v1/standard-route/all").hasAnyRole(ROLE_USER);
+        auth.requestMatchers(HttpMethod.GET,"/v1/standard-route/*").hasAnyRole(ROLE_USER);
+        auth.requestMatchers(HttpMethod.GET,"/v1/standard-route/*/route-stops").hasAnyRole(ROLE_USER);
 
         auth.requestMatchers("/v1/standard-route/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
     private void configureRouteStopEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers("/v1/route-stops/{name}").hasRole(ROLE_USER);
-        auth.requestMatchers("/v1/route-stops/{routeStopId}/route").hasRole(ROLE_USER);
+        auth.requestMatchers(HttpMethod.GET, "/v1/route-stops/*").hasRole(ROLE_USER);
+
+        auth.requestMatchers(HttpMethod.GET, "/v1/route-stops/*/route").hasRole(ROLE_USER);
 
         auth.requestMatchers("/v1/route-stops/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }

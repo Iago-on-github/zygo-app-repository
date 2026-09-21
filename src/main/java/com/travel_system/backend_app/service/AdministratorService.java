@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.config.constants.GlobalAppConstants;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.AdministratorRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.AdministratorResponseMapper;
@@ -26,12 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+
 @Service
 public class AdministratorService {
 
     private final AdministratorRepository administratorRepository;
-    private final CustomerRepository customerRepository;
-    private final PermissionsRepository permissionsRepository;
     private final UserAccountRepository userAccountRepository;
 
     private final CurrentUserService currentUserService;
@@ -41,72 +42,37 @@ public class AdministratorService {
 
     private final PasswordEncoder passwordEncoder;
 
-    public AdministratorService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, PasswordEncoder passwordEncoder, PermissionsRepository permissionsRepository, UserAccountRepository userAccountRepository, AdministratorRequestMapper administratorRequestMapper, CurrentUserService currentUserService, AdministratorResponseMapper administratorResponseMapper) {
+    public AdministratorService(AdministratorRepository administratorRepository, UserAccountRepository userAccountRepository, CurrentUserService currentUserService, AdministratorRequestMapper administratorRequestMapper, AdministratorResponseMapper administratorResponseMapper, PasswordEncoder passwordEncoder) {
         this.administratorRepository = administratorRepository;
-        this.customerRepository = customerRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.permissionsRepository = permissionsRepository;
         this.userAccountRepository = userAccountRepository;
-        this.administratorRequestMapper = administratorRequestMapper;
         this.currentUserService = currentUserService;
+        this.administratorRequestMapper = administratorRequestMapper;
         this.administratorResponseMapper = administratorResponseMapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
-    public Page<AdministratorResponseDTO> getAllAdministrators() {
-
-        /*
-        * realiza a valdação com base em quem está fazendo a requisição
-        * platformADMIN pode recuperar todos
-        * admin normal somente aqueles do seu customer
-        * */
-
-        Pageable pageable = PageRequest.of(0, 10);
-
-        boolean platformAdmin = currentUserService.isPlatformAdmin();
-
-        Page<Administrator> allAdmins;
-
-        if (platformAdmin) {
-            allAdmins = administratorRepository.findAll(pageable);
-        } else {
-            allAdmins = administratorRepository.findAllWithCustomerId(pageable);
-        }
+    public Page<AdministratorResponseDTO> getAllAdministrators(Pageable pageable) {
+        Page<Administrator> allAdmins = administratorRepository.findAll(pageable);
 
         return allAdmins.map(administratorResponseMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
-    public Page<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status) {
-
-        /*
-         * realiza a valdação com base em quem está fazendo a requisição
-         * platformADMIN pode recuperar todos
-         * admin normal somente aqueles do seu customer
-         *
-         * status sendo enviado como NULL = seta automaticamente para ACTIVE
-         * */
-
+    public Page<AdministratorResponseDTO> getAllAdministratorsByStatus(GeneralStatus status, Pageable pageable) {
         if (status == null) status = GeneralStatus.ACTIVE;
 
-        Pageable pageable = PageRequest.of(0, 10);
-
-        boolean platformAdmin = currentUserService.isPlatformAdmin();
-
-        Page<Administrator> administrators;
-        if (platformAdmin) {
-            administrators = administratorRepository.findByStatusWithCustomerId(status, pageable);
-        } else {
-            administrators = administratorRepository.findByStatus(status, pageable);
-        }
+        Page<Administrator> administrators = administratorRepository.findByStatus(status, pageable);
 
         return administrators.map(administratorResponseMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
-    public AdministratorResponseDTO getCurrentAdministrator(String authenticatedAdmEmail) {
-        Administrator expectedLoggedAdmin = administratorRepository.findByEmail(authenticatedAdmEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado"));
+    public AdministratorResponseDTO getCurrentAdministrator() {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Administrator expectedLoggedAdmin = administratorRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado para o email: " + authenticatedUserEmail));
 
         return administratorResponseMapper.toDTO(expectedLoggedAdmin);
     }
@@ -115,14 +81,17 @@ public class AdministratorService {
     public AdministratorResponseDTO createAdministrator(AdministratorRequestDTO admRequestDTO) {
         checkFieldsIsNull(admRequestDTO);
 
+        long countAdministrators = administratorRepository.count();
+
+        // plano básico: até 02 administradores no sistema
+        if (countAdministrators >= GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Administradores no seu plano é de " + GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
+
         // validações de duplicação de recursos no sistema
         if (userAccountRepository.existsByEmail(admRequestDTO.email())) throw new DuplicateResourceException("Email " + admRequestDTO.email()  + "já registrado");
         if (administratorRepository.existsByTelephone(admRequestDTO.telephone())) throw new DuplicateResourceException("Telefone " + admRequestDTO.telephone() + " já registrado");
         if (administratorRepository.existsByCpf(admRequestDTO.cpf())) throw new DuplicateResourceException("CPF já registrado");
-
-/*        final String ROLE_ADMIN = "ROLE_ADMIN";
-        Permissions admPerm = permissionsRepository.findByDescription(ROLE_ADMIN)
-                .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_ADMIN + " não encontrada."));*/
 
         // cria novo UserAccount p/ o admin
         UserAccount userAccount = new UserAccount();
@@ -145,9 +114,11 @@ public class AdministratorService {
     }
 
     @Transactional
-    public AdministratorResponseDTO updateCurrentAdministrator(String authenticatedEmail, AdministratorUpdateDTO admRequestDTO) {
-        Administrator loggedAdm = administratorRepository.findByEmail(authenticatedEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado, " + authenticatedEmail));
+    public AdministratorResponseDTO updateCurrentAdministrator(AdministratorUpdateDTO admRequestDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Administrator loggedAdm = administratorRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado para o email: " + authenticatedUserEmail));
 
         if (loggedAdm.getStatus() == GeneralStatus.INACTIVE) throw new InactiveAccountModificationException("Não é possível atualizar uma conta desativada");
 
@@ -174,9 +145,11 @@ public class AdministratorService {
     }
 
     @Transactional
-    public void updateAdministrator(UUID id, GeneralStatus newStatus) {
-        Administrator expectedAdministrator = administratorRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado: " + id));
+    public void updateAdministrator(GeneralStatus newStatus) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Administrator expectedAdministrator = administratorRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado para o email: " + authenticatedUserEmail));
 
         if (expectedAdministrator.getStatus() == newStatus) throw new DuplicateResourceException("Administrador já está com status, " + newStatus);
 

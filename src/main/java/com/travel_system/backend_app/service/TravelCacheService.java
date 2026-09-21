@@ -4,6 +4,7 @@ import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.enums.TravelStatus;
+import com.travel_system.backend_app.repository.CityRepository;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,15 +24,17 @@ import static com.travel_system.backend_app.config.constants.CacheConstants.TRAV
 public class TravelCacheService {
     private final TravelRepository travelRepository;
     private final CustomerRepository customerRepository;
+    private final CityRepository cityRepository;
 
     private final RedisTemplate<String, String> redisTemplate;
     private final HashOperations<String, String, String> redisOperations;
 
     private Logger logger = LoggerFactory.getLogger(TravelCacheService.class);
 
-    public TravelCacheService(TravelRepository travelRepository, CustomerRepository customerRepository, RedisTemplate<String, String> redisTemplate) {
+    public TravelCacheService(TravelRepository travelRepository, CustomerRepository customerRepository, CityRepository cityRepository, RedisTemplate<String, String> redisTemplate) {
         this.travelRepository = travelRepository;
         this.customerRepository = customerRepository;
+        this.cityRepository = cityRepository;
         this.redisTemplate = redisTemplate;
         this.redisOperations = redisTemplate.opsForHash();
     }
@@ -114,7 +117,12 @@ public class TravelCacheService {
             Travel travel = travelRepository.findById(travelId)
                     .orElseThrow((() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada.")));
 
-            UUID cityId = customerRepository.findCityIdById(travel.getCustomerId())
+            System.out.println("busca por customerid: " + customerRepository.findById(travel.getCustomerId()));
+            System.out.println("customerId: " + travel.getCustomerId());
+
+            System.out.println("chamada da city: " + cityRepository.findAll().size());
+
+            UUID cityId = customerRepository.findCityIdByCustomerId(travel.getCustomerId())
                     .orElseThrow(() -> new EntityNotFoundException("City não encontrada."));
 
             TravelCacheDTO travelCacheDTO = travelCacheMapper(travel, cityId);

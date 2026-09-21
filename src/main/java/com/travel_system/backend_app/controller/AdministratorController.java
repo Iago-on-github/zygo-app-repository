@@ -16,6 +16,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -37,120 +41,30 @@ public class AdministratorController {
         this.administratorService = administratorService;
     }
 
-    @Operation(
-            summary = "Listar todos os Administradores",
-            description = "Retorna uma List com todos os administradores cadastrados no sistema. " +
-                    "Requer, obrigatoriamente, autenticação com perfil de 'ADMIN'. ",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "List contento os Administradores retornada com sucesso.",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class)))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O Usuário autenticado não possui a role 'ADMIN'. ",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
     @GetMapping("/all")
-    public ResponseEntity<Page<AdministratorResponseDTO>> getAllAdmins() {
-        return ResponseEntity.ok().body(administratorService.getAllAdministrators());
+    public ResponseEntity<Page<AdministratorResponseDTO>> getAllAdmins(@PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok().body(administratorService.getAllAdministrators(pageable));
     }
 
-    @Operation(
-            summary = "Listar Administradores por status",
-            description = "Retorna uma lista de administradores filtrada pelo status fornecido. " +
-                    "**Importante:** Se nenhum status for enviado na requisição, o sistema assumirá por padrão o status ATIVO. " +
-                    "Requer autenticação com o perfil de ADMIN.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista filtrada por status retornada com sucesso.",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = AdministratorResponseDTO.class)))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
+
     @GetMapping
-    public ResponseEntity<Page<AdministratorResponseDTO>> getAdminsByStatus(@RequestParam(required = false) GeneralStatus status) {
-        return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status));
+    public ResponseEntity<Page<AdministratorResponseDTO>> getAdminsByStatus(@PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable, @RequestParam(required = false) GeneralStatus status) {
+        return ResponseEntity.ok().body(administratorService.getAllAdministratorsByStatus(status, pageable));
     }
 
-    @Operation(
-            summary = "Obter o Administrator Logado",
-            description = "Retorna o atual Administrador logado. Requer autenticação com o perfil de ADMIN.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Administrador logado retornado com sucesso",
-                    content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = AdministratorResponseDTO.class))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
+
     @GetMapping("/me")
-    public ResponseEntity<AdministratorResponseDTO> getCurrentAdministrator(Authentication auth) {
-        String authEmail = auth.getName();
-
-        return ResponseEntity.ok().body(administratorService.getCurrentAdministrator(authEmail));
+    public ResponseEntity<AdministratorResponseDTO> getCurrentAdministrator() {
+        return ResponseEntity.ok().body(administratorService.getCurrentAdministrator());
     }
 
-    @Operation(
-            summary = "Atualiza o Administrador logado",
-            description = "Atualiza os campos do atual Administrador logado. Requer autenticação com o perfil de ADMIN.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Administrador logado retornado com sucesso",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AdministratorResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
-                    "- **Entidade não encontrada** Administrador não encontrado no banco de dados;\n" +
-                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "404", description = "Administrador não encontrado no banco de dados.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
+
     @PatchMapping("/me")
-    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto, Authentication auth) {
-        String authEmail = auth.getName();
-
-        return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(authEmail, administratorUpdateDto));
+    public ResponseEntity<AdministratorResponseDTO> updateCurrentAdministrator(@Valid @RequestBody AdministratorUpdateDTO administratorUpdateDto) {
+        return ResponseEntity.ok().body(administratorService.updateCurrentAdministrator(administratorUpdateDto));
     }
 
-    @Operation(
-            summary = "Criar um novo administrador",
-            description = "Cadastra um novo administrador no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_ADMIN'. " +
-                    "Requer autenticação com o perfil de 'ADMIN'.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Administrador criado com sucesso.",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdministratorResponseDTO.class)),
-                    headers = @Header(name = "Location", description = "URI do administrador criado (ex: /v1/admins/{id})", schema = @Schema(type = "string"))),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
-                            "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
-                            "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
-                            "- **Permissão 'ROLE_ADMIN'** não encontrada no banco de dados.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ADMIN'.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
+
     @PostMapping
     public ResponseEntity<AdministratorResponseDTO> createAdministrator(@Valid @RequestBody AdministratorRequestDTO admRequestDTO, UriComponentsBuilder componentsBuilder) {
         AdministratorResponseDTO newAdm = administratorService.createAdministrator(admRequestDTO);
@@ -160,57 +74,10 @@ public class AdministratorController {
         return ResponseEntity.created(uri).body(newAdm);
     }
 
-/*    @Operation(
-            summary = "Criar um novo Administrador da Plataforma",
-            description = "Cadastra um novo administrador da Plataforma no sistema, valida duplicidade de dados e vincula a permissão 'ROLE_PLATFORM_ADMIN'." +
-                    "Ele é um Administrator comum, porém com maiores permissões capaz de acessar recursos críticos do próprio sistema. Pode ser criado apenas por outro Platform Administrator.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Platform Administrador criado com sucesso.",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdministratorResponseDTO.class)),
-                    headers = @Header(name = "Location", description = "URI do administrador criado (ex: /v1/admins/{id})", schema = @Schema(type = "string"))),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida. Possíveis causas:\n" +
-                    "- **Campos obrigatórios** inválidos ou não preenchidos devidamente;\n" +
-                    "- **E-mail ou Telefone** já cadastrados no sistema por outro usuário;\n" +
-                    "- **Permissão 'ROLE_PLATFORM_ADMIN'** não encontrada no banco de dados.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão 'ROLE_PLATFORM_ADMIN'.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
-    @PostMapping("/platformAdm")
-    public ResponseEntity<AdministratorResponseDTO> createPlatformAdministrator(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdmRequestDTO, UriComponentsBuilder componentsBuilder) {
-        AdministratorResponseDTO platformAdministrator = administratorService.createPlatformAdministrator(platformAdmRequestDTO);
-        URI uri = componentsBuilder.path("/{id}").buildAndExpand(platformAdministrator.id()).toUri();
 
-        return ResponseEntity.created(uri).body(platformAdministrator);
-    }*/
-
-    @Operation(
-            summary = "Atualiza o status do Administrador",
-            description = "Deve atualizar o status do Administrador, que controla a sua atividade/inatividade. Requer, obrigatoriamente, autenticação com perfil de ADMIN.",
-            tags = {"Administrators"},
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Status do Administrador modificado com sucesso. Nenhuma resposta é retornada no body.",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "400", description = "Administrador já possui esse status",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "401", description = "Não autenticado. Token JWT ausente, expirado ou inválido.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "403", description = "Não autorizado. O usuário autenticado não possui a permissão ADMIN.",
-                    content = @Content(schema = @Schema(hidden = true))),
-            @ApiResponse(responseCode = "404", description = "Administrador não encontrado no banco de dados.",
-                    content = @Content(schema = @Schema(hidden = true)))
-    })
-    @PatchMapping("/{id}")
-    public ResponseEntity<Void> updateAdministrator(@PathVariable UUID id, @Valid @RequestBody UpdateEntityStatusDTO administratorStatusDTO) {
-        administratorService.updateAdministrator(id, administratorStatusDTO.status());
+    @PatchMapping("/status")
+    public ResponseEntity<Void> updateAdministrator(@Valid @RequestBody UpdateEntityStatusDTO administratorStatusDTO) {
+        administratorService.updateAdministrator(administratorStatusDTO.status());
         return ResponseEntity.noContent().build();
     }
 }

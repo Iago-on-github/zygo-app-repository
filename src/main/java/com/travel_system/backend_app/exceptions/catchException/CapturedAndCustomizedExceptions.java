@@ -146,6 +146,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(EntityLimitExceededException.class)
+    public final ResponseEntity<StandardError> EntityLimitExceededException(EntityLimitExceededException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(ResourceGoneException.class)
     public final ResponseEntity<StandardError> ResourceGoneException(ResourceGoneException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.GONE);

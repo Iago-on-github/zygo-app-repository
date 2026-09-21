@@ -2,10 +2,7 @@ package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.ActiveStudentTravelDTO;
-import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
-import com.travel_system.backend_app.model.dtos.response.TravelResponseDTO;
+import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -164,11 +161,10 @@ public class TravelController {
                     content = @Content(schema = @Schema(hidden = true)))
     })
     @PostMapping("/{travelId}/join")
-    public ResponseEntity<Void> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
+    public ResponseEntity<JoinTravelResponseDTO> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
 
-        travelService.joinTravel(travelId, studentEmail, StudentTravelStatus.ACTIVE);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok().body(travelService.joinTravel(travelId, studentEmail, StudentTravelStatus.ACTIVE));
     }
 
     @Operation(

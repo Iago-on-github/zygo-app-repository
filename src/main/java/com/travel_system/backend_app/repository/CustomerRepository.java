@@ -21,8 +21,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     Optional<Customer> findBySlug(String slug);
 
-    // recuper o Id da City pelo ID do customer
-    Optional<UUID> findCityIdById(UUID customerId);
+    @Query("SELECT c.city.id FROM Customer c WHERE c.id = :customerId")
+    Optional<UUID> findCityIdByCustomerId(@Param("customerId") UUID customerId);
 
     boolean existsByCnpj(@Param("cnpj") String cnpj);
 
