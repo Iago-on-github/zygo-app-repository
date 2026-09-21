@@ -1,9 +1,7 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.DuplicateResourceException;
-import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFoundException;
-import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
-import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
+import com.travel_system.backend_app.config.constants.GlobalAppConstants;
+import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.DriverRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.DriverResponseMapper;
 import com.travel_system.backend_app.model.Driver;
@@ -29,11 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+
 @Service
 public class DriverService {
 
     private final DriverRepository driverRepository;
-    private final PermissionsRepository permissionsRepository;
     private final UserAccountRepository userAccountRepository;
 
     private final PasswordEncoder passwordEncoder;
@@ -41,9 +40,8 @@ public class DriverService {
     private final DriverResponseMapper driverResponseMapper;
     private final DriverRequestMapper driverRequestMapper;
 
-    public DriverService(DriverRepository driverRepository, PermissionsRepository permissionsRepository, UserAccountRepository userAccountRepository, PasswordEncoder passwordEncoder, DriverResponseMapper driverResponseMapper, DriverRequestMapper driverRequestMapper) {
+    public DriverService(DriverRepository driverRepository, UserAccountRepository userAccountRepository, PasswordEncoder passwordEncoder, DriverResponseMapper driverResponseMapper, DriverRequestMapper driverRequestMapper) {
         this.driverRepository = driverRepository;
-        this.permissionsRepository = permissionsRepository;
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.driverResponseMapper = driverResponseMapper;
@@ -51,26 +49,31 @@ public class DriverService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DriverResponseDTO> getAllDrivers() {
-        Pageable pageable = PageRequest.of(0, 10);
-
+    public Page<DriverResponseDTO> getAllDrivers(Pageable pageable) {
         Page<Driver> allDrivers = driverRepository.findAll(pageable);
 
         return allDrivers.map(driverResponseMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
-    public List<DriverResponseDTO> getDriversByStatus(GeneralStatus newDriverStatus) {
+    public Page<DriverResponseDTO> getDriversByStatus(GeneralStatus newDriverStatus, Pageable pageable) {
         if (newDriverStatus == null) newDriverStatus = GeneralStatus.ACTIVE;
 
-        List<Driver> driverByStatus = driverRepository.findAllByStatus(newDriverStatus);
+        Page<Driver> driverByStatus = driverRepository.findAllByStatus(newDriverStatus, pageable);
 
-        return driverByStatus.stream().map(driverResponseMapper::toDTO).toList();
+        return driverByStatus.map(driverResponseMapper::toDTO);
     }
 
     @Transactional
     public DriverResponseDTO createDriver(DriverRequestDTO driverRequestDTO) {
         verifyFieldsIsNull(driverRequestDTO);
+
+        long countDrivers = driverRepository.count();
+
+        // plano básico: até 04 drivers por sistema
+        if (countDrivers >= GlobalAppConstants.DRIVER_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Administradores no seu plano é de " + GlobalAppConstants.DRIVER_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
 
         // validações evitando duplicação de recursos no sistema
         if (userAccountRepository.existsByEmail(driverRequestDTO.email())) {
@@ -79,10 +82,6 @@ public class DriverService {
         if (driverRepository.existsByTelephone(driverRequestDTO.telephone())) {
             throw new DuplicateResourceException("Telefone " + driverRequestDTO.telephone() + " já existe");
         }
-
-/*        final String ROLE_DRIVER = "ROLE_DRIVER";
-        Permissions driverPermission = permissionsRepository.findByDescription(ROLE_DRIVER)
-                .orElseThrow(() -> new PermissionNotFoundException("Permissão " + ROLE_DRIVER + " não encontrada."));*/
 
         // cria novo UserAccount p/ o driver
         UserAccount userAccount = new UserAccount();
@@ -108,9 +107,11 @@ public class DriverService {
     }
 
     @Transactional
-    public DriverResponseDTO updateCurrentDriver(String authenticatedEmail, DriverUpdateDTO driverUpdateDTO) {
-        Driver driverLogged = driverRepository.findByEmail(authenticatedEmail)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado: " + authenticatedEmail));
+    public DriverResponseDTO updateCurrentDriver(DriverUpdateDTO driverUpdateDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Driver driverLogged = driverRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado pelo email: " + authenticatedUserEmail));
 
         if (driverLogged.getStatus() == GeneralStatus.INACTIVE) {
             throw new InactiveAccountModificationException("Não é possível modificar dados de uma conta inativa");
@@ -144,20 +145,24 @@ public class DriverService {
     }
 
     @Transactional(readOnly = true)
-    public DriverResponseDTO getCurrentDriver(String email) {
-        Driver getDriverLoggedProfile = driverRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado. Email: " + email));
+    public DriverResponseDTO getCurrentDriver() {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Driver getDriverLoggedProfile = driverRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado para o email: " + authenticatedUserEmail));
 
         return driverResponseMapper.toDTO(getDriverLoggedProfile);
     }
 
     @Transactional
-    public void updateDriver(UUID id, UpdateEntityStatusDTO driverStatus) {
-        Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado, " + id));
+    public void updateDriver(UpdateEntityStatusDTO driverStatus) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Driver driver = driverRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado para o email: " + authenticatedUserEmail));
 
         if (driver.getStatus() == driverStatus.status()) {
-            throw new IllegalStateException("Motorista " + id + " já com o status " + driverStatus);
+            throw new IllegalStateException("Motorista já com o status " + driverStatus);
         }
 
         driverRequestMapper.driverUpdateStatusFromDTO(driverStatus, driver);

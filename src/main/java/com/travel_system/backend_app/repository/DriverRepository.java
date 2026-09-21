@@ -28,7 +28,7 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
 
     Optional<Driver> findByEmailOrTelephone(String email, String telephone);*/
 
-    List<Driver> findAllByStatus(GeneralStatus status);
+    Page<Driver> findAllByStatus(GeneralStatus status, Pageable pageable);
 
     @Modifying
     @Query("UPDATE Driver d SET d.totalTrips = :newValueOfTotalTrips")

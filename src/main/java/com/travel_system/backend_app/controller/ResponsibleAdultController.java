@@ -7,6 +7,10 @@ import com.travel_system.backend_app.model.dtos.response.ResponsibleAdultRespons
 import com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO;
 import com.travel_system.backend_app.service.ResponsibleAdultService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -27,8 +31,8 @@ public class ResponsibleAdultController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getAllResponsibleAdults() {
-        return ResponseEntity.ok().body(responsibleAdultService.getAllResponsibleAdults());
+    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getAllResponsibleAdults(@PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok().body(responsibleAdultService.getAllResponsibleAdults(pageable));
     }
 
     @GetMapping("/{responsibleAdultId}")
@@ -37,8 +41,8 @@ public class ResponsibleAdultController {
     }
 
     @GetMapping("/name")
-    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getResponsibleAdultByName(@RequestParam String name) {
-        return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByName(name));
+    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getResponsibleAdultByName(@RequestParam String name, @PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByName(name, pageable));
     }
 
     @GetMapping("/cpf")

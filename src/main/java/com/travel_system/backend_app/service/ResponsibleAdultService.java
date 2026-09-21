@@ -61,9 +61,7 @@ public class ResponsibleAdultService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ResponsibleAdultResponseDTO> getAllResponsibleAdults() {
-        Pageable pageable = PageRequest.of(0, 10);
-
+    public Page<ResponsibleAdultResponseDTO> getAllResponsibleAdults(Pageable pageable) {
         return responsibleAdultRepository.findAll(pageable).map(responsibleAdultResponseMapper::toDTO);
     }
 
@@ -76,9 +74,7 @@ public class ResponsibleAdultService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ResponsibleAdultResponseDTO> getResponsibleAdultByName(String responsibleAdultName) {
-        Pageable pageable = PageRequest.of(0, 10);
-
+    public Page<ResponsibleAdultResponseDTO> getResponsibleAdultByName(String responsibleAdultName, Pageable pageable) {
         return responsibleAdultRepository.findByName(responsibleAdultName, pageable).map(responsibleAdultResponseMapper::toDTO);
 
     }
