@@ -77,6 +77,7 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
         st.travel.driver.id,
         st.travel.driver.name,
         st.travel.travelPeriod,
+        st.travel.travelDirection,
         ct.id,
         ct.name
         )

@@ -46,6 +46,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(TripEntryLimitExceededException.class)
+    public final ResponseEntity<StandardError> TripEntryLimitExceededException(TripEntryLimitExceededException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(TripNotFound.class)
     public final ResponseEntity<StandardError> tripNotFoundException(TripNotFound ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);

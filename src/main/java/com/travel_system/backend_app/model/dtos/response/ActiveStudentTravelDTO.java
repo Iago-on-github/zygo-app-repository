@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.model.dtos.response;
 
 import com.travel_system.backend_app.model.Driver;
+import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 
@@ -16,6 +17,7 @@ public record ActiveStudentTravelDTO(
         UUID driverId,
         String driverName,
         TravelPeriod period,
+        TravelDirection travelDirection,
         UUID cityId,
         String cityName) {
 }

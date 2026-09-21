@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.mapbox.geojson.Point;
+import com.travel_system.backend_app.config.constants.TravelConstants;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.response.RouteStopResponseMapper;
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.threeten.bp.Period;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -48,13 +50,14 @@ public class TravelService {
     private final TravelNotificationService travelNotificationService;
     private final StudentTravelRouteStopService studentTravelRouteStopService;
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
+    private final StudentTravelCooldownService studentTravelCooldownService;
 
     private final RouteStopResponseMapper routeStopResponseMapper;
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -70,6 +73,7 @@ public class TravelService {
         this.travelNotificationService = travelNotificationService;
         this.studentTravelRouteStopService = studentTravelRouteStopService;
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
+        this.studentTravelCooldownService = studentTravelCooldownService;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
     }
@@ -107,6 +111,12 @@ public class TravelService {
         }
 
         travel.setTravelPeriod(travelRequestDTO.travelPeriod());
+
+        if (travelRequestDTO.travelDirection() == null) {
+            throw new TravelException("A direção da viage precisa ser selecionada");
+        }
+
+        travel.setTravelDirection(travelRequestDTO.travelDirection());
 
         travel.setCreatedAt(Instant.now());
         travel.setTravelStatus(TravelStatus.PENDING);
@@ -302,7 +312,7 @@ public class TravelService {
     }
 
     @Transactional
-    public void joinTravel(UUID travelId, String studentEmail, StudentTravelStatus status) {
+    public JoinTravelResponseDTO joinTravel(UUID travelId, String studentEmail, StudentTravelStatus status) {
         if (travelId == null || studentEmail == null || status == null) {
             throw new IllegalArgumentException("[joinTravel] travelId " + travelId +  " ou studentEmail "+ studentEmail + " ou status vindo nulos");
         }
@@ -336,7 +346,7 @@ public class TravelService {
             throwTravelException("O estudante deve obrigariamente ser do mesmo customer");
         }
 
-        persistStudentLink(trip, student, status);
+        return persistStudentLink(trip, student, status);
     }
 
     @Transactional
@@ -521,18 +531,22 @@ public class TravelService {
         return baseCustomerId.equals(customerId);
     }
 
-    private StudentTravelResponseDTO studentTravelMapper(StudentTravel studentTravel) {
-        return new StudentTravelResponseDTO(
-                studentTravel.getId(),
-                studentTravel.getTravel().getId(),
-                studentTravel.getStudent().getId(),
-                studentTravel.getEmbarkHour(),
-                studentTravel.getDisembarkHour(),
-                studentTravel.getPosition());
-    }
+    private JoinTravelResponseDTO persistStudentLink(Travel travel, Student student, StudentTravelStatus status) {
+        boolean studentAllowedToTrip = studentTravelCooldownService.isStudentAllowedToTrip(travel.getId(), student.getId());
 
-    private void persistStudentLink(Travel travel, Student student, StudentTravelStatus status) {
-        StudentTravel studentTravel = new StudentTravel();
+        if (!studentAllowedToTrip) {
+            throw new TripEntryLimitExceededException("Você entrou muitas vezes em um curto período de tempo. Por favor, aguarde para novamente solicitar essa ação.");
+        }
+
+        UUID recentStudentTravelId = studentTravelCooldownService.getRecentStudentTravelId(travel.getId(), student.getId());
+
+        // semântica que evita múltiplas criações de StudentTravel para um mesmo estudante
+        StudentTravel studentTravel;
+        if (recentStudentTravelId != null) {
+            studentTravel = studentTravelRepository.findById(recentStudentTravelId).orElseGet(StudentTravel::new);
+        } else {
+            studentTravel = new StudentTravel();
+        }
 
         studentTravel.setTravel(travel);
         studentTravel.setStudent(student);
@@ -542,8 +556,34 @@ public class TravelService {
 
         studentTravelRepository.save(studentTravel);
 
-        // manda notificação de embarque para os responsáveis dos estudantes que estão embarcados
-        travelNotificationService.sendEmbarkStudentNotificationToResponsible(travel, student);
+        // registra que o estudante entrou na viagem
+        studentTravelCooldownService.registerRecentStudentTravel(travel.getId(), student.getId(), studentTravel.getId());
+
+        long violations = studentTravelCooldownService.registerViolation(travel.getId(), student.getId());
+
+        Long remainingAttemptsBeforeBlock = null;
+        Integer nextBlockDurationMinutes = null;
+
+        long remaining = studentTravelCooldownService.remainingAttemptsBeforeBlock(travel.getId(), student.getId());
+        if (remaining <= 1) {
+            remainingAttemptsBeforeBlock = remaining;
+            nextBlockDurationMinutes = studentTravelCooldownService.previewNextBlockDurationMinutes(travel.getId(), student.getId());
+        }
+
+        // primeira entrada dentro da janela: notifica normalmente. Repetições seguintes suprimem notificação
+        boolean allowsNotify = violations <= 1;
+
+        // atingiu o limiar de repetições na janela: aplica bloqueio temporário e crescente
+        if (violations >= TravelConstants.COUNT_STUDENT_ENTER_TRIP) {
+            Duration blockDuration = studentTravelCooldownService.registerBlock(travel.getId(), student.getId());
+
+            log.warn("[persistStudentLink] estudante {} bloqueado por {} na viagem {} devido a entradas repetidas", student.getId(), blockDuration, travel.getId());
+        }
+
+        if (allowsNotify) {
+            // manda notificação de embarque para os responsáveis dos estudantes que estão embarcados
+            travelNotificationService.sendEmbarkStudentNotificationToResponsible(travel, student);
+        }
 
         // carrega os dados iniciais da viagem para o cache assim que a viagem é iniciada
         loadTravelDataToCache(travel, student, studentTravel);
@@ -567,8 +607,7 @@ public class TravelService {
 
         travelStudentStateCacheService.evictStudentTravelCachedData(travel.getId(), student.getUserAccount().getEmail());
 
-        // armazena métrica de salvamento em cache
-
+        return new JoinTravelResponseDTO(studentTravel.getId(), travel.getId(), travel.getTravelPeriod(), travel.getTravelDirection(), studentTravel.isEmbark(), studentTravel.getStudentTravelStatus(), remainingAttemptsBeforeBlock, nextBlockDurationMinutes);
     }
 
     private void deactivateStudentLink(UUID travelId, StudentTravelCacheDTO studentTravelCache, StudentTravelStatus studentTravelStatus) {
@@ -581,6 +620,10 @@ public class TravelService {
 
         // faz a persistencia, validando o desvinculo
         studentTravelRepository.disconnectedStudentFromTrip(List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
+
+        // valida se o estudante estava fisicamente no ponto no momento da saída manual
+        // reaproveita a mesma lógica usada na auto-desconexão
+        studentTravelRouteStopService.confirmStudentRouteStopReached(travelId, studentTravelId, studentTravelStatus);
 
         // envia notificação de desembarque do estudante para o responsável
         travelNotificationService.sendDisembarkStudentNotificationToResponsible(travelId, studentTravelCache.name(), studentTravelCache.studentId(), disembarkHour);
@@ -612,6 +655,7 @@ public class TravelService {
                 travel.getId(),
                 travel.getTravelStatus(),
                 travel.getTravelPeriod(),
+                travel.getTravelDirection(),
                 driverResponseDTO,
                 standardRouteSimpleResponseDTO,
                 travel.getStudentTravels(),
@@ -717,15 +761,13 @@ public class TravelService {
     * verifica se o estudante possui RouteStops válidos com base na rota padrão da viagem
     * */
     private boolean isRouteStopCompatible(Travel travel, StudentTravel studentTravel) {
+        Student student = studentTravel.getStudent();
         StandardRoute standardRoute = travel.getStandardRoute();
 
-        // ids dos pontos de parda vinculados ao estudante
-        List<UUID> studentRouteStopIds = studentTravel.getStudentTravelRouteStops().stream()
-                .map(routeStopIds -> routeStopIds.getRouteStop().getId()).toList();
+        return student.getStudentRouteStopAssignments().stream()
+                .anyMatch(assignment -> assignment.getStandardRoute().getId().equals(standardRoute.getId())
+                        && assignment.getTravelPeriod().equals(travel.getTravelPeriod())
+                        && assignment.getTravelDirection().equals(travel.getTravelDirection()));
 
-        // verifica se existe algum ponto de parada do estudante vinculado na rota padrão com base na direção da viagem e no período
-        return standardRoute.getStudentRouteStopAssignments().stream()
-                .filter(rs -> rs.getTravelDirection() == travel.getTravelDirection() && rs.getTravelPeriod() == travel.getTravelPeriod())
-                .anyMatch(id -> studentRouteStopIds.contains(id.getRouteStop().getId()));
     }
 }

@@ -178,7 +178,7 @@ public class StudentTravelRouteStopService {
         // calcula distância entre ponto de parada e veículo
         DistanceResponseDTO distanceBetweenVehicleAndRouteStop = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition);
 
-        if (distanceBetweenVehicleAndRouteStop.distance() == null || distanceBetweenVehicleAndRouteStop.distance() < 0) {
+        if (distanceBetweenVehicleAndRouteStop == null || distanceBetweenVehicleAndRouteStop.distance() == null || distanceBetweenVehicleAndRouteStop.distance() < 0) {
             log.warn("[confirmStudentRouteStopReached] - distance retornando null ou inválida");
             return;
         }

@@ -3,6 +3,7 @@ package com.travel_system.backend_app.model.dtos.response;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.StudentTravel;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
+import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 
@@ -14,6 +15,7 @@ public record TravelResponseDTO(
         UUID id,
         TravelStatus status,
         TravelPeriod travelPeriod,
+        TravelDirection travelDirection,
         DriverResponseDTO driverResponseDTO,
         StandardRouteSimpleResponseDTO standardRouteSimpleResponseDTO,
         Set<StudentTravel> studentTravel,
