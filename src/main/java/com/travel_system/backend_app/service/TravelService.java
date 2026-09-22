@@ -21,6 +21,9 @@ import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.threeten.bp.Period;
@@ -56,18 +59,20 @@ public class TravelService {
     private final RouteStopResponseMapper routeStopResponseMapper;
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
+    private final RedisTemplate<String, Object> redisTemplate;
+
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
+        this.travelReportsRepository = travelReportsRepository;
+        this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.standardRouteRepository = standardRouteRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.redisTrackingService = redisTrackingService;
-        this.travelReportsRepository = travelReportsRepository;
-        this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.polylineService = polylineService;
         this.travelCacheService = travelCacheService;
         this.travelStudentStateCacheService = travelStudentStateCacheService;
@@ -77,6 +82,7 @@ public class TravelService {
         this.studentTravelCooldownService = studentTravelCooldownService;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
+        this.redisTemplate = redisTemplate;
     }
 
     @Transactional
@@ -308,10 +314,15 @@ public class TravelService {
         // adiciona +1 no número de totaltrips do motorista
         setCountDriverTrips(actualTrip);
 
-        redisTrackingService.clearTravelLocationCache(travelId);
+        // limpeza do redis
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            redisTrackingService.clearTravelLocationCache(travelId);
 
-        // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
-        travelCacheService.invalidateTravelStaticCache(travelId);
+            // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
+            travelCacheService.invalidateTravelStaticCache(travelId);
+
+            return null;
+        });
 
         log.info("Viagem: {} encerrada com sucesso", travelId);
     }
@@ -539,18 +550,16 @@ public class TravelService {
     private JoinTravelResponseDTO persistStudentLink(Travel travel, Student student, StudentTravelStatus status) {
         long start = System.currentTimeMillis(); // debugging ttl
 
-        boolean studentAllowedToTrip = studentTravelCooldownService.isStudentAllowedToTrip(travel.getId(), student.getId());
+        StudentTravelCooldownService.CooldownPrecheckResult precheck = studentTravelCooldownService.precheck(travel.getId(), student.getId());
 
-        if (!studentAllowedToTrip) {
+        if (!precheck.allowed()) {
             throw new TripEntryLimitExceededException("Você entrou muitas vezes em um curto período de tempo. Por favor, aguarde para novamente solicitar essa ação.");
         }
 
-        UUID recentStudentTravelId = studentTravelCooldownService.getRecentStudentTravelId(travel.getId(), student.getId());
-
         // semântica que evita múltiplas criações de StudentTravel para um mesmo estudante
         StudentTravel studentTravel;
-        if (recentStudentTravelId != null) {
-            studentTravel = studentTravelRepository.findById(recentStudentTravelId).orElseGet(StudentTravel::new);
+        if (precheck.recentStudentTravelId() != null) {
+            studentTravel = studentTravelRepository.findById(precheck.recentStudentTravelId()).orElseGet(StudentTravel::new);
         } else {
             studentTravel = new StudentTravel();
         }
@@ -564,31 +573,24 @@ public class TravelService {
         studentTravelRepository.save(studentTravel);
 
         // registra que o estudante entrou na viagem
-        studentTravelCooldownService.registerRecentStudentTravel(travel.getId(), student.getId(), studentTravel.getId());
-
-        long violations = studentTravelCooldownService.registerViolation(travel.getId(), student.getId());
+        StudentTravelCooldownService.CooldownRegisterResult registerStudentEnterToTrip = studentTravelCooldownService.registerEntry(travel.getId(), student.getId(), studentTravel.getId());
 
         Long remainingAttemptsBeforeBlock = null;
         Integer nextBlockDurationMinutes = null;
 
-        long remaining = studentTravelCooldownService.remainingAttemptsBeforeBlock(travel.getId(), student.getId());
-        if (remaining <= 1) {
-            remainingAttemptsBeforeBlock = remaining;
-            nextBlockDurationMinutes = studentTravelCooldownService.previewNextBlockDurationMinutes(travel.getId(), student.getId());
+        if (registerStudentEnterToTrip.remainingAttempts() <= 1) {
+            remainingAttemptsBeforeBlock = registerStudentEnterToTrip.remainingAttempts();
+            nextBlockDurationMinutes = registerStudentEnterToTrip.blockDurationMinutes();
         }
 
         // primeira entrada dentro da janela: notifica normalmente. Repetições seguintes suprimem notificação
-        boolean allowsNotify = violations <= 1;
+        boolean allowsNotify = registerStudentEnterToTrip.violations() <= 1;
 
-        // atingiu o limiar de repetições na janela: aplica bloqueio temporário e crescente
-        if (violations >= TravelConstants.COUNT_STUDENT_ENTER_TRIP) {
-            Duration blockDuration = studentTravelCooldownService.registerBlock(travel.getId(), student.getId());
-
-            log.warn("[persistStudentLink] estudante {} bloqueado por {} na viagem {} devido a entradas repetidas", student.getId(), blockDuration, travel.getId());
+        if (registerStudentEnterToTrip.blockedNow()) {
+            log.warn("[persistStudentLink] estudante {} bloqueado por {} min na viagem {} devido a entradas repetidas", student.getId(), registerStudentEnterToTrip.blockDurationMinutes(), travel.getId());
         }
 
         if (allowsNotify) {
-            // manda notificação de embarque para os responsáveis dos estudantes que estão embarcados
             travelNotificationService.sendEmbarkStudentNotificationToResponsible(travel, student);
         }
 
@@ -638,14 +640,19 @@ public class TravelService {
         // envia notificação de desembarque do estudante para o responsável
         travelNotificationService.sendDisembarkStudentNotificationToResponsible(travelId, studentTravelCache.name(), studentTravelCache.studentId(), disembarkHour);
 
-        // remove as respectivas keys do redis para o aluno em específico
-        travelStudentStateCacheService.evictStudentTravelCachedData(travelId, studentEmail);
+        // limpeza do redis
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            // remove as respectivas keys do redis para o aluno em específico
+            travelStudentStateCacheService.evictStudentTravelCachedData(travelId, studentEmail);
 
-        // limpa o cache estático do tracking da viagem p/ o estudante
-        travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravelId);
+            // limpa o cache estático do tracking da viagem p/ o estudante
+            travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravelId);
 
-        // limpa o redis para o contexto do algoritmo de proximidade do routestop
-        redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravelId);
+            // limpa o redis para o contexto do algoritmo de proximidade do routestop
+            redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravelId);
+
+            return null;
+        });
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("[leaveTravel] tempo para executar o leave-travel: {}", elapsed);
