@@ -5,6 +5,7 @@ import com.travel_system.backend_app.service.RedisTrackingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,6 +20,7 @@ public class InitializeStudentTravelRouteStopListener {
     }
 
     @EventListener
+    @Async("routeStopTaskExecutor")
     public void handleInitializeStudentTravelRouteStop(InitializeStudentTravelRouteStopEvent event) {
         if (event == null) {
             log.warn("[handleInitializeStudentTravelRouteStop] - Evento nulo recebido, ignorando processamento");

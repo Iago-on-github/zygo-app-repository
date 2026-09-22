@@ -25,6 +25,8 @@ public class SystemMetricsService {
     private final ThreadPoolTaskExecutor vehicleGpsExecutor;
     private final ThreadPoolTaskExecutor studentAwayStateExecutor;
     private final ThreadPoolTaskExecutor sendSensitiveEmailExecutor;
+    private final ThreadPoolTaskExecutor routeStopLifecycleExecutor;
+    private final ThreadPoolTaskExecutor routeStopApproachExecutor;
 
     private final RedisTrackingService redisTrackingService;
     private final TravelService travelService;
@@ -38,11 +40,16 @@ public class SystemMetricsService {
     public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor,
                                 @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
                                 @Qualifier("studentAwayTaskExecutor") ThreadPoolTaskExecutor studentAwayStateExecutor,
-                                @Qualifier("sendSensitiveEmailTaskExecutor") ThreadPoolTaskExecutor sendSensitiveEmailExecutor, RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
+                                @Qualifier("routeStopTaskExecutor") ThreadPoolTaskExecutor routeStopLifecycleExecutor,
+                                @Qualifier("routeStopApproachTaskExecutor") ThreadPoolTaskExecutor routeStopApproachExecutor,
+                                @Qualifier("sendSensitiveEmailTaskExecutor") ThreadPoolTaskExecutor sendSensitiveEmailExecutor,
+                                RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
         this.notificationExecutor = notificationExecutor;
         this.vehicleGpsExecutor = vehicleGpsExecutor;
         this.studentAwayStateExecutor = studentAwayStateExecutor;
         this.sendSensitiveEmailExecutor = sendSensitiveEmailExecutor;
+        this.routeStopLifecycleExecutor = routeStopLifecycleExecutor;
+        this.routeStopApproachExecutor = routeStopApproachExecutor;
         this.redisTrackingService = redisTrackingService;
         this.travelService = travelService;
         this.travelRepository = travelRepository;
@@ -123,10 +130,17 @@ public class SystemMetricsService {
 
         // Executor de Métricas Send Sensitive Email
         sendSensitiveEmailMetrics();
+
+        // Executor de Métricas RouteStop-Lifecycle-
+        routeStopLifecycleMetrics();
+
+        // Executor de Métricas RouteStop-Approach-
+        routeStopApproachMetrics();
+
     }
 
     private void studentAwatStateMetrics() {
-        int MAXIMUM_QUEUE_CAPACITY = 500;
+        int MAXIMUM_QUEUE_CAPACITY = 30;
 
         int studentAwayStateActiveCount = studentAwayStateExecutor.getActiveCount();
         int studentAwayStateQueueSize   = studentAwayStateExecutor.getQueueSize();
@@ -178,6 +192,64 @@ public class SystemMetricsService {
 
         if (sensitiveEmailPoolSize > 5) {
             logger.warn("[Executor: Send-Sensitive-Email] poolSize maior que o core. Threads extras criadas.");
+        }
+    }
+
+    private void routeStopLifecycleMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+
+        int routeStopActiveCount = routeStopLifecycleExecutor.getActiveCount();
+        int routeStopQueueSize = routeStopLifecycleExecutor.getQueueSize();
+        int routeStopPoolSize = routeStopLifecycleExecutor.getPoolSize();
+
+        int queueNinetyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 90);
+        int queueFiftyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 50);
+
+        logger.info("[Executor: RouteStop-Lifecycle-] active: {} | queue: {} | pool: {} / {}",
+                routeStopActiveCount, routeStopQueueSize, routeStopPoolSize, sendSensitiveEmailExecutor.getMaxPoolSize());
+
+
+        if (routeStopActiveCount >= routeStopPoolSize) {
+            logger.warn("[Executor: RouteStop-Lifecycle-] todas as threads estão ocupadas.");
+        }
+
+        if (routeStopQueueSize >= queueNinetyPercent) {
+            logger.warn("[Executor: RouteStop-Lifecycle-] RED ALERT: fila ultrapassou 90%");
+        } else if (routeStopQueueSize >= queueFiftyPercent) {
+            logger.warn("[Executor: RouteStop-Lifecycle-] YELLOW ALERT: fila ultrapassou 40%");
+        }
+
+        if (routeStopPoolSize > 5) {
+            logger.warn("[Executor: RouteStop-Lifecycle-] poolSize maior que o core. Threads extras criadas.");
+        }
+    }
+
+    private void routeStopApproachMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY = 50;
+
+        int routeStopActiveCount = routeStopApproachExecutor.getActiveCount();
+        int routeStopQueueSize = routeStopApproachExecutor.getQueueSize();
+        int routeStopPoolSize = routeStopApproachExecutor.getPoolSize();
+
+        int queueNinetyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 90);
+        int queueFiftyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 50);
+
+        logger.info("[Executor: RouteStop-Approach-] active: {} | queue: {} | pool: {} / {}",
+                routeStopActiveCount, routeStopQueueSize, routeStopPoolSize, sendSensitiveEmailExecutor.getMaxPoolSize());
+
+
+        if (routeStopActiveCount >= routeStopPoolSize) {
+            logger.warn("[Executor: RouteStop-Approach-] todas as threads estão ocupadas.");
+        }
+
+        if (routeStopQueueSize >= queueNinetyPercent) {
+            logger.warn("[Executor: RouteStop-Approach-] RED ALERT: fila ultrapassou 90%");
+        } else if (routeStopQueueSize >= queueFiftyPercent) {
+            logger.warn("[Executor: RouteStop-Approach-] YELLOW ALERT: fila ultrapassou 40%");
+        }
+
+        if (routeStopPoolSize > 5) {
+            logger.warn("[Executor: RouteStop-Approach-] poolSize maior que o core. Threads extras criadas.");
         }
     }
 

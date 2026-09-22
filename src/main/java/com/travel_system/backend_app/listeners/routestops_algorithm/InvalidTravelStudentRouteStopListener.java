@@ -5,6 +5,7 @@ import com.travel_system.backend_app.service.TravelTrackingNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,6 +19,7 @@ public class InvalidTravelStudentRouteStopListener {
     }
 
     @EventListener
+    @Async("routeStopTaskExecutor")
     public void handleInvalidStudentTravelRouteStop(InvalidStudentTravelRouteStopEvent event) {
         if (event == null) {
             log.warn("[handleInvalidStudentTravelRouteStop] - Evento nulo recebido, ignorando processamento");

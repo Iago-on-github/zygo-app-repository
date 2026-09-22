@@ -69,8 +69,8 @@ public class ThreadPoolExecutorConfig {
 
     @Bean(name = "studentAwayTaskExecutor")
     public ThreadPoolTaskExecutor studentAwayStateExecutor() {
-        int MAXIMUM_QUEUE_CAPACITY = 500;
-        int KEEP_ALIVE_TIME_SECONDS = 50;
+        int MAXIMUM_QUEUE_CAPACITY = 30;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
         int CORE_POOL_SIZE = 2;
         int MAXIMUM_POOL_SIZE = 5;
 
@@ -114,4 +114,60 @@ public class ThreadPoolExecutorConfig {
 
         return executor;
     }
+
+    @Bean(name = "routeStopTaskExecutor")
+    public ThreadPoolTaskExecutor routeStopLifecycleExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("RouteStop-Lifecycle-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "routeStopApproachTaskExecutor")
+    public ThreadPoolTaskExecutor routeStopApproachExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 50;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 4;
+        int MAXIMUM_POOL_SIZE = 8;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("RouteStop-Approach-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        // DiscardOldestPolicy descarta os pings mais antigos quando a queue está prestes a encher
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
+        executor.initialize();
+
+        return executor;
+    }
 }
+
+/*
+* GUIDE
+* CorePoolSize: Quantas tarefas rodando simultâneamente em operação normal, fora de pico de uso.
+* MaxPoolSize: Teto de paralelismo sob pico, acima do core. A diferença entre core e max é o quanto será tolerado de picos temporários em threads extra (memória, context switching) antes de preferir enfileirar.
+* QueueCapacity: Quanto atraso é aceitável antes do dado processado virar obsoleto
+* Keep-Alive-Time: só importa pras threads acima do core (as extras, criadas sob pico); é quanto tempo elas ficam ociosas antes de morrer.
+*   Curto = libera recursos rápido depois do pico, mas paga o custo de recriar thread se o pico voltar logo.
+*   Longo = mais estável em pico intermitente, mas segura recurso ocioso por mais tempo.
+* Rejection policy: que fazer quando fila + pool máximo estourarem juntos
+* */
