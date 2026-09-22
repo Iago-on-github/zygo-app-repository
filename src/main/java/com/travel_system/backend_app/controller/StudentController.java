@@ -55,7 +55,7 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getCurrentStudent());
     }
 
-    @PostMapping
+    @PostMapping("/new")
     public ResponseEntity<StudentResponseDTO> createStudent(@Valid @RequestBody StudentRequestDTO studentRequestDTO, UriComponentsBuilder componentsBuilder) {
         StudentResponseDTO student = studentService.createStudent(studentRequestDTO);
 

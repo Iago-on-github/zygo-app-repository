@@ -117,11 +117,6 @@ public class TravelCacheService {
             Travel travel = travelRepository.findById(travelId)
                     .orElseThrow((() -> new EntityNotFoundException("Viagem " + travelId + " não encontrada.")));
 
-            System.out.println("busca por customerid: " + customerRepository.findById(travel.getCustomerId()));
-            System.out.println("customerId: " + travel.getCustomerId());
-
-            System.out.println("chamada da city: " + cityRepository.findAll().size());
-
             UUID cityId = customerRepository.findCityIdByCustomerId(travel.getCustomerId())
                     .orElseThrow(() -> new EntityNotFoundException("City não encontrada."));
 

@@ -32,9 +32,9 @@ public class StudentRouteStopController {
         this.studentRouteStopService = studentRouteStopService;
     }
 
-    @GetMapping("/{studentId}/route-stops/{standardRouteId}")
-    public ResponseEntity<List<StudentRouteStopAssociateResponseDTO>> getStudentRouteStops(@PathVariable UUID studentId, @PathVariable UUID standardRouteId, @RequestParam TravelDirection travelDirection) {
-        List<StudentRouteStopAssociateResponseDTO> response = studentRouteStopService.getStudentRouteStops(studentId, standardRouteId, travelDirection);
+    @GetMapping("/route-stops/{standardRouteId}")
+    public ResponseEntity<List<StudentRouteStopAssociateResponseDTO>> getStudentRouteStops(@PathVariable UUID standardRouteId, @RequestParam TravelDirection travelDirection) {
+        List<StudentRouteStopAssociateResponseDTO> response = studentRouteStopService.getStudentRouteStops(standardRouteId, travelDirection);
 
         return ResponseEntity.ok(response);
     }

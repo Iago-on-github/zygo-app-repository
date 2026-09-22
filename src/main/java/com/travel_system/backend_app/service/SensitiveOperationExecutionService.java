@@ -31,7 +31,7 @@ public class SensitiveOperationExecutionService {
         try {
             executor.execute(operation);
         } catch (Exception e) {
-            throw new RuntimeException("Erro durante a criação do PlatformAdministrator");
+            throw new RuntimeException("Erro durante a criação do PlatformAdministrator: Cause: ", e);
         }
     }
 

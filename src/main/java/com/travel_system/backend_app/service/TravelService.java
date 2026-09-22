@@ -537,6 +537,8 @@ public class TravelService {
     }
 
     private JoinTravelResponseDTO persistStudentLink(Travel travel, Student student, StudentTravelStatus status) {
+        long start = System.currentTimeMillis(); // debugging ttl
+
         boolean studentAllowedToTrip = studentTravelCooldownService.isStudentAllowedToTrip(travel.getId(), student.getId());
 
         if (!studentAllowedToTrip) {
@@ -611,6 +613,9 @@ public class TravelService {
         }
 
         travelStudentStateCacheService.evictStudentTravelCachedData(travel.getId(), student.getUserAccount().getEmail());
+
+        long elapsed = System.currentTimeMillis() - start;
+        log.info("[persistStudentLink] tempo para executar o leave-travel: {}", elapsed);
 
         return new JoinTravelResponseDTO(studentTravel.getId(), travel.getId(), travel.getTravelPeriod(), travel.getTravelDirection(), studentTravel.isEmbark(), studentTravel.getStudentTravelStatus(), remainingAttemptsBeforeBlock, nextBlockDurationMinutes);
     }

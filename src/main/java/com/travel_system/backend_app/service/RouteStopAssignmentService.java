@@ -16,6 +16,7 @@ import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.repository.RouteStopRepository;
 import com.travel_system.backend_app.repository.StandardRouteRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,11 +36,14 @@ public class RouteStopAssignmentService {
 
     private final MapboxAPIService mapboxAPIService;
 
-    public RouteStopAssignmentService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService) {
+    private final EntityManager entityManager;
+
+    public RouteStopAssignmentService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService, EntityManager entityManager) {
         this.standardRouteRepository = standardRouteRepository;
         this.routeStopRepository = routeStopRepository;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
         this.mapboxAPIService = mapboxAPIService;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -324,11 +328,13 @@ public class RouteStopAssignmentService {
                         ));
 
         // atualiza os sequences para evitar problemas com constraints uniques no banco de dados
-        // atualmente não faz muita coisa, ele é um artefato defensivo, já que atualmente essa constraint não existe mas caso seja válido adicionar no futuro o código já está adaptado
         int temporarySequence = -1;
         for (RouteStopAssignment assignment : currentAssignments) {
             assignment.setSequence(temporarySequence--);
         }
+
+        // envia os updates com os valores negativos, liberando os valores positivos para uso
+        entityManager.flush();
 
         // aplicação definitiva das sequences
         for (RouteStopAssignment assignment : currentAssignments) {

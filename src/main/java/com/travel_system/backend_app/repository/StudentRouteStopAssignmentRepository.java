@@ -58,7 +58,7 @@ public interface StudentRouteStopAssignmentRepository extends JpaRepository<Stud
     WHERE rsa.student.id = :studentId
       AND sr.id = :standardRouteId
       AND tp = :travelPeriod
-      AND rsa = :travelDirection
+      AND rsa.travelDirection = :travelDirection
 """)
     Optional<StudentRouteStopAssignment> findAssignmentByStudentRouteAndPeriodAndTravelDirection(
             @Param("studentId") UUID studentId,

@@ -14,6 +14,7 @@ import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

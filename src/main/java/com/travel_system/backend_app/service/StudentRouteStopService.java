@@ -52,18 +52,14 @@ public class StudentRouteStopService {
     * retorna os routeStops do estudante com base no customer e na rota padrão específica
     * */
     @Transactional(readOnly = true)
-    public List<StudentRouteStopAssociateResponseDTO> getStudentRouteStops(UUID studentId, UUID standardRouteId, TravelDirection travelDirection) {
+    public List<StudentRouteStopAssociateResponseDTO> getStudentRouteStops(UUID standardRouteId, TravelDirection travelDirection) {
         String authenticatedEmail = getAuthenticatedUserEmail();
 
-        UserAccount authenticatedUser = userAccountRepository.findUserByEmail(authenticatedEmail);
-
-        if (authenticatedUser == null) throw new EntityNotFoundException("Usuário com o email " + authenticatedEmail + " não encontrado");
+        Student loggedStudent = studentRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Perfil de estudante não encontrado para a conta com email: " + authenticatedEmail));
 
         StandardRoute standardRoute = standardRouteRepository.findById(standardRouteId)
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada: " + standardRouteId));
-
-        // verifica se o user é válido (estudante, admin, platform_admin)
-        checkValidUser(authenticatedUser);
 
         // obtém o customerID do contexto atual e valida existência
         UUID customerId = TenantContext.getCurrentTenant();
@@ -74,49 +70,14 @@ public class StudentRouteStopService {
         // valida mesmo Customer
         validateSameCustomer(customerId, standardRoute.getCustomerId());
 
-        boolean isAdmin = authenticatedUser.getPermissions().stream()
-                .anyMatch(p -> p.getDescription().equals("ROLE_ADMIN") || p.getDescription().equals("ROLE_PLATFORM_ADMIN"));
-        boolean isStudent = authenticatedUser.getUserAccountType() == UserAccountType.STUDENT;
-
-        if (!isAdmin && !isStudent) {
-            throw new NotAuthorizedException("Apenas Estudantes ou Administradores podem realizar esta consulta.");
+        if (loggedStudent.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountException("Conta inativa no sistema");
         }
 
-        UUID targetStudentId;
-        if (isStudent) {
-            // estudantes só podem consultar seus próprios dados, ignorando o ID passado na requisição
-
-            Student loggedStudent = studentRepository.findByEmail(authenticatedEmail)
-                    .orElseThrow(() -> new EntityNotFoundException("Perfil de estudante não encontrado para a conta com email: " + authenticatedEmail));
-
-            if (loggedStudent.getStatus() == GeneralStatus.INACTIVE) {
-                throw new InactiveAccountException("Conta inativa no sistema");
-            }
-
-            validateSameCustomer(customerId, loggedStudent.getCustomerId());
-
-            targetStudentId = loggedStudent.getId();
-        } else {
-            // admins podem consultar outros estudantes, mas precisamos validar o customer do estudante alvo
-
-            if (studentId == null) {
-                throw new DomainValidationException("O ID do estudante deve ser fornecido por Administradores.");
-            }
-
-            Student targetStudent = studentRepository.findById(studentId)
-                    .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado: " + studentId));
-
-/*            if (targetStudent.getStatus() == GeneralStatus.INACTIVE) {
-            throw new InactiveAccountException("A conta do estudante alvo está inativa.");
-        }*/
-
-            validateSameCustomer(customerId, targetStudent.getCustomerId());
-
-            targetStudentId = targetStudent.getId();
-        }
+        validateSameCustomer(customerId, loggedStudent.getCustomerId());
 
         List<StudentRouteStopAssignment> assignments = studentRouteStopAssignmentRepository
-                .findByStudentIdAndStandardRouteIdAndTravelDirection(targetStudentId, standardRouteId, travelDirection);
+                .findByStudentIdAndStandardRouteIdAndTravelDirection(loggedStudent.getId(), standardRouteId, travelDirection);
 
         // monta um DTO por assignment, cada um com seus próprios studentIds (podem ser RouteStops diferentes, um por turno)
         return assignments.stream()
@@ -171,7 +132,7 @@ public class StudentRouteStopService {
 
         StudentRouteStopAssignment assignment = studentRouteStopAssignmentRepository
                 .findAssignmentByStudentRouteAndPeriodAndTravelDirection(targetStudentId, standardRouteId, travelPeriodFromDTO, travelDirection)
-                .orElseThrow(() -> new EntityNotFoundException("Nenhum ponto de parada para o estudante: " + targetStudentId + ", período: " + travelPeriodFromDTO + " e rota padrão: " + standardRouteId));
+                .orElseThrow(() -> new EntityNotFoundException("Nenhum ponto de parada para o estudante: " + targetStudentId + ", período: " + travelPeriodFromDTO + ", rota padrão: " + standardRouteId + " e direção: " + travelDirection));
 
         Set<UUID> studentIds = resolveStudentIds(assignment.getRouteStop().getId(), standardRoute.getId());
 

@@ -239,27 +239,6 @@ public class TravelTrackingService {
         );
     }
 
-    // haverá um popup no front que perguntará se o estudante irá participar da viagem
-    // sem uso por enquanto e ignorado
-//    public void confirmEmbarkOnTravel(UUID travelId, UUID studentId) {
-//        if (studentId == null || travelId == null) {
-//            throw new EmptyMandatoryFieldsFound("[confirmEmbarkOnTravel] parâmetros obrigatórios null ou inválidos para a viagem: " + travelId);
-//        }
-//
-//        StudentTravel studentTravel = studentTravelRepository
-//                .findByStudentIdAndTravelId(studentId, travelId)
-//                .orElseThrow(() -> new TravelStudentAssociationNotFoundException("[confirmEmbarkOnTravel] Associação travel e student não encontrada. Viagem: " + travelId));
-//
-//        if (studentTravel.isEmbark()) {
-//            throw new BoardingAlreadyConfirmedException("[confirmEmbarkOnTravel] Embarque já confirmado. Viagem: " + travelId);
-//        }
-//
-//        studentTravel.setEmbark(true);
-//        studentTravelRepository.save(studentTravel);
-//
-//        logger.info("[confirmEmbarkOnTravel] embarque do estudante: {} confirmado com sucesso para a viagem: {} ", studentId, travelId);
-//    }
-
     // endpoint de fastview - provê a loc do driver
     public TravelTrackingSummaryDTO getDriverPosition(UUID travelId) {
         TravelCacheDTO travelStaticCache = travelCacheService.getOrLoadTravelStaticCache(travelId);

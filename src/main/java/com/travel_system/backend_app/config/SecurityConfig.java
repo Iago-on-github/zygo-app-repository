@@ -119,10 +119,9 @@ public class SecurityConfig {
     }
 
     private void configureTravelTrackingEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers("/v1/tracking/{travelId}/standard").hasAnyRole(ROLE_USER, ROLE_DRIVER);
-        auth.requestMatchers("/v1/tracking/{travelId}/route-stops").hasAnyRole(ROLE_USER, ROLE_DRIVER);
-
-        auth.requestMatchers("/v1/tracking/**").hasRole(ROLE_DRIVER);
+        auth.requestMatchers("/v1/tracking/travels/{travelId}/student/{studentTravelId}/locations").hasAnyRole(ROLE_USER);
+        auth.requestMatchers("/v1/tracking/travels/{travelId}/location").hasAnyRole(ROLE_USER);
+        auth.requestMatchers("/v1/tracking/travels/{travelId}/history").hasAnyRole(ROLE_USER);
     }
 
     private void configurePermitAllEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
@@ -160,7 +159,7 @@ public class SecurityConfig {
     }
 
     private void configureStudentEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers(HttpMethod.POST, "/v1/students/").permitAll();
+        auth.requestMatchers(HttpMethod.POST, "/v1/students/new").permitAll();
 
         auth.requestMatchers("/v1/students/me").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
         auth.requestMatchers("/v1/students/add/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
@@ -194,11 +193,7 @@ public class SecurityConfig {
     }
 
     private void configureStudentRouteStopEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers("/v1/route-assignment/{routeStopId}/associate/{standardRouteId}").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_USER);
-        auth.requestMatchers("/v1/route-assignment/{studentId}/update/{standardRouteId}").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_USER);
-        auth.requestMatchers("/v1/route-assignment/{routeStopId}/remove/{standardRouteId}").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_USER);
-
-        auth.requestMatchers("/v1/route-stop-students/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN, ROLE_USER, ROLE_DRIVER);
+        auth.requestMatchers("/v1/route-stop-students/**").hasAnyRole(ROLE_USER);
     }
 
     private void configurePlatformAdministratorEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
