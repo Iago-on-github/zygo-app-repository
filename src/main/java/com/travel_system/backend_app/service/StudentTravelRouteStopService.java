@@ -1,5 +1,8 @@
 package com.travel_system.backend_app.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travel_system.backend_app.config.constants.CacheConstants;
 import com.travel_system.backend_app.events.routestops_algorithm.*;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.LiveLocationDTO;
@@ -9,13 +12,20 @@ import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.config.constants.CacheConstants.*;
 import static com.travel_system.backend_app.config.constants.GlobalAppConstants.*;
+import static com.travel_system.backend_app.service.RedisTrackingService.toDoubleOrNull;
+import static com.travel_system.backend_app.service.RedisTrackingService.toUUIDOrNull;
 
 /*
 * os eventos de mudança de estado e notificações são publicados de forma individual nos respectivos listeners
@@ -33,12 +43,18 @@ public class StudentTravelRouteStopService {
     private final RedisTrackingService redisTrackingService;
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
 
+    private final RedisTemplate<String, String> redisTemplate;
+
+    private final ObjectMapper objectMapper;
+
     private final ApplicationEventPublisher eventPublisher;
 
-    public StudentTravelRouteStopService(RouteCalculationService routeCalculationService, RedisTrackingService redisTrackingService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, ApplicationEventPublisher eventPublisher) {
+    public StudentTravelRouteStopService(RouteCalculationService routeCalculationService, RedisTrackingService redisTrackingService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.routeCalculationService = routeCalculationService;
         this.redisTrackingService = redisTrackingService;
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
     }
 
@@ -97,41 +113,58 @@ public class StudentTravelRouteStopService {
             throw new IllegalArgumentException("Parâmetros requeridos inválidos ou não inseridos");
         }
 
-        // recupera os dados de monitoriamento
-        StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCacheService.getStudentTravelTrackingData(travelId, studentTravelId);
+        /*
+         * recupera os campos via pipeline para evitar latência sequencial de rede com o redis
+         * */
+        String trackingRouteStopsKey = CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY + travelId;
+        String trackingField = studentTravelId.toString();
+
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
+        String liveTrackingKey = TRACKING_KEY_PREFIX + travelId;
+
+        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            redisTemplate.opsForHash().get(trackingRouteStopsKey, trackingField); // [0] - trackingData
+            redisTemplate.opsForHash().entries(routeKey);                        // [1] - routeData (liveLocation)
+            redisTemplate.opsForHash().entries(liveTrackingKey);                 // [2] - trackingData (liveLocation)
+            return null;
+        });
+
+        StudentTravelRouteStopTrackingCacheDTO trackingData = parseTrackingData(results.get(0));
 
         if (trackingData == null) {
             log.warn("[processRouteStopApproach] - tracking data provido do redis null");
             return;
         }
 
-        // recupera a última loc estável do veículo
-        LiveLocationDTO lastDriverPosition = redisTrackingService.getLiveLocation(travelId);
+        @SuppressWarnings("unchecked")
+        Map<String, String> routeData = (Map<String, String>) results.get(1);
+        @SuppressWarnings("unchecked")
+        Map<String, String> liveData = (Map<String, String>) results.get(2);
+        LiveLocationDTO lastDriverPosition = parseLiveLocation(routeData, liveData);
 
-        // calcula distância entre ponto de parada e veículo
-        DistanceResponseDTO distanceBetweenVehicleAndRouteStop = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition);
+        if (lastDriverPosition == null || lastDriverPosition.latitude() == null || lastDriverPosition.longitude() == null) {
+            log.warn("[processRouteStopApproach] - dados de localização do motorista não encontrados");
+            return;
+        }
 
-        if (distanceBetweenVehicleAndRouteStop == null || distanceBetweenVehicleAndRouteStop.distance() == null || distanceBetweenVehicleAndRouteStop.distance() < 0) {
+        DistanceResponseDTO distanceResponseDTO = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition, trackingData);
+
+        if (distanceResponseDTO == null || distanceResponseDTO.distance() == null || distanceResponseDTO.distance() < 0) {
             log.warn("[processRouteStopApproach] - distance retornando null ou inválida");
             return;
         }
 
-        Double distance = distanceBetweenVehicleAndRouteStop.distance();
-
-        // se a distancia nao for compatível retorna
-        if (distance > APPROACHING_THRESHOLD) {
+        if (distanceResponseDTO.distance() > APPROACHING_THRESHOLD) {
             return;
         }
 
-        // se nao for igual a "expected" retorna
         if (!trackingData.status().equals(StudentTravelRouteStopStatus.EXPECTED)) {
             return;
         }
 
         log.info("[processRouteStopApproach] - processamento realizado com sucesso, publicando no listener");
 
-        // monta dto do evento e publica
-        ProcessStudentTravelRouteStopApproachingEvent processRouteStopApproachingEvent = new ProcessStudentTravelRouteStopApproachingEvent(studentTravelId, trackingData.studentId(), travelId, trackingData.routeStopId(), distance, Instant.now());
+        ProcessStudentTravelRouteStopApproachingEvent processRouteStopApproachingEvent = new ProcessStudentTravelRouteStopApproachingEvent(studentTravelId, trackingData.studentId(), travelId, trackingData.routeStopId(), distanceResponseDTO.distance(), Instant.now());
 
         eventPublisher.publishEvent(processRouteStopApproachingEvent);
     }
@@ -140,16 +173,37 @@ public class StudentTravelRouteStopService {
     * realiza a confirmação de que o estudante chegou ao ponto e desembarcou corretamente
     * */
     public void confirmStudentRouteStopReached(UUID travelId, UUID studentTravelId, StudentTravelStatus studentTravelStatus) {
-        // cache estático do tracking
-        StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCacheService.getStudentTravelTrackingData(travelId, studentTravelId);
+
+        /*
+         * recupera os campos via pipelane para evitar latência no servidor do redis
+         * */
+
+        String trackingKey = CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY + travelId;
+        String trackingField = studentTravelId.toString();
+
+        String monitoringKey = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
+        List<Object> monitoringFields = List.of(
+                "routeStopId", "studentTravelId", "routeStopLatitude", "routeStopLongitude", "status",
+                "distance", "occurredAt", "distanceInMeters", "disembarkAt", "vehiclePositionAt",
+                "vehicleLatitude", "vehicleLongitude");
+
+        // pipeline só para as duas chamadas que sempre acontecem juntas, incondicionalmente, no início do fluxo
+        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            redisTemplate.opsForHash().get(trackingKey, trackingField);           // [0] - getStudentTravelTrackingData
+            redisTemplate.opsForHash().multiGet(monitoringKey, monitoringFields); // [1] - getStudentTravelRouteStopMonitoring
+            return null;
+        });
+
+        StudentTravelRouteStopTrackingCacheDTO trackingData = parseTrackingData(results.get(0));
 
         if (trackingData == null) {
             log.warn("[confirmStudentRouteStopReached] - tracking data não encontrado");
             return;
         }
 
-        // recupera o cache armazenado pelos processamentos anteriores
-        StudentTravelRouteStopsCacheEvent studentTravelRouteStopMonitoring = redisTrackingService.getStudentTravelRouteStopMonitoring(travelId, studentTravelId);
+        @SuppressWarnings("unchecked")
+        List<String> monitoringValues = (List<String>) results.get(1);
+        StudentTravelRouteStopsCacheEvent studentTravelRouteStopMonitoring = parseMonitoring(travelId, monitoringValues);
 
         if (studentTravelRouteStopMonitoring == null) {
             log.warn("[confirmStudentRouteStopReached] - tracking monitoring não encontrado no Redis");
@@ -165,28 +219,30 @@ public class StudentTravelRouteStopService {
         }
 
         /*
-        * faz a validação da evidência de desvínculo com base no status do estudante vinculado à viagem
-        * */
+         * faz a validação da evidência de desvínculo com base no status do estudante vinculado à viagem
+         * */
         if (!Set.of(StudentTravelStatus.LEFT, StudentTravelStatus.AUTO_DISCONNECTED).contains(studentTravelStatus)) {
             log.warn("[confirmStudentRouteStopReached] - estudante não foi desvinculado ou não saiu da viagem. Status atual: {}", studentTravelStatus);
             return;
         }
 
-        // recupera a última loc estável do veículo
+        // recupera a última loc estável do veículo — chamada síncrona simples, só ocorre se passou pelas validações acima
         LiveLocationDTO lastDriverPosition = redisTrackingService.getLiveLocation(travelId);
 
-        // calcula distância entre ponto de parada e veículo
-        DistanceResponseDTO distanceBetweenVehicleAndRouteStop = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition);
-
-        if (distanceBetweenVehicleAndRouteStop == null || distanceBetweenVehicleAndRouteStop.distance() == null || distanceBetweenVehicleAndRouteStop.distance() < 0) {
-            log.warn("[confirmStudentRouteStopReached] - distance retornando null ou inválida");
+        if (lastDriverPosition == null || lastDriverPosition.latitude() == null || lastDriverPosition.longitude() == null) {
+            log.warn("[confirmStudentRouteStopReached] - dados de localização do motorista não encontrados");
             return;
         }
 
-        Double distance = distanceBetweenVehicleAndRouteStop.distance();
+        DistanceResponseDTO distanceResponseDTO = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition, trackingData);
+
+        if (distanceResponseDTO == null || distanceResponseDTO.distance() == null || distanceResponseDTO.distance() < 0) {
+            log.warn("[confirmStudentRouteStopReached] - distance retornando null ou inválida"); // (ajustar tag por método)
+            return;
+        }
 
         // se a distancia nao for compatível retorna
-        if (distance > REACHED_THRESHOLD) {
+        if (distanceResponseDTO.distance() > REACHED_THRESHOLD) {
             return;
         }
 
@@ -197,7 +253,7 @@ public class StudentTravelRouteStopService {
                 trackingData.routeStopId(),
                 lastDriverPosition.latitude(),
                 lastDriverPosition.longitude(),
-                distance,
+                distanceResponseDTO.distance(),
                 Instant.now(),
                 lastDriverPosition.current_location_timestamp(),
                 studentTravelStatus
@@ -210,9 +266,8 @@ public class StudentTravelRouteStopService {
                 studentTravelId,
                 trackingData.routeStopId(),
                 StudentTravelRouteStopStatus.REACHED,
-                Instant.now(), // momento que o sistema executou a validação
-                lastDriverPosition.current_location_timestamp() // momento que o estudante chegou
-
+                Instant.now(),
+                lastDriverPosition.current_location_timestamp()
         );
 
         // evento atualização SQL
@@ -250,11 +305,7 @@ public class StudentTravelRouteStopService {
     }
 
     // verifica a distância entre o veículo e o routeStop do aluno
-    protected DistanceResponseDTO distanceBetweenVehicleAndRouteStop(UUID travelId, UUID studentTravelId, LiveLocationDTO driverPosition) {
-
-        // recupera o cache armazenado no momento que o aluno entrou na viagem
-        StudentTravelRouteStopTrackingCacheDTO trackingData = travelTrackingStaticCacheService.getStudentTravelTrackingData(travelId, studentTravelId);
-
+    protected DistanceResponseDTO distanceBetweenVehicleAndRouteStop(UUID travelId, UUID studentTravelId, LiveLocationDTO driverPosition, StudentTravelRouteStopTrackingCacheDTO trackingData) {
         if (trackingData == null) {
             log.warn("[distanceBetweenVehicleAndRouteStop] - cache do contexto não existe mais ou não foi iniciado ainda");
             return null;
@@ -285,5 +336,53 @@ public class StudentTravelRouteStopService {
         }
 
         return new DistanceResponseDTO(studentId, distance);
+    }
+
+    protected StudentTravelRouteStopTrackingCacheDTO parseTrackingData(Object raw) {
+        if (raw == null) return null;
+        try {
+            return objectMapper.readValue((String) raw, StudentTravelRouteStopTrackingCacheDTO.class);
+        } catch (JsonProcessingException e) {
+            log.error("Erro ao desserializar trackingData do JSON", e);
+            return null;
+        }
+    }
+
+    protected StudentTravelRouteStopsCacheEvent parseMonitoring(UUID travelId, List<String> fields) {
+        if (fields == null || fields.get(4) == null) return null; // "status" ausente = registro não existe
+
+        return new StudentTravelRouteStopsCacheEvent(
+                toUUIDOrNull(fields.get(1)), travelId, toUUIDOrNull(fields.get(0)),
+                toDoubleOrNull(fields.get(5)), Instant.parse(fields.get(6)),
+                toDoubleOrNull(fields.get(2)), toDoubleOrNull(fields.get(3)),
+                StudentTravelRouteStopStatus.valueOf(fields.get(4)),
+                toDoubleOrNull(fields.get(7)), Instant.parse(fields.get(8)),
+                Instant.parse(fields.get(9)), toDoubleOrNull(fields.get(10)), toDoubleOrNull(fields.get(11)));
+    }
+
+    private LiveLocationDTO parseLiveLocation(Map<String, String> routeData, Map<String, String> trackingData) {
+        if (routeData == null || trackingData == null) return null;
+
+        String latitude = trackingData.get("current_lat");
+        String longitude = trackingData.get("current_lng");
+        String geometry = routeData.get("geometry");
+        String distance = routeData.get("distanceRemaining");
+        String lastCalcLat = routeData.get("last_calc_lat");
+        String lastCalcLng = routeData.get("last_calc_lng");
+        String timestamp = routeData.get("current_location_timestamp");
+
+        try {
+            return new LiveLocationDTO(
+                    latitude != null ? Double.parseDouble(latitude) : null,
+                    longitude != null ? Double.parseDouble(longitude) : null,
+                    geometry,
+                    distance != null ? Double.parseDouble(distance) : null,
+                    lastCalcLat != null ? Double.parseDouble(lastCalcLat) : null,
+                    lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null,
+                    timestamp != null ? Instant.parse(timestamp) : null);
+        } catch (NumberFormatException e) {
+            log.warn("erro ao tentar tratar/retornar dados de localização");
+            return null;
+        }
     }
 }

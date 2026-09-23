@@ -779,11 +779,11 @@ public class RedisTrackingService {
         hashOperations.putAll(key, data);
     }
 
-    private Double toDoubleOrNull(String value) {
+    protected static Double toDoubleOrNull(String value) {
         return value == null ? null : Double.parseDouble(value);
     }
 
-    private UUID toUUIDOrNull(String value) {
+    protected static UUID toUUIDOrNull(String value) {
         return value == null ? null : UUID.fromString(value);
     }
 }

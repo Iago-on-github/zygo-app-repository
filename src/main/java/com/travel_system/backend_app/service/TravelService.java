@@ -617,7 +617,7 @@ public class TravelService {
         travelStudentStateCacheService.evictStudentTravelCachedData(travel.getId(), student.getUserAccount().getEmail());
 
         long elapsed = System.currentTimeMillis() - start;
-        log.info("[persistStudentLink] tempo para executar o leave-travel: {}", elapsed);
+        log.info("[persistStudentLink] tempo para executar o persistStudentLink: {}", elapsed);
 
         return new JoinTravelResponseDTO(studentTravel.getId(), travel.getId(), travel.getTravelPeriod(), travel.getTravelDirection(), studentTravel.isEmbark(), studentTravel.getStudentTravelStatus(), remainingAttemptsBeforeBlock, nextBlockDurationMinutes);
     }

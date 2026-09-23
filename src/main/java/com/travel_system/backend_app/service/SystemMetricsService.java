@@ -58,11 +58,33 @@ public class SystemMetricsService {
 
     @Scheduled(fixedRate = 60000)
     public void getExecutorMetrics() {
-        int MAXIMUM_QUEUE_CAPACITY_NOTIFICATION = 100;
-        int MAXIMUM_QUEUE_CAPACITY_GPS = 200;
-        int CORE_POOL_SIZE = 5;
 
-        // Executor de Notificações (FCM-Notification)
+        // Executor de Métricas notificações de tracking
+        trackingFcmNotificationsMetrics();
+
+        // Executor de Métricas tracking gps
+        trackingVehicleGpsMetrics();
+
+        // Executor de Métricas do Circuit Breaker
+        circuitBreakerMetrics();
+
+        // Executor de Métricas Travel-Tracking (algoritmo de auto-desvínculo/vínculo_
+        studentAwatStateMetrics();
+
+        // Executor de Métricas Send Sensitive Email
+        sendSensitiveEmailMetrics();
+
+        // Executor de Métricas RouteStop-Lifecycle-
+        routeStopLifecycleMetrics();
+
+        // Executor de Métricas RouteStop-Approach-
+        routeStopApproachMetrics();
+    }
+
+    private void trackingFcmNotificationsMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY_NOTIFICATION = 15;
+        int CORE_POOL_SIZE = 2;
+
         int notifActiveCount = notificationExecutor.getActiveCount();
         int notifQueueSize   = notificationExecutor.getQueueSize();
         int notifPoolSize    = notificationExecutor.getPoolSize();
@@ -82,6 +104,11 @@ public class SystemMetricsService {
         if (notifPoolSize > CORE_POOL_SIZE) {
             logger.warn("[Executor: FCM-Notification] poolSize maior que o core. Threads extras criadas.");
         }
+    }
+
+    private void trackingVehicleGpsMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY_GPS = 20;
+        int CORE_POOL_SIZE = 2;
 
         // Executor do RabbitMQ GPS (RBMQ-VehicleGps)
         int gpsActiveCount = vehicleGpsExecutor.getActiveCount();
@@ -100,11 +127,12 @@ public class SystemMetricsService {
             logger.warn("[Executor: RBMQ-VehicleGps] YELLOW ALERT: fila ultrapassou 50%");
         }
 
-        if (gpsPoolSize > 2) { // CORE_POOL_SIZE do vehicleGpsTaskExecutor é 2
+        if (gpsPoolSize > CORE_POOL_SIZE) {
             logger.warn("[Executor: RBMQ-VehicleGps] poolSize maior que o core. Threads extras criadas.");
         }
+    }
 
-        // CIRCUIT BREAKER METRICS
+    private void circuitBreakerMetrics() {
         CircuitBreaker.Metrics metrics = gpsCircuitBreaker.getMetrics();
 
         float failureRate = metrics.getFailureRate();
@@ -124,23 +152,11 @@ public class SystemMetricsService {
             logger.warn("[CircuitBreaker] gpsIngestor | ALERTA: taxa de falha em {}% — aproximando do limiar de abertura (50%)",
                     String.format("%.1f", failureRate));
         }
-
-        // Executor de Métricas Travel-Tracking
-        studentAwatStateMetrics();
-
-        // Executor de Métricas Send Sensitive Email
-        sendSensitiveEmailMetrics();
-
-        // Executor de Métricas RouteStop-Lifecycle-
-        routeStopLifecycleMetrics();
-
-        // Executor de Métricas RouteStop-Approach-
-        routeStopApproachMetrics();
-
     }
 
     private void studentAwatStateMetrics() {
         int MAXIMUM_QUEUE_CAPACITY = 30;
+        int MAXIMUM_POOL_SIZE = 2;
 
         int studentAwayStateActiveCount = studentAwayStateExecutor.getActiveCount();
         int studentAwayStateQueueSize   = studentAwayStateExecutor.getQueueSize();
@@ -162,13 +178,14 @@ public class SystemMetricsService {
             logger.warn("[Executor: Travel-Tracking] YELLOW ALERT: fila ultrapassou 50%");
         }
 
-        if (studentAwayStatePoolSize > 5) {
+        if (studentAwayStatePoolSize > MAXIMUM_POOL_SIZE) {
             logger.warn("[Executor: Travel-Tracking] poolSize maior que o core. Threads extras criadas.");
         }
     }
 
     private void sendSensitiveEmailMetrics() {
         int MAXIMUM_QUEUE_CAPACITY = 10;
+        int MAXIMUM_POOL_SIZE = 5;
 
         int sensitiveEmailActiveCount = sendSensitiveEmailExecutor.getActiveCount();
         int sensitiveEmailQueueSize = sendSensitiveEmailExecutor.getQueueSize();
@@ -190,13 +207,14 @@ public class SystemMetricsService {
             logger.warn("[Executor: Send-Sensitive-Email] YELLOW ALERT: fila ultrapassou 40%");
         }
 
-        if (sensitiveEmailPoolSize > 5) {
+        if (sensitiveEmailPoolSize > MAXIMUM_POOL_SIZE) {
             logger.warn("[Executor: Send-Sensitive-Email] poolSize maior que o core. Threads extras criadas.");
         }
     }
 
     private void routeStopLifecycleMetrics() {
         int MAXIMUM_QUEUE_CAPACITY = 10;
+        int MAXIMUM_POOL_SIZE = 5;
 
         int routeStopActiveCount = routeStopLifecycleExecutor.getActiveCount();
         int routeStopQueueSize = routeStopLifecycleExecutor.getQueueSize();
@@ -219,13 +237,14 @@ public class SystemMetricsService {
             logger.warn("[Executor: RouteStop-Lifecycle-] YELLOW ALERT: fila ultrapassou 40%");
         }
 
-        if (routeStopPoolSize > 5) {
+        if (routeStopPoolSize > MAXIMUM_POOL_SIZE) {
             logger.warn("[Executor: RouteStop-Lifecycle-] poolSize maior que o core. Threads extras criadas.");
         }
     }
 
     private void routeStopApproachMetrics() {
         int MAXIMUM_QUEUE_CAPACITY = 50;
+        int MAXIMUM_POOL_SIZE = 8;
 
         int routeStopActiveCount = routeStopApproachExecutor.getActiveCount();
         int routeStopQueueSize = routeStopApproachExecutor.getQueueSize();
@@ -248,7 +267,7 @@ public class SystemMetricsService {
             logger.warn("[Executor: RouteStop-Approach-] YELLOW ALERT: fila ultrapassou 40%");
         }
 
-        if (routeStopPoolSize > 5) {
+        if (routeStopPoolSize > MAXIMUM_POOL_SIZE) {
             logger.warn("[Executor: RouteStop-Approach-] poolSize maior que o core. Threads extras criadas.");
         }
     }
@@ -291,3 +310,10 @@ public class SystemMetricsService {
         return (original * percent) / 100;
     }
 }
+
+/*
+* GUIDE, uso:
+* Usado para avisar antes de um problema virar incidente (fila enchendo, pool saturado, etc.).
+* Isso importa mais pra executors que processam volume alto,
+* imprevisível, ou crítico pro negócio (tracking, GPS, cooldown) — onde saturação silenciosa causa dano real.
+* */

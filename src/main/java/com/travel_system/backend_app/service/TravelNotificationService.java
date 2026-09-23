@@ -10,6 +10,7 @@ import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.checkerframework.checker.units.qual.N;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -18,9 +19,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /*
-* notificações estáticas da viagem
+* notificações estáticas da viagem rodando async
 * */
 @Service
+@Async("staticNotificationTaskExecutor")
 public class TravelNotificationService {
 
     private final FirebaseNotificationSender firebaseNotificationSender;

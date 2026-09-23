@@ -17,12 +17,13 @@ import java.util.concurrent.TimeUnit;
 public class ThreadPoolExecutorConfig {
 
     @Primary
+    // separar isso no system metrics e consertar os valores das props
     @Bean(name = "notificationTaskExecutor")
     public ThreadPoolTaskExecutor notificationTaskExecutor() {
-        int MAXIMUM_QUEUE_CAPACITY = 100;
-        int KEEP_ALIVE_TIME_SECONDS = 1;
-        int CORE_POOL_SIZE = 5;
-        int MAXIMUM_POOL_SIZE = 10;
+        int MAXIMUM_QUEUE_CAPACITY = 15;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
 
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
@@ -44,7 +45,7 @@ public class ThreadPoolExecutorConfig {
 
     @Bean(name = "vehicleGpsTaskExecutor")
     public ThreadPoolTaskExecutor vehicleGpsTaskExecutor() {
-        int MAXIMUM_QUEUE_CAPACITY = 200;
+        int MAXIMUM_QUEUE_CAPACITY = 20;
         int KEEP_ALIVE_TIME_SECONDS = 30;
         int CORE_POOL_SIZE = 2;
         int MAXIMUM_POOL_SIZE = 5;
@@ -159,6 +160,33 @@ public class ThreadPoolExecutorConfig {
 
         return executor;
     }
+
+    @Bean(name = "staticNotificationTaskExecutor")
+    public ThreadPoolTaskExecutor staticNotificationExecutor() {
+        /*
+        * notificações estáticas não tem observabilidade no SystemMetrics
+        * */
+
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("FCM-Static-Notification-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
 }
 
 /*
