@@ -39,8 +39,8 @@ public interface StudentTravelRepository extends JpaRepository<StudentTravel, UU
     void updateStudentTravelStatus(@Param("studentTravelId") List<UUID> studentTravelId, @Param("status") StudentTravelStatus status);
 
     @Modifying
-    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status, st.disembarkHour = :disembarkHour, st.embark = :embark WHERE st.id IN :studentTravelIds")
-    void disconnectedStudentFromTrip(@Param("studentTravelIds") List<UUID> studentTravelIds, @Param("status") StudentTravelStatus status, @Param("disembarkHour") Instant disembarkHour, @Param("embark") boolean embark);
+    @Query("UPDATE StudentTravel st SET st.studentTravelStatus = :status, st.disembarkHour = :disembarkHour, st.embark = :embark WHERE st.id IN :studentTravelIds AND st.travel.id = :travelId")
+    void disconnectedStudentFromTrip(@Param("travelId") UUID travelId, @Param("studentTravelIds") List<UUID> studentTravelIds, @Param("status") StudentTravelStatus status, @Param("disembarkHour") Instant disembarkHour, @Param("embark") boolean embark);
 
     Optional<StudentTravel> findByStudentIdAndTravelId(UUID studentId, UUID travelId);
 

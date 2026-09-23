@@ -17,6 +17,7 @@ import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.utils.CollectTravelReportsMetrics;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,8 @@ public class TravelService {
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
     private final StudentTravelCooldownService studentTravelCooldownService;
 
+    private final CollectTravelReportsMetrics collectTravelReportsMetrics;
+
     private final RouteStopResponseMapper routeStopResponseMapper;
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
@@ -63,7 +66,7 @@ public class TravelService {
 
     private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -80,6 +83,7 @@ public class TravelService {
         this.studentTravelRouteStopService = studentTravelRouteStopService;
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
         this.studentTravelCooldownService = studentTravelCooldownService;
+        this.collectTravelReportsMetrics = collectTravelReportsMetrics;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
         this.redisTemplate = redisTemplate;
@@ -90,8 +94,6 @@ public class TravelService {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
         Travel travel = new Travel();
-
-        System.out.println("bateu aqui (0)");
 
         // recupera o customerId e valida
         UUID customerId = TenantContext.getCurrentTenant();
@@ -181,9 +183,7 @@ public class TravelService {
         Travel actualTrip = travelRepository.findById(travelId)
                 .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
 
-        if (actualTrip.getTravelStatus() == TravelStatus.FINISH ||
-                actualTrip.getTravelStatus() == TravelStatus.TRAVELLING ||
-                actualTrip.getTravelStatus() == TravelStatus.CANCELED) {
+        if (!(actualTrip.getTravelStatus() == TravelStatus.PENDING)) {
             throwTravelException("Não é possível iniciar a viagem " + travelId + " por conta do status: " + actualTrip.getTravelStatus());
         }
 
@@ -215,11 +215,14 @@ public class TravelService {
         // envia notificação para o firebase comunicando o incio da viagem
         travelNotificationService.sendTravelStartedNotification(actualTrip);
 
-        // adiciona viagem ativa ao redis para métricas de self-health do sistema
-        redisTrackingService.addActiveTravel(travelId);
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            // adiciona viagem ativa ao redis para métricas de self-health do sistema
+            redisTrackingService.addActiveTravel(travelId);
 
-        // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
-        travelCacheService.invalidateTravelStaticCache(travelId);
+            // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
+            travelCacheService.invalidateTravelStaticCache(travelId);
+            return null;
+        });
 
         log.info("viagem {} iniciada com sucesso. ", travelId);
     }
@@ -236,71 +239,43 @@ public class TravelService {
         actualTrip.setTravelStatus(TravelStatus.FINISH);
         actualTrip.setEndHourTravel(Instant.now());
 
-        int totalStudentsCount = actualTrip.getStudentTravels().size();
-        long embarkedStudentsCount = actualTrip.getStudentTravels().stream()
-                .filter(student -> student.getEmbarkHour() != null && student.isEmbark()).count();
-
-        long percentual = 0;
-        if (totalStudentsCount != 0 && embarkedStudentsCount != 0) {
-            percentual = embarkedStudentsCount * 100 / totalStudentsCount;
-        }
-
         UUID baseCustomerId = actualTrip.getCustomerId();
+
+        List<UUID> studentTravelIdsToDisconnected = new ArrayList<>();
+        List<UUID> studentTravelIdsToClearCache = new ArrayList<>();
 
         // realiza o desvínculo de estudantes
         actualTrip.getStudentTravels().forEach(studentTravel -> {
             UUID studentsCustomerId = studentTravel.getStudent().getCustomerId();
 
             if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
-                studentTravel.setEmbark(false);
-                studentTravel.setDisembarkHour(Instant.now());
-                studentTravelRepository.save(studentTravel);
-
-                // limpa o redis para o contexto do algoritmo de proximidade do routestop
-                redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravel.getId());
+                // realiza a desconexão através do update em lote
+                studentTravelIdsToDisconnected.add(studentTravel.getId());
             }
 
-            // limpa o cache estático do tracking da viagem p/ o estudante
-            travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravel.getId());
-
-            // limpa o redis para o contexto do algoritmo de proximidade do routestop
-            redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravel.getId());
-
-            log.info("[endTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
+            studentTravelIdsToClearCache.add(studentTravel.getId());
         });
 
-        // obtem os dados de lat/lng para formar a polyline da viagem
-        List<TravelLocationHistory> travelRecorded = travelLocationHistoryRepository
-                .findAllByTravelIdOrderByTimestampAsc(travelId);
+        batchUpdateProcessing(travelId, studentTravelIdsToDisconnected);
 
-        List<Point> pointList = travelRecorded.stream()
-                .filter(t -> t.getLatitude() != null && t.getLongitude() != null)
-                // atentar-se que, no Point, a LONGITUDE sempre será primeiro
-                .map(t -> Point.fromLngLat(t.getLongitude(), t.getLatitude())).toList();
+        log.info("[endTravel] quantidade de estudantes desvinculados da viagem: {} ", studentTravelIdsToDisconnected.size());
 
-        String polylineEncoded = polylineService.formattedPolylineEncoded(pointList);
+        if (!studentTravelIdsToClearCache.isEmpty()) {
+            // realiza a limpeza do redis via lote + pipeline
+            redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                studentTravelIdsToClearCache.forEach(studentTravelId -> {
+                    // limpa o cache estático do tracking da viagem p/ o estudante
+                    travelTrackingStaticCacheService.removeStudentTravelTrackingCache(travelId, studentTravelId);
 
-        // polyline, em cenários sem falha interna, pode retornar null caso a viagem seja encerrada muito cedo
-        if (polylineEncoded == null || polylineEncoded.isBlank()) {
-            log.warn("[endTravel]: polyline retornando null, salvando string vazia. Viagem: {}", travelId );
+                    // limpa o redis para o contexto do algoritmo de proximidade do routestop
+                    redisTrackingService.deleteStudentTravelRouteStopMonitoring(travelId, studentTravelId);
+                });
+                return null;
+            });
         }
 
-        // COLETA  DE MÉTRICAS SOBRE A VIAGEM
-        Double accumulatedDistance = Double.valueOf(redisTrackingService.getAccumulatedDistance(travelId));
-        Duration durationInMinutes = Duration.between(actualTrip.getStartHourTravel(), actualTrip.getEndHourTravel());
-        double formattedDurationInMinutes = (double) durationInMinutes.toMinutes() / 60.0;
-
-        TravelReports travelReports = new TravelReports(
-                actualTrip,
-                accumulatedDistance,
-                formattedDurationInMinutes,
-                polylineEncoded,
-                Instant.now(),
-                totalStudentsCount, // expectativa de estudantes na viagem
-                (int) embarkedStudentsCount, // ocupação total de estudantes embarcados
-                (int) percentual);
-
-        travelReportsRepository.save(travelReports);
+        // coleta de métricas
+        collectTravelReportsMetrics.collectEndTravelMetrics(actualTrip);
 
         // envia notificação para o firebase comunicando o fim da viagem
         travelNotificationService.sendTravelEndedNotification(actualTrip);
@@ -416,23 +391,32 @@ public class TravelService {
 
         UUID baseCustomerId = actualTrip.getCustomerId();
 
+        List<UUID> studentTravelIdsToDisconnect = new ArrayList<>();
+
         // verifica se existem estudantes vinculados e faz a deconexão
         if (!actualTrip.getStudentTravels().isEmpty()) {
             actualTrip.getStudentTravels().forEach(studentTravel -> {
                 UUID studentsCustomerId = studentTravel.getStudent().getCustomerId();
 
                 if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
-                    studentTravel.setEmbark(false);
-                    studentTravel.setDisembarkHour(Instant.now());
-                    studentTravelRepository.save(studentTravel);
+                    // desconexão via update em lote
+                    studentTravelIdsToDisconnect.add(studentTravel.getId());
                 }
-
-                // evento route_stop_algorithm viagem cancelada
-                studentTravelRouteStopService.cancelledStudentRouteStop(travelId, studentTravel.getId(), baseCustomerId);
-
-                log.info("[cancelTravel] estudantes desvinculados da viagem: {} ", studentTravel.getId());
             });
         }
+
+        // realiza o update em lote e manda o evento de cancelamento do routeStop para cada aluno
+        if (!studentTravelIdsToDisconnect.isEmpty()) {
+
+            studentTravelIdsToDisconnect.forEach(studentTravelId -> {
+                // evento route_stop_algorithm viagem cancelada
+                studentTravelRouteStopService.cancelledStudentRouteStop(travelId, studentTravelId, baseCustomerId);
+            });
+
+            batchUpdateProcessing(travelId, studentTravelIdsToDisconnect);
+        }
+
+        log.info("[cancelTravel] quantidade de estudantes desvinculados da viagem: {} ", studentTravelIdsToDisconnect.size());
 
         travelRepository.save(actualTrip);
 
@@ -631,7 +615,7 @@ public class TravelService {
         Instant disembarkHour = Instant.now();
 
         // faz a persistencia, validando o desvinculo
-        studentTravelRepository.disconnectedStudentFromTrip(List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
+        studentTravelRepository.disconnectedStudentFromTrip(travelId, List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
 
         // valida se o estudante estava fisicamente no ponto no momento da saída manual
         // reaproveita a mesma lógica usada na auto-desconexão
@@ -786,5 +770,16 @@ public class TravelService {
                         && assignment.getTravelPeriod().equals(travel.getTravelPeriod())
                         && assignment.getTravelDirection().equals(travel.getTravelDirection()));
 
+    }
+
+    /*
+    * responsável por realizar updates sql em lote para os estudnates de uma viagem específica
+    * */
+    private void batchUpdateProcessing(UUID travelId, List<UUID> studentTravelIds) {
+        if (!studentTravelIds.isEmpty()) {
+            Instant disconnectedHour = Instant.now();
+
+            studentTravelRepository.disconnectedStudentFromTrip(travelId, studentTravelIds, StudentTravelStatus.LEFT, disconnectedHour, false);
+        }
     }
 }

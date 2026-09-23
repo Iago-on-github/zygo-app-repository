@@ -12,8 +12,11 @@ import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -122,11 +125,14 @@ public class StudentTravelRouteStopService {
         String routeKey = ROUTE_KEY_PREFIX + travelId;
         String liveTrackingKey = TRACKING_KEY_PREFIX + travelId;
 
-        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            redisTemplate.opsForHash().get(trackingRouteStopsKey, trackingField); // [0] - trackingData
-            redisTemplate.opsForHash().entries(routeKey);                        // [1] - routeData (liveLocation)
-            redisTemplate.opsForHash().entries(liveTrackingKey);                 // [2] - trackingData (liveLocation)
-            return null;
+        List<Object> results = redisTemplate.executePipelined(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                operations.opsForHash().get(trackingRouteStopsKey, trackingField); // [0] - trackingData
+                operations.opsForHash().entries(routeKey); // [1] - routeData (liveLocation)
+                operations.opsForHash().entries(liveTrackingKey); // [2] - trackingData (liveLocation)
+                return null;
+            }
         });
 
         StudentTravelRouteStopTrackingCacheDTO trackingData = parseTrackingData(results.get(0));
@@ -172,29 +178,35 @@ public class StudentTravelRouteStopService {
     /*
     * realiza a confirmação de que o estudante chegou ao ponto e desembarcou corretamente
     * */
+
     public void confirmStudentRouteStopReached(UUID travelId, UUID studentTravelId, StudentTravelStatus studentTravelStatus) {
 
         /*
-         * recupera os campos via pipelane para evitar latência no servidor do redis
+         * recupera os campos via pipeline via SessionCallback para evitar latência sequencial no redis
          * */
 
         String trackingKey = CacheConstants.STUDENT_TRAVEL_ROUTE_STOPS_KEY + travelId;
         String trackingField = studentTravelId.toString();
 
         String monitoringKey = STUDENT_ROUTE_STOP_MONITORING + travelId + ":" + studentTravelId;
-        List<Object> monitoringFields = List.of(
+        List<String> monitoringFields = List.of(
                 "routeStopId", "studentTravelId", "routeStopLatitude", "routeStopLongitude", "status",
                 "distance", "occurredAt", "distanceInMeters", "disembarkAt", "vehiclePositionAt",
                 "vehicleLatitude", "vehicleLongitude");
 
         // pipeline só para as duas chamadas que sempre acontecem juntas, incondicionalmente, no início do fluxo
-        List<Object> results = redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            redisTemplate.opsForHash().get(trackingKey, trackingField);           // [0] - getStudentTravelTrackingData
-            redisTemplate.opsForHash().multiGet(monitoringKey, monitoringFields); // [1] - getStudentTravelRouteStopMonitoring
-            return null;
+        List<Object> results = redisTemplate.executePipelined(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) throws DataAccessException {
+                operations.opsForHash().get(trackingKey, trackingField);            // [0]
+                operations.opsForHash().multiGet(monitoringKey, monitoringFields);  // [1]
+                return null;
+            }
         });
 
-        StudentTravelRouteStopTrackingCacheDTO trackingData = parseTrackingData(results.get(0));
+        // fase de processamento: só agora os valores reais existem (a fase de emissão acima não retorna nada útil)
+        String trackingRaw = (String) results.get(0);
+        StudentTravelRouteStopTrackingCacheDTO trackingData = parseTrackingData(trackingRaw);
 
         if (trackingData == null) {
             log.warn("[confirmStudentRouteStopReached] - tracking data não encontrado");
@@ -202,7 +214,7 @@ public class StudentTravelRouteStopService {
         }
 
         @SuppressWarnings("unchecked")
-        List<String> monitoringValues = (List<String>) results.get(1);
+        List<String> monitoringValues = (List<String>) (List<?>) results.get(1);
         StudentTravelRouteStopsCacheEvent studentTravelRouteStopMonitoring = parseMonitoring(travelId, monitoringValues);
 
         if (studentTravelRouteStopMonitoring == null) {
@@ -234,15 +246,20 @@ public class StudentTravelRouteStopService {
             return;
         }
 
-        DistanceResponseDTO distanceResponseDTO = distanceBetweenVehicleAndRouteStop(travelId, studentTravelId, lastDriverPosition, trackingData);
+        // calcula distância reaproveitando o trackingData já obtido na pipeline (elimina busca duplicada)
+        Double distance = routeCalculationService.calculateHaversineDistanceInMeters(
+                trackingData.routeStopLatitude(),
+                trackingData.routeStopLongitude(),
+                lastDriverPosition.latitude(),
+                lastDriverPosition.longitude());
 
-        if (distanceResponseDTO == null || distanceResponseDTO.distance() == null || distanceResponseDTO.distance() < 0) {
-            log.warn("[confirmStudentRouteStopReached] - distance retornando null ou inválida"); // (ajustar tag por método)
+        if (distance == null || distance < 0) {
+            log.warn("[confirmStudentRouteStopReached] - distance retornando null ou inválida");
             return;
         }
 
         // se a distancia nao for compatível retorna
-        if (distanceResponseDTO.distance() > REACHED_THRESHOLD) {
+        if (distance > REACHED_THRESHOLD) {
             return;
         }
 
@@ -253,7 +270,7 @@ public class StudentTravelRouteStopService {
                 trackingData.routeStopId(),
                 lastDriverPosition.latitude(),
                 lastDriverPosition.longitude(),
-                distanceResponseDTO.distance(),
+                distance,
                 Instant.now(),
                 lastDriverPosition.current_location_timestamp(),
                 studentTravelStatus

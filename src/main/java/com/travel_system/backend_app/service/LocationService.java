@@ -221,7 +221,7 @@ public class LocationService {
         // caso haja estudantes compatíveis com auto-disconnect, desvincula da viagem
         if (!studentTravelsToAutoDisconnect.isEmpty()) {
             Instant disembarkHour = Instant.now();
-            studentTravelRepository.disconnectedStudentFromTrip(studentTravelsToAutoDisconnect, StudentTravelStatus.AUTO_DISCONNECTED, disembarkHour, false);
+            studentTravelRepository.disconnectedStudentFromTrip(travelId, studentTravelsToAutoDisconnect, StudentTravelStatus.AUTO_DISCONNECTED, disembarkHour, false);
 
             // apenas se conseguir desconectar: busca a viagem inteira no banco para recuperar dados para notificação
             Travel travel = travelRepository.findById(travelId)

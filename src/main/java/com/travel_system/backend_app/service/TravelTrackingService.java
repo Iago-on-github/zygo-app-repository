@@ -31,6 +31,7 @@ import java.util.UUID;
 
 @Service
 public class TravelTrackingService {
+    private final Logger log = LoggerFactory.getLogger(TravelTrackingService.class);
 
     private final TravelRepository travelRepository;
     private final RedisTrackingService redisTrackingService;
@@ -71,6 +72,8 @@ public class TravelTrackingService {
 
     // Anota que o motorista passou pela localização atual e libera o celular o mais rápido possível
     public void markDriverCheckpoint(UUID studentTravelId, UUID travelId, VehicleLocationRequestDTO vehicleLocationRequest) {
+        long start = System.currentTimeMillis(); // debugging ttl
+
         if (!travelId.equals(vehicleLocationRequest.travelId())) {
             throw new IllegalStateException("TravelID da URL diferente do body");
         }
@@ -168,6 +171,9 @@ public class TravelTrackingService {
 
         // evento de processamento da aproximação do veículo ao ponto de parada do estudante
         studentTravelRouteStopService.processRouteStopApproach(travelId, studentTravelId);
+
+        long elapsed = System.currentTimeMillis() - start;
+        log.info("[markDriverCheckpoint] tempo para executar o mark-driver-checkpoint: {}", elapsed);
     }
 
     // Orquestra o sistema de tracking em tempo real, verificando desvios de rota,
