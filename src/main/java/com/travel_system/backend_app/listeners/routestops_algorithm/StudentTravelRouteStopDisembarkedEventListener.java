@@ -22,7 +22,7 @@ public class StudentTravelRouteStopDisembarkedEventListener {
      * realiza a persistência de forma async confirmando que o desembarque do estudante para o routeStop foi realizado com sucesso
      * */
 
-    @Async
+    @Async("routeStopTaskExecutor")
     @EventListener
     public void handleDisembarkedStudentTravelRouteStop(StudentTravelRouteStopDisembarkedEvent event) {
 

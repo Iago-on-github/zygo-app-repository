@@ -25,8 +25,12 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 
 @Service
@@ -45,7 +49,9 @@ public class TravelTrackingService {
     private final TravelCacheService travelCacheService;
     private final StudentTravelRouteStopService studentTravelRouteStopService;
 
-    private final Logger logger = LoggerFactory.getLogger(TravelTrackingService.class);
+    private final Executor routeRecalculationTaskExecutor;
+
+    private final Set<UUID> travelsWithRecalculationInFlight = ConcurrentHashMap.newKeySet();
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -54,7 +60,7 @@ public class TravelTrackingService {
     // usar no lugar de Instant.now() para ajudar nos testes unitários
     private final Clock clock;
 
-    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, TravelCacheService travelCacheService, StudentTravelRouteStopService studentTravelRouteStopService, ApplicationEventPublisher eventPublisher, Clock clock) {
+    public TravelTrackingService(TravelRepository travelRepository, RedisTrackingService redisTrackingService, MapboxAPIService mapboxAPIService, RouteCalculationService routeCalculationService, StudentTravelRepository studentTravelRepository, GpsDataIngestorService gpsDataIngestorService, TravelLocationHistoryRepository travelLocationHistoryRepository, TravelService travelService, LocationService locationService, TravelCacheService travelCacheService, StudentTravelRouteStopService studentTravelRouteStopService, Executor routeRecalculationTaskExecutor, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.travelRepository = travelRepository;
         this.redisTrackingService = redisTrackingService;
         this.mapboxAPIService = mapboxAPIService;
@@ -66,6 +72,7 @@ public class TravelTrackingService {
         this.locationService = locationService;
         this.travelCacheService = travelCacheService;
         this.studentTravelRouteStopService = studentTravelRouteStopService;
+        this.routeRecalculationTaskExecutor = routeRecalculationTaskExecutor;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
@@ -82,8 +89,11 @@ public class TravelTrackingService {
             throw new NoSuchCoordinates("Coordenadas inválidas ou incompletas para o processamento");
         }
 
+        long t1 = System.currentTimeMillis();
         // busca por cache da viagem, caso não haja, faz requisição e armazena os dados em cache para utilizar aqui
         TravelCacheDTO travelCached = travelCacheService.getOrLoadTravelStaticCache(travelId);
+        log.info("[TTL] getOrLoadTravelStaticCache: {}ms", System.currentTimeMillis() - t1);
+
 
         if (travelCached.travelStatus() != TravelStatus.TRAVELLING) {
             throw new TravelException("A viagem " + travelId + " não está em andamento");
@@ -95,12 +105,14 @@ public class TravelTrackingService {
         Double heading = vehicleLocationRequest.heading();
 
         // pings real time
-        redisTrackingService.storeCurrentLocation(travelId, new CurrentVehicleLocationDTO(latitude, longitude, speed, heading));
+        long t2 = System.currentTimeMillis();
+        Map<String, String> routeData = redisTrackingService.storeLocationAndReadRouteState(travelId, new CurrentVehicleLocationDTO(latitude, longitude, speed, heading));
+        log.info("[TTL] storeLocationAndReadRouteState: {}ms", System.currentTimeMillis() - t2);
+
 
         // salva no redis como última posição conhecida matendo a distance e o geometry antigos
-        RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.getRouteCalculateReference(travelId);
-
-        Optional<RouteDetailsDTO> routeState = redisTrackingService.getRouteState(travelId);
+        RouteCalculationReferenceDTO routeCalculateReference = redisTrackingService.parseRouteCalculateReference(routeData);
+        Optional<RouteDetailsDTO> routeState = redisTrackingService.parseRouteState(routeData);
 
         String strLatitude = String.valueOf(latitude);
         String strLongitude = String.valueOf(longitude);
@@ -116,9 +128,13 @@ public class TravelTrackingService {
                 throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travelCached.travelId());
             }
 
-            logger.info("[markDriverCheckpoint] - primeiro cálculo da viagem {} realizado com sucesso. Armazenando no redis.", travelId);
+            log.info("[markDriverCheckpoint] - primeiro cálculo da viagem {} realizado com sucesso. Armazenando no redis.", travelId);
 
             redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
+
+            // a partir do resultado do cálculo, atribui o valor das variáveis novamente pq liveLocationDTO é montado localmente com esses valores
+            routeState = Optional.of(routeDetailsDTO);
+            routeCalculateReference = new RouteCalculationReferenceDTO(latitude, longitude);
         }
         // faz recalculo da rota/ETA se necessário
         else {
@@ -126,29 +142,60 @@ public class TravelTrackingService {
             boolean isShouldRecalculateRoute = shouldRevalidateRoute(latitude, longitude, new RouteCalculationReferenceDTO(routeCalculateReference.lastCalcLat(), routeCalculateReference.lastCalcLng()));
 
             if (isShouldRecalculateRoute) {
-                RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, latitude, longitude));
+                /*
+                * para evitar que haja excesso de recalculo caso o ônibus permaneça fora de fora por muito tempo
+                * essa key em memória diz que "já tem recálculo em andamento para esta travelId" e apenas pula o recalculo
+                * */
+                boolean alreadyInFlight  = travelsWithRecalculationInFlight.add(travelId);
 
-                // valida com base no geometry do redis e no isRouteOff se deve recalcular a rota
-                boolean shouldRecalculate = routeState.map(state -> state.geometry() == null)
-                        .orElse(true) || routeDeviation.isOffRoute();
+                if (alreadyInFlight) {
+                    log.info("[markDriverCheckpoint] - recalculo já em andamento para a viagem: {}, ping ignorado para este propósito", travelId);
 
-                if (shouldRecalculate) {
-                    logger.info("[markDriverCheckpoint] - chamado API para recalculo de rota para a viagem: {} ", travelId);
-                    RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
+                } else {
+                    log.info("[markDriverCheckpoint] - chamado API para recalculo de rota para a viagem: {} ", travelId);
 
-                    if (routeDetailsDTO == null || routeDetailsDTO.distance() == null || routeDetailsDTO.geometry() == null) {
-                        throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travelCached.travelId());
+                    RouteDeviationDTO routeDeviation = routeCalculationService.isRouteDeviation(new RouteDeviationRequestDTO(travelId, latitude, longitude));
+
+                    // valida com base no geometry do redis e no isRouteOff se deve recalcular a rota
+                    boolean shouldRecalculate = routeState.map(state -> state.geometry() == null)
+                            .orElse(true) || routeDeviation.isOffRoute();
+
+                    if (shouldRecalculate) {
+
+                        routeRecalculationTaskExecutor.execute(() -> {
+                            try {
+                                RouteDetailsDTO routeDetailsDTO = mapboxAPIService.recalculateETA(longitude, latitude, finalLongitude, finalLatitude);
+
+                                if (routeDetailsDTO == null || routeDetailsDTO.distance() == null || routeDetailsDTO.geometry() == null) {
+                                    throw new RecalculateEtaException("[markDriverCheckpoint] - dados vindo nulos da API do Mapbox para a viagem: " + travelCached.travelId());
+                                }
+
+                                redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
+                            } catch (Exception e) {
+                                log.error("[markDriverCheckpoint] - falha ao recalcular rota assíncrona para viagem: {}", travelId, e);
+                            } finally {
+                                // libera a guarda independente de sucesso ou falha, evitando que a viagem fique travada
+                                travelsWithRecalculationInFlight.remove(travelId);
+                            }
+                        });
                     }
-
-                    logger.info("[markDriverCheckpoint] - api respondeu com sucesso. Salvando a nova rota calculada para a viagem: {} ", travelId);
-
-                    redisTrackingService.storeCalculatedRouteState(travelId, strLatitude, strLongitude, routeDetailsDTO);
                 }
             }
         }
 
-        LiveLocationDTO liveLocationDTO = extractLiveCoordinates(travelId);
+        Instant pingTimestamp = Instant.now();
 
+        LiveLocationDTO liveLocationDTO = new LiveLocationDTO(
+                latitude,
+                longitude,
+                routeState.map(RouteDetailsDTO::geometry).orElse(null),
+                routeState.map(RouteDetailsDTO::distance).orElse(null),
+                routeCalculateReference != null ? routeCalculateReference.lastCalcLat() : null,
+                routeCalculateReference != null ? routeCalculateReference.lastCalcLng() : null,
+                pingTimestamp
+        );
+
+        long t3 = System.currentTimeMillis();
         // algoritmo rodando async para verificar status do estudante na viagem - auto disconnect se está muito distante por X tempo
         eventPublisher.publishEvent(new StudentAwayStateCheckEvent(travelId, liveLocationDTO));
 
@@ -157,7 +204,7 @@ public class TravelTrackingService {
                 travelId,
                 latitude,
                 longitude,
-                Instant.now(),
+                pingTimestamp,
                 travelCached.travelStatus(),
                 speed,
                 heading);
@@ -168,9 +215,13 @@ public class TravelTrackingService {
                 travelCached.cityId().toString(),
                 travelId.toString(),
                 new VehicleLocationRequestDTO(travelId, latitude, longitude, speed, heading)));
+        log.info("[TTL] 3 publishEvent: {}ms", System.currentTimeMillis() - t3);
 
+        long t4 = System.currentTimeMillis();
         // evento de processamento da aproximação do veículo ao ponto de parada do estudante
         studentTravelRouteStopService.processRouteStopApproach(travelId, studentTravelId);
+        log.info("[TTL] processRouteStopApproach: {}ms", System.currentTimeMillis() - t4);
+
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("[markDriverCheckpoint] tempo para executar o mark-driver-checkpoint: {}", elapsed);
@@ -223,7 +274,7 @@ public class TravelTrackingService {
 
         } else {
             // sem desvio de rota, realiza cálculo interno
-            logger.info("[processNewLocation] - ônibus não se encontra fora de Rota.");
+            log.info("[processNewLocation] - ônibus não se encontra fora de Rota.");
 
             currentRouteDetails = calculateEtaInternally(travelId, travelStaticCache.distance(), travelStaticCache.polylineRoute());
 
@@ -294,7 +345,7 @@ public class TravelTrackingService {
     private LiveLocationDTO extractLiveCoordinates(UUID travelId) {
         LiveLocationDTO currentLocation = redisTrackingService.getLiveLocation(travelId);
 
-        logger.info("currentLocation: {}", currentLocation);
+        log.info("currentLocation: {}", currentLocation);
 
         if (currentLocation == null ||
                 currentLocation.lastCalcLat() == null ||
@@ -323,12 +374,12 @@ public class TravelTrackingService {
     // verifica se deve recalcular
     private boolean shouldRevalidateRoute(Double currentLat, Double currentLng, RouteCalculationReferenceDTO routeCalculationReference) {
         if (currentLat == null || currentLng == null) {
-            logger.info("[shouldRevalidateRoute] - currentLat/Lng são null");
+            log.info("[shouldRevalidateRoute] - currentLat/Lng são null");
             return false;
         }
 
         if (routeCalculationReference.lastCalcLat() == null || routeCalculationReference.lastCalcLng() == null) {
-            logger.info("[shouldRevalidateRoute] - sem referência anterior para os cálculos.");
+            log.info("[shouldRevalidateRoute] - sem referência anterior para os cálculos.");
             return false;
         }
 
@@ -338,11 +389,11 @@ public class TravelTrackingService {
         Double distanceFromLastCalculation = routeCalculationService.calculateHaversineDistanceInMeters(currentLat, currentLng, lastCalcLat, lastCalcLng);
 
         if (distanceFromLastCalculation == null) {
-            logger.info("[shouldRevalidateRoute] - distância calculada: null");
+            log.info("[shouldRevalidateRoute] - distância calculada: null");
             return false;
         }
 
-        logger.info("[shouldRevalidateRoute] - distância desde o último cálculo: {} metros", distanceFromLastCalculation);
+        log.info("[shouldRevalidateRoute] - distância desde o último cálculo: {} metros", distanceFromLastCalculation);
 
         return distanceFromLastCalculation > ROUTE_RECALCULATION_THRESHOLD;
     }

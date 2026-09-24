@@ -32,7 +32,7 @@ public class LocationProcessingListener {
         this.tenantFilterAspect = tenantFilterAspect;
     }
 
-    @Async
+    @Async("locationProcessingTaskExecutor")
     @EventListener
     public void handleLocationProcessing(NewLocationReceivedEvents locationReceivedEvents) {
         VehicleLocationRequestDTO vehicleLocationRequest = getVehicleLocationRequestDTO(locationReceivedEvents);

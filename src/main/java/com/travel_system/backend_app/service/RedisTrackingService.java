@@ -12,8 +12,8 @@ import com.travel_system.backend_app.model.enums.StudentTravelRouteStopStatus;
 import io.micrometer.common.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.HashOperations;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.*;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -73,6 +73,38 @@ public class RedisTrackingService {
         hashOperations.putAll(routeKey, data);
     }
 
+    // escreve a posição atual do veículo e lê o estado de rota (calc reference + route state)
+    // escreve a posição atual do veículo e lê o estado de rota (calc reference + route state)
+    public Map<String, String> storeLocationAndReadRouteState(UUID travelId, CurrentVehicleLocationDTO currentVehicleLocation) {
+        String trackingKey = TRACKING_KEY_PREFIX + travelId;
+        String routeKey = ROUTE_KEY_PREFIX + travelId;
+
+        Map<String, String> trackingData = new HashMap<>();
+        trackingData.put("current_lat", currentVehicleLocation.latitude().toString());
+        trackingData.put("current_lng", currentVehicleLocation.longitude().toString());
+        trackingData.put("current_location_timestamp", String.valueOf(Instant.now().toEpochMilli()));
+        if (currentVehicleLocation.speed() != null) trackingData.put("speed", String.valueOf(currentVehicleLocation.speed()));
+        if (currentVehicleLocation.heading() != null) trackingData.put("heading", String.valueOf(currentVehicleLocation.heading()));
+
+        // write isolado — hMSet/putAll comprovadamente não se comporta como pipeline neste ambiente,
+        // testado tanto via connection crua quanto via SessionCallback (ambos retornaram 0 resultados)
+        hashOperations.putAll(trackingKey, trackingData);
+
+        // leitura via SessionCallback — padrão comprovado confiável pra leitura
+        List<Object> results = redisTemplate.executePipelined(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) throws DataAccessException {
+                operations.opsForHash().entries(routeKey);
+                return null;
+            }
+        });
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> routeData = (Map<String, String>) results.get(0);
+
+        return routeData != null ? routeData : Map.of();
+    }
+
     // atualiza o campo "accumulatedDistance"
     public void updateAccumulatedDistance(UUID travelId, Double incrementalDistance) {
         if (travelId == null || incrementalDistance == null) {
@@ -96,30 +128,64 @@ public class RedisTrackingService {
         }
     }
 
-    // armazena os dados da posição atual do veículo
-    public void storeCurrentLocation(UUID travelId, CurrentVehicleLocationDTO currentVehicleLocation) {
-        if (travelId == null || currentVehicleLocation.latitude() == null || currentVehicleLocation.longitude() == null) {
-            logger.warn("[storeCurrentLocation] dados de localização null ou inválidos");
-            return;
+//    // armazena os dados da posição atual do veículo
+//    public void storeCurrentLocation(UUID travelId, CurrentVehicleLocationDTO currentVehicleLocation) {
+//        if (travelId == null || currentVehicleLocation.latitude() == null || currentVehicleLocation.longitude() == null) {
+//            logger.warn("[storeCurrentLocation] dados de localização null ou inválidos");
+//            return;
+//        }
+//
+//        String currentLatitude = currentVehicleLocation.latitude().toString();
+//        String currentLongitude = currentVehicleLocation.longitude().toString();
+//
+//        String trackingKey = TRACKING_KEY_PREFIX + travelId;
+//
+//        Map<String, String> data = new HashMap<>();
+//
+//        data.put("current_lat", currentLatitude);
+//        data.put("current_lng", currentLongitude);
+//
+//        data.put("current_location_timestamp", String.valueOf(Instant.now().toEpochMilli()));
+//
+//        if (currentVehicleLocation.speed() != null) data.put("current_speed", String.valueOf(currentVehicleLocation.speed()));
+//
+//        if (currentVehicleLocation.heading() != null) data.put("current_heading", String.valueOf(currentVehicleLocation.heading()));
+//
+//        hashOperations.putAll(trackingKey, data);
+//    }
+
+    // parseia RouteCalculationReferenceDTO a partir de um routeData já obtido p/ evitar 2ª leitura da mesma key
+    public RouteCalculationReferenceDTO parseRouteCalculateReference(Map<String, String> routeData) {
+        if (routeData.isEmpty()) {
+            return null;
         }
 
-        String currentLatitude = currentVehicleLocation.latitude().toString();
-        String currentLongitude = currentVehicleLocation.longitude().toString();
+        try {
+            Double lastCalcLat = toDoubleOrNull(routeData.get("last_calc_lat"));
+            Double lastCalcLng = toDoubleOrNull(routeData.get("last_calc_lng"));
 
-        String trackingKey = TRACKING_KEY_PREFIX + travelId;
+            return new RouteCalculationReferenceDTO(lastCalcLat, lastCalcLng);
+        } catch (NumberFormatException e) {
+            logger.warn("[parseRouteCalculateReference] ocorreu um erro durante o parse dos dados");
+            return null;
+        }
+    }
 
-        Map<String, String> data = new HashMap<>();
+    // parseia RouteDetailsDTO a partir do mesmo routeData
+    public Optional<RouteDetailsDTO> parseRouteState(Map<String, String> routeData) {
+        if (routeData.isEmpty()) return Optional.empty();
 
-        data.put("current_lat", currentLatitude);
-        data.put("current_lng", currentLongitude);
+        try {
+            Double durationRemaining = toDoubleOrNull(routeData.get("durationRemaining"));
+            Double distanceRemaining = toDoubleOrNull(routeData.get("distanceRemaining"));
+            String geometry = routeData.get("geometry");
 
-        data.put("current_location_timestamp", String.valueOf(Instant.now().toEpochMilli()));
+            return Optional.of(new RouteDetailsDTO(durationRemaining, distanceRemaining, geometry));
+        } catch (NumberFormatException e) {
+            logger.warn("[parseRouteState] ocorreu um erro durante o parse dos dados");
 
-        if (currentVehicleLocation.speed() != null) data.put("current_speed", String.valueOf(currentVehicleLocation.speed()));
-
-        if (currentVehicleLocation.heading() != null) data.put("current_heading", String.valueOf(currentVehicleLocation.heading()));
-
-        hashOperations.putAll(trackingKey, data);
+            return Optional.empty();
+        }
     }
 
     // provê a distância acumulada armazeada no redis
@@ -131,37 +197,6 @@ public class RedisTrackingService {
         String accumulatedDistance = hashOperations.get(routeKey, "accumulatedDistance");
 
         return accumulatedDistance != null ? accumulatedDistance : "0.0";
-    }
-
-    // retorna a localização atual
-    public CurrentVehicleLocationDTO getCurrentLocation(UUID travelId) {
-        if (travelId == null) return null;
-
-        String trackingKey = TRACKING_KEY_PREFIX + travelId;
-
-        Map<String, String> data = hashOperations.entries(trackingKey);
-
-        if (data == null || data.isEmpty()) {
-            return null;
-        }
-
-        try {
-            Double latitude = toDoubleOrNull(data.get("current_lat"));
-            Double longitude = toDoubleOrNull(data.get("current_lng"));
-            Double speed = toDoubleOrNull(data.get("current_speed"));
-            Double heading = toDoubleOrNull(data.get("current_heading"));
-
-            if (latitude == null || longitude == null) {
-                logger.info("[getCurrentLocation] - lat/lng retornando null do redis, viagem: {} ", travelId);
-                return null;
-            }
-
-            return new CurrentVehicleLocationDTO(latitude, longitude, speed, heading);
-
-        } catch (NumberFormatException e) {
-            logger.warn("[getCurrentLocation] ocorreu um erro durante o retorno dos dados. Viagem: {} ", travelId);
-            return null;
-        }
     }
 
     // retorna os dados de estado calculado da rota
@@ -262,7 +297,7 @@ public class RedisTrackingService {
                     distance != null ? Double.parseDouble(distance) : null,
                     lastCalcLat != null ? Double.parseDouble(lastCalcLat) : null,
                     lastCalcLng != null ? Double.parseDouble(lastCalcLng) : null,
-                    current_location_timestamp != null ? Instant.parse(current_location_timestamp) : null);
+                    current_location_timestamp != null ? Instant.ofEpochMilli(Long.parseLong(current_location_timestamp)) : null);
         } catch (NumberFormatException e) {
             logger.warn("erro ao tentar tratar/retornar algum dado requerido da viagem: {}", travelId);
             return null;

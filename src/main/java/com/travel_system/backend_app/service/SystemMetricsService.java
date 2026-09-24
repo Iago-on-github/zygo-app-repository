@@ -27,6 +27,7 @@ public class SystemMetricsService {
     private final ThreadPoolTaskExecutor sendSensitiveEmailExecutor;
     private final ThreadPoolTaskExecutor routeStopLifecycleExecutor;
     private final ThreadPoolTaskExecutor routeStopApproachExecutor;
+    private final ThreadPoolTaskExecutor travelLocationHistoryTaskExecutor;
 
     private final RedisTrackingService redisTrackingService;
     private final TravelService travelService;
@@ -43,6 +44,7 @@ public class SystemMetricsService {
                                 @Qualifier("routeStopTaskExecutor") ThreadPoolTaskExecutor routeStopLifecycleExecutor,
                                 @Qualifier("routeStopApproachTaskExecutor") ThreadPoolTaskExecutor routeStopApproachExecutor,
                                 @Qualifier("sendSensitiveEmailTaskExecutor") ThreadPoolTaskExecutor sendSensitiveEmailExecutor,
+                                @Qualifier("savedTravelLocationTaskExecutor") ThreadPoolTaskExecutor travelLocationHistoryTaskExecutor,
                                 RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
         this.notificationExecutor = notificationExecutor;
         this.vehicleGpsExecutor = vehicleGpsExecutor;
@@ -51,6 +53,7 @@ public class SystemMetricsService {
         this.routeStopLifecycleExecutor = routeStopLifecycleExecutor;
         this.routeStopApproachExecutor = routeStopApproachExecutor;
         this.redisTrackingService = redisTrackingService;
+        this.travelLocationHistoryTaskExecutor = travelLocationHistoryTaskExecutor;
         this.travelService = travelService;
         this.travelRepository = travelRepository;
         this.gpsCircuitBreaker = registry.circuitBreaker("gpsIngestor");
@@ -79,6 +82,9 @@ public class SystemMetricsService {
 
         // Executor de Métricas RouteStop-Approach-
         routeStopApproachMetrics();
+
+        // Executor de Métricas: Travel-Location-History-
+        travelLocationHistoryMetrics();
     }
 
     private void trackingFcmNotificationsMetrics() {
@@ -269,6 +275,36 @@ public class SystemMetricsService {
 
         if (routeStopPoolSize > MAXIMUM_POOL_SIZE) {
             logger.warn("[Executor: RouteStop-Approach-] poolSize maior que o core. Threads extras criadas.");
+        }
+    }
+
+    private void travelLocationHistoryMetrics() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int MAXIMUM_POOL_SIZE = 6;
+
+        int activeCount = travelLocationHistoryTaskExecutor.getActiveCount();
+        int queueSize = travelLocationHistoryTaskExecutor.getQueueSize();
+        int poolSize = travelLocationHistoryTaskExecutor.getPoolSize();
+
+        int queueNinetyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 90);
+        int queueFiftyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY, 50);
+
+        logger.info("[Executor: Travel-Location-History-] active: {} | queue: {} | pool: {} / {}",
+                activeCount, queueSize, poolSize, sendSensitiveEmailExecutor.getMaxPoolSize());
+
+
+        if (activeCount >= poolSize) {
+            logger.warn("[Executor: Travel-Location-History-] todas as threads estão ocupadas.");
+        }
+
+        if (queueSize >= queueNinetyPercent) {
+            logger.warn("[Executor: Travel-Location-History-] RED ALERT: fila ultrapassou 90%");
+        } else if (queueSize >= queueFiftyPercent) {
+            logger.warn("[Executor: Travel-Location-History-] YELLOW ALERT: fila ultrapassou 40%");
+        }
+
+        if (poolSize > MAXIMUM_POOL_SIZE) {
+            logger.warn("[Executor: Travel-Location-History-] poolSize maior que o core. Threads extras criadas.");
         }
     }
 

@@ -28,7 +28,7 @@ public class CancelledStudentTravelRouteStopListener {
     }
 
     @EventListener
-    @Async
+    @Async("routeStopTaskExecutor")
     public void handleCancelledStudentTravelRouteStop(CancelledStudentTravelRouteStopEvent event) {
         if (event == null) {
             log.warn("[handleCancelledStudentTravelRouteStop - Evento nulo recebido, ignorando processamento");

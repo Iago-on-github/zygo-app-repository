@@ -68,6 +68,31 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
+    @Bean(name = "locationProcessingTaskExecutor")
+    public ThreadPoolTaskExecutor LocationProcessingExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 20;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        // nomeia a thread para identificação das threads principais do servidor
+        executor.setThreadNamePrefix("Location-Processing-");
+
+        // params configuráveis
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        // define a política de rejeição - o que acontence quando a queue enche
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
     @Bean(name = "studentAwayTaskExecutor")
     public ThreadPoolTaskExecutor studentAwayStateExecutor() {
         int MAXIMUM_QUEUE_CAPACITY = 30;
@@ -187,6 +212,49 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
+    @Bean(name = "routeRecalculationTaskExecutor")
+    public ThreadPoolTaskExecutor routeRecalculationExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 20;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 6;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("Route-recalc-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "savedTravelLocationTaskExecutor")
+    public ThreadPoolTaskExecutor travelLocationHistoryTaskExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 6;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("Travel-Location-History-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
+        executor.initialize();
+
+        return executor;
+    }
 }
 
 /*

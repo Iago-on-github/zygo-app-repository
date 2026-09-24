@@ -20,7 +20,7 @@ public class TravelHistoryPingsService {
         this.tenantFilterAspect = tenantFilterAspect;
     }
 
-    @Async
+    @Async("travelLocationHistoryTaskExecutor")
     public void saveTravelLocationHistoryData(String city, String travelId, Instant now, VehicleLocationRequestDTO vehicleLocation) {
         if (city == null || travelId == null) return;
 
