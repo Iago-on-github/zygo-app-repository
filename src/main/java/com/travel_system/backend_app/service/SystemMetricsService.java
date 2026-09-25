@@ -21,7 +21,7 @@ import static com.travel_system.backend_app.config.constants.TravelConstants.TRI
 
 @Service
 public class SystemMetricsService {
-    private final ThreadPoolTaskExecutor notificationExecutor;
+    private final ThreadPoolTaskExecutor busVelocityNotificationExecutor;
     private final ThreadPoolTaskExecutor vehicleGpsExecutor;
     private final ThreadPoolTaskExecutor studentAwayStateExecutor;
     private final ThreadPoolTaskExecutor sendSensitiveEmailExecutor;
@@ -39,14 +39,14 @@ public class SystemMetricsService {
     private static final Logger logger = LoggerFactory.getLogger(SystemMetricsService.class);
 
     public SystemMetricsService(@Qualifier("vehicleGpsTaskExecutor") ThreadPoolTaskExecutor vehicleGpsExecutor,
-                                @Qualifier("notificationTaskExecutor") ThreadPoolTaskExecutor notificationExecutor,
+                                @Qualifier("processBusVelocityNotificationType") ThreadPoolTaskExecutor busVelocityNotificationExecutor,
                                 @Qualifier("studentAwayTaskExecutor") ThreadPoolTaskExecutor studentAwayStateExecutor,
                                 @Qualifier("routeStopTaskExecutor") ThreadPoolTaskExecutor routeStopLifecycleExecutor,
                                 @Qualifier("routeStopApproachTaskExecutor") ThreadPoolTaskExecutor routeStopApproachExecutor,
                                 @Qualifier("sendSensitiveEmailTaskExecutor") ThreadPoolTaskExecutor sendSensitiveEmailExecutor,
                                 @Qualifier("savedTravelLocationTaskExecutor") ThreadPoolTaskExecutor travelLocationHistoryTaskExecutor,
                                 RedisTrackingService redisTrackingService, TravelService travelService, TravelRepository travelRepository, CircuitBreakerRegistry registry) {
-        this.notificationExecutor = notificationExecutor;
+        this.busVelocityNotificationExecutor = busVelocityNotificationExecutor;
         this.vehicleGpsExecutor = vehicleGpsExecutor;
         this.studentAwayStateExecutor = studentAwayStateExecutor;
         this.sendSensitiveEmailExecutor = sendSensitiveEmailExecutor;
@@ -91,9 +91,9 @@ public class SystemMetricsService {
         int MAXIMUM_QUEUE_CAPACITY_NOTIFICATION = 15;
         int CORE_POOL_SIZE = 2;
 
-        int notifActiveCount = notificationExecutor.getActiveCount();
-        int notifQueueSize   = notificationExecutor.getQueueSize();
-        int notifPoolSize    = notificationExecutor.getPoolSize();
+        int notifActiveCount = busVelocityNotificationExecutor.getActiveCount();
+        int notifQueueSize   = busVelocityNotificationExecutor.getQueueSize();
+        int notifPoolSize    = busVelocityNotificationExecutor.getPoolSize();
 
         int notifEightyPercent = percentCalc(MAXIMUM_QUEUE_CAPACITY_NOTIFICATION, 80);
         int notifFiftyPercent  = percentCalc(MAXIMUM_QUEUE_CAPACITY_NOTIFICATION, 50);

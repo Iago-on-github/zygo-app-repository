@@ -17,9 +17,8 @@ import java.util.concurrent.TimeUnit;
 public class ThreadPoolExecutorConfig {
 
     @Primary
-    // separar isso no system metrics e consertar os valores das props
-    @Bean(name = "notificationTaskExecutor")
-    public ThreadPoolTaskExecutor notificationTaskExecutor() {
+    @Bean(name = "processBusVelocityNotificationType")
+    public ThreadPoolTaskExecutor busVelocityNotificationExecutor() {
         int MAXIMUM_QUEUE_CAPACITY = 15;
         int KEEP_ALIVE_TIME_SECONDS = 30;
         int CORE_POOL_SIZE = 2;
@@ -28,7 +27,7 @@ public class ThreadPoolExecutorConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         // nomeia a thread para identificação das threads principais do servidor
-        executor.setThreadNamePrefix("FCM-Notification-");
+        executor.setThreadNamePrefix("Bus-Velocity-Notification");
 
         // params configuráveis
         executor.setCorePoolSize(CORE_POOL_SIZE);
