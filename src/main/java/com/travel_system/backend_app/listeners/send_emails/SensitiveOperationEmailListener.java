@@ -1,7 +1,9 @@
 package com.travel_system.backend_app.listeners.send_emails;
 
 import com.travel_system.backend_app.events.send_emails.SensitiveOperationCreatedEvent;
+import com.travel_system.backend_app.events.send_emails.VerificationUserEmailDTO;
 import com.travel_system.backend_app.service.EmailService;
+import io.grpc.internal.InternalServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;

@@ -16,18 +16,7 @@ public record StudentRequestDTO(
         @NotBlank
         String email,
         @Size(min = 7)
-        String password,
-        @Size(min = 4)
-        String name,
-        String lastName,
-        @NotNull
-        @Past(message = "A data de nascimento deve estar no passado")
-        @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate,
-        @NotNull
-        Set<Shift> studentShift,
-        @Size(min = 9)
-        String telephone,
-        InstitutionType institutionType,
-        String course) {
+        String password) {
 }
+
+// os dados de pessoais e de customer serão inseridos assim que o estudante adentrar em um customer

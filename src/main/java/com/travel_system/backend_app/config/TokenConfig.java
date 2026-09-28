@@ -6,11 +6,15 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.travel_system.backend_app.exceptions.InvalidJwtAuthenticationToken;
+import com.travel_system.backend_app.model.Permissions;
+import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.dtos.security.AuthTokens;
 import com.travel_system.backend_app.model.dtos.security.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.RefreshTokenResponseDTO;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -171,4 +175,13 @@ public class TokenConfig {
 
         return decodedJWT.getClaim("email").asString();
     }
+
+    public AuthTokens generateBothTokens(UserAccount userAccount, UUID customerId) {
+        List<String> permissions = userAccount.getPermissions().stream().map(Permissions::getDescription).toList();
+
+        LoginResponseDTO tokens = createAccessToken(userAccount.getEmail(), permissions, customerId, userAccount.getUserAccountType());
+
+        return new AuthTokens(tokens.accessToken(), tokens.refreshToken());
+    }
+
 }

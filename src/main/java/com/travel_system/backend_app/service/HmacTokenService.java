@@ -5,7 +5,10 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
+
+import static org.locationtech.jts.io.WKBWriter.bytesToHex;
 
 @Service
 public class HmacTokenService {
@@ -21,6 +24,17 @@ public class HmacTokenService {
             return bytesToHex(hmacBytes);
         } catch (Exception e) {
             throw new RuntimeException("Falha ao calcular HMAC", e);
+        }
+    }
+
+    // gera um token simples sem secret-key
+    public static String calculateSimpleHash(String pureToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(pureToken.getBytes(StandardCharsets.UTF_8));
+            return bytesToHex(hashBytes); // Supondo que você já tenha esse método
+        } catch (Exception e) {
+            throw new RuntimeException("Falha ao calcular hash", e);
         }
     }
 

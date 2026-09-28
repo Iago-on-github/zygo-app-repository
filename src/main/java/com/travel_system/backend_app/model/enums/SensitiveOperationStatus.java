@@ -5,5 +5,5 @@ public enum SensitiveOperationStatus {
     APPROVED,
     REJECTED,
     EXPIRED,
-    EXECUTED
+    EXECUTED,
 }

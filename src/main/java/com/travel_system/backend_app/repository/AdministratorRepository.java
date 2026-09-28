@@ -13,8 +13,7 @@ import javax.validation.constraints.Email;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public interface AdministratorRepository extends JpaRepository<Administrator, UUID> {
@@ -32,4 +31,8 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
     boolean existsByCpf(@Param("cpf") String cpf);
 
     Optional<Administrator> findByUserAccountId(UUID userAccountId);
+
+    List<Administrator> findAllByUserAccountIdIn(Collection<UUID> userAccountIds);
+
+    List<Administrator> findAllByUserAccountIdIgnoringCustomer(Set<UUID> inviterIds);
 }

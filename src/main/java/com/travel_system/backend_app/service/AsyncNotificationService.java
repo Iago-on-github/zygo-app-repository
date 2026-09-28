@@ -43,8 +43,7 @@ public class AsyncNotificationService {
         this.travelRepository = travelRepository;
     }
 
-    // mudar nome para "processBusVelocityNotificationType"
-    @Async(value = "notificationTaskExecutor")
+    @Async(value = "processBusVelocityNotificationType")
     public void processNotificationType(VehicleMovementNotificationDTO vehicleMovementNotificationDTO, ShouldNotify shouldNotify) {
         UUID travelId = vehicleMovementNotificationDTO.travelId();
 

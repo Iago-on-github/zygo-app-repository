@@ -2,7 +2,7 @@ package com.travel_system.backend_app.model.enums;
 
 // Enum destinado a separar notificações com base nos usuários que devem recebe-la
 
-public enum NotificationAudience {
+public enum TravelNotificationAudience {
     CUSTOMER_STUDENTS,
     CUSTOMER_DRIVERS,
     CUSTOMER_ADMINS,

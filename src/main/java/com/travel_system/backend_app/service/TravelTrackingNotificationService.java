@@ -5,7 +5,7 @@ import com.travel_system.backend_app.events.routestops_algorithm.CancelledStuden
 import com.travel_system.backend_app.events.routestops_algorithm.InvalidStudentTravelRouteStopEvent;
 import com.travel_system.backend_app.model.Travel;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
-import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
+import com.travel_system.backend_app.model.dtos.notifications.TravelPushNotificationCommandDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.slf4j.Logger;
@@ -40,7 +40,7 @@ public class TravelTrackingNotificationService {
     * - envia apenas para os estudantes que estão embarcados na viagem
     * */
     public void sendTrackingSlowMovementNotification(UUID travelId, VelocityAnalysisDTO velocityAnalysis) {
-        NotificationAudience travelStudents = NotificationAudience.EMBARKED_TRAVEL_STUDENTS; // envia para os estudantes embarcados na viagem
+        TravelNotificationAudience travelStudents = TravelNotificationAudience.EMBARKED_TRAVEL_STUDENTS; // envia para os estudantes embarcados na viagem
 
         MovementState movementState = velocityAnalysis.movementState();
 
@@ -55,7 +55,7 @@ public class TravelTrackingNotificationService {
         );
 
         // estudantes
-        PushNotificationCommandDTO students = new PushNotificationCommandDTO(
+        TravelPushNotificationCommandDTO students = new TravelPushNotificationCommandDTO(
                 travelStudents, null, travelId, null, null, null, title, message, link, Priority.HIGH, data);
 
         // envia as notificações
@@ -67,7 +67,7 @@ public class TravelTrackingNotificationService {
      * - envia apenas para os estudantes que estão embarcados na viagem
      * */
     public void sendTrackingStoppedMovementNotification(UUID travelId, VelocityAnalysisDTO velocityAnalysis) {
-        NotificationAudience travelStudents = NotificationAudience.EMBARKED_TRAVEL_STUDENTS; // envia para os estudantes embarcados na viagem
+        TravelNotificationAudience travelStudents = TravelNotificationAudience.EMBARKED_TRAVEL_STUDENTS; // envia para os estudantes embarcados na viagem
 
         MovementState movementState = velocityAnalysis.movementState();
 
@@ -82,7 +82,7 @@ public class TravelTrackingNotificationService {
         );
 
         // estudantes
-        PushNotificationCommandDTO students = new PushNotificationCommandDTO(
+        TravelPushNotificationCommandDTO students = new TravelPushNotificationCommandDTO(
                 travelStudents, null, travelId, null, null, null, title, message, link, Priority.HIGH, data);
 
         // envia as notificações
@@ -95,8 +95,8 @@ public class TravelTrackingNotificationService {
     * - envia para o responsável vinculado a ele
     * */
     public void sendAutoDisconnectStudentNotification(Travel travel, UUID studentId) {
-        NotificationAudience specificStudent = NotificationAudience.SPECIFIC_STUDENT; // estudante específico no qual foi desvinculado
-        NotificationAudience studentResponsible = NotificationAudience.STUDENT_RESPONSIBLE;
+        TravelNotificationAudience specificStudent = TravelNotificationAudience.SPECIFIC_STUDENT; // estudante específico no qual foi desvinculado
+        TravelNotificationAudience studentResponsible = TravelNotificationAudience.STUDENT_RESPONSIBLE;
 
         UUID travelId = travel.getId();
 
@@ -111,11 +111,11 @@ public class TravelTrackingNotificationService {
         );
 
         // estudante
-        PushNotificationCommandDTO studentCommand = new PushNotificationCommandDTO(
+        TravelPushNotificationCommandDTO studentCommand = new TravelPushNotificationCommandDTO(
                 specificStudent, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
         // responsible
-        PushNotificationCommandDTO responsibleCommand = new PushNotificationCommandDTO(
+        TravelPushNotificationCommandDTO responsibleCommand = new TravelPushNotificationCommandDTO(
                 studentResponsible, null,  travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
         firebaseNotificationSender.sendPushNotification(studentCommand);
@@ -127,7 +127,7 @@ public class TravelTrackingNotificationService {
     * - envia apenas para o estudante específico
     * */
     public void sendNotAssociatedToRouteStopNotification(InvalidStudentTravelRouteStopEvent studentTravelRouteStopEvent) {
-        NotificationAudience specificUser = NotificationAudience.SPECIFIC_STUDENT; // manda somente para o estudante em questão
+        TravelNotificationAudience specificUser = TravelNotificationAudience.SPECIFIC_STUDENT; // manda somente para o estudante em questão
 
         UUID travelId = studentTravelRouteStopEvent.travelId();
         UUID studentId = studentTravelRouteStopEvent.studentId();
@@ -143,8 +143,8 @@ public class TravelTrackingNotificationService {
                 "studentTravelRouteStopStatus", studentTravelRouteStopStatus.toString()
         );
 
-        PushNotificationCommandDTO studentCommand =
-                new PushNotificationCommandDTO(specificUser, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data
+        TravelPushNotificationCommandDTO studentCommand =
+                new TravelPushNotificationCommandDTO(specificUser, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data
         );
 
         // número de notificações enviadas para o usuário
@@ -177,7 +177,7 @@ public class TravelTrackingNotificationService {
         StudentTravelRouteStopStatus studentTravelRouteStopStatus = cancelledStudentTravelRouteStopEvent.studentTravelRouteStopStatus();
 
         // manda somente para o user em questão
-        NotificationAudience specificStudent = NotificationAudience.SPECIFIC_STUDENT;
+        TravelNotificationAudience specificStudent = TravelNotificationAudience.SPECIFIC_STUDENT;
 
         String title = "Viagem cancelada.";
         String message = "Seu(s) Ponto(s) de Parada(s) não serão rastreados pois a viagem foi cancelada";
@@ -189,8 +189,8 @@ public class TravelTrackingNotificationService {
                 "studentTravelRouteStopStatus", studentTravelRouteStopStatus.toString()
         );
 
-        PushNotificationCommandDTO studentCommand =
-                new PushNotificationCommandDTO(specificStudent, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
+        TravelPushNotificationCommandDTO studentCommand =
+                new TravelPushNotificationCommandDTO(specificStudent, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
         // envia notificação
         firebaseNotificationSender.sendPushNotification(studentCommand);
@@ -208,7 +208,7 @@ public class TravelTrackingNotificationService {
         String alertType = proximityEvents.alertType();
 
         // manda somente para o estudante em questão
-        NotificationAudience specificStudent = NotificationAudience.SPECIFIC_STUDENT;
+        TravelNotificationAudience specificStudent = TravelNotificationAudience.SPECIFIC_STUDENT;
 
         String title = "Alerta de Aproximação do Ônibus";
         String message = "O ônibus está a " + Math.round(distance) + " metros de você. Fique atento";
@@ -223,15 +223,15 @@ public class TravelTrackingNotificationService {
                 "alertType", alertType
         );
 
-        PushNotificationCommandDTO studentCommand =
-                new PushNotificationCommandDTO(specificStudent, null, travelId, studentId, null,null, title, message, link, Priority.NORMAL, data);
+        TravelPushNotificationCommandDTO studentCommand =
+                new TravelPushNotificationCommandDTO(specificStudent, null, travelId, studentId, null,null, title, message, link, Priority.NORMAL, data);
 
         // envia notificação
         firebaseNotificationSender.sendPushNotification(studentCommand);
     }
 
     // decide quando enviar as notifications para InvalidRoute
-    private void handleInvalidRouteNotification(UUID travelId, UUID studentId, int countInvalidRouteNotifications, PushNotificationCommandDTO studentCommand) {
+    private void handleInvalidRouteNotification(UUID travelId, UUID studentId, int countInvalidRouteNotifications, TravelPushNotificationCommandDTO studentCommand) {
         Long invalidRouteLastNotify = redisNotificationService.getInvalidRouteLastNotify(travelId, studentId);
 
         long timeNow = Instant.now().toEpochMilli();

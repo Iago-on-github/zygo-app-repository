@@ -1,29 +1,11 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.model.City;
-import com.travel_system.backend_app.model.Customer;
-import com.travel_system.backend_app.model.Driver;
-import com.travel_system.backend_app.model.Travel;
-import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
-import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
-import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
-import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
-import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)

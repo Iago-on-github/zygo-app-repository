@@ -3,6 +3,7 @@ package com.travel_system.backend_app.exceptions.catchException;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(InvalidJwtAuthenticationToken.class)
     public final ResponseEntity<StandardError> invalidJwtAuthenticationException(InvalidJwtAuthenticationToken ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public final ResponseEntity<StandardError> EmailNotVerifiedException(EmailNotVerifiedException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
     }
 
@@ -66,6 +72,21 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(InvitationExpiredException.class)
+    public final ResponseEntity<StandardError> InvitationExpiredException(InvitationExpiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(UserAlreadyHasProfileException.class)
+    public final ResponseEntity<StandardError> UserAlreadyHasProfileException(UserAlreadyHasProfileException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvitationRoleMismatchException.class)
+    public final ResponseEntity<StandardError> InvitationRoleMismatchException(InvitationRoleMismatchException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(MinorStudentResponsibleAdultTransferRequiredException.class)
     public final ResponseEntity<StandardError> MinorStudentResponsibleAdultTransferRequiredException(MinorStudentResponsibleAdultTransferRequiredException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
@@ -106,13 +127,28 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(InvitationNotFoundException.class)
+    public final ResponseEntity<StandardError> InvitationNotFoundException(InvitationNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(BoardingAlreadyConfirmedException.class)
     public final ResponseEntity<StandardError> BoardingAlreadyConfirmedException(BoardingAlreadyConfirmedException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InvitationNotPendingException.class)
+    public final ResponseEntity<StandardError> InvitationNotPendingException(InvitationNotPendingException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(TravelDirectionRequiredException.class)
     public final ResponseEntity<StandardError> TravelDirectionRequiredException(TravelDirectionRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InvalidInvitationProcessException.class)
+    public final ResponseEntity<StandardError> InvalidInvitationProcessException(InvalidInvitationProcessException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
@@ -131,8 +167,28 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    public final ResponseEntity<StandardError> ConstraintViolationException(ConstraintViolationException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(UserNotInvitableException.class)
+    public final ResponseEntity<StandardError> UserNotInvitableException(UserNotInvitableException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(InvalidTravelDirectionException.class)
     public final ResponseEntity<StandardError> InvalidTravelDirectionException(InvalidTravelDirectionException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(DuplicatePendingInvitationException.class)
+    public final ResponseEntity<StandardError> DuplicatePendingInvitation(DuplicatePendingInvitationException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ProfileAlreadyExistsInCustomer.class)
+    public final ResponseEntity<StandardError> ProfileAlreadyExistsInCustomer(ProfileAlreadyExistsInCustomer ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 

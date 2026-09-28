@@ -12,33 +12,43 @@ import java.util.UUID;
 
 @FilterDef(
         name = "tenantFilter",
-        parameters = @ParamDef(name = "customerId", type = UUID.class)
+        parameters = @ParamDef(name = "customerId", type = UUID.class),
+        applyToLoadByKey = true
 )
-@Filter(name = "tenantFilter", condition = "customer_id = :customerId AND customer_id IS NOT NULL")
+@Filter(name = "tenantFilter", condition = "customer_id = :customerId")
 @MappedSuperclass // modelo de mapeamento para subclasses
 public class BaseTenantEntity {
 
-    @Column(name = "customer_id")
+    // toda entidade de domínio pertence obrigatoriamente a um Customer, e ele nunca muda após o insert
+    @Column(name = "customer_id", nullable = false, updatable = false)
     private UUID customerId;
 
     public UUID getCustomerId() {
         return customerId;
     }
 
-    // setter não pode ser público
-    protected void setCustomerId(UUID customerId) {
+    // vincula a entidade a um Customer de forma explícita (ex.: aceite de convite, sem TenantContext);
+    // permite apenas uma atribuição: nunca move a entidade para outro Customer
+    public void assignCustomer(UUID customerId) {
+        if (customerId == null) {
+            throw new IllegalArgumentException("customerId não pode ser nulo");
+        }
+        if (this.customerId != null && !this.customerId.equals(customerId)) {
+            throw new IllegalStateException("A entidade já pertence a outro Customer");
+        }
         this.customerId = customerId;
     }
 
+    // fluxo padrão: sem atribuição explícita, usa o Customer do TenantContext;
+    // se nenhum dos dois existir, bloqueia a persistência
     @PrePersist
     protected void prePersist() {
-
         if (this.customerId == null) {
             UUID currentTenant = TenantContext.getCurrentTenant();
-            System.out.println("prePersist, currentTenant: " + currentTenant);
-            if (currentTenant != null) {
-                this.customerId = currentTenant;
+            if (currentTenant == null) {
+                throw new IllegalStateException("Entidade de tenant sem Customer definido");
             }
+            this.customerId = currentTenant;
         }
     }
 }

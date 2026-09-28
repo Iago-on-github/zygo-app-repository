@@ -7,6 +7,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableJpaAuditing
@@ -14,6 +15,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableAsync
 @EnableRetry
 @EnableAspectJAutoProxy
+@EnableScheduling
 public class BackendAppApplication {
 
 	public static void main(String[] args) {

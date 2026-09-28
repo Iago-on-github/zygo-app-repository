@@ -6,6 +6,8 @@ import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.StudentRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StudentResponseMapper;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.invitation.StudentAcceptDTO;
+import com.travel_system.backend_app.model.dtos.invitation.StudentProfileDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.enums.Shift;
@@ -37,7 +39,7 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 @Service
 public class StudentService {
     private final StudentRepository studentRepository;
-    private final PermissionsRepository permissionsRepository;
+    private final InvitationRepository invitationRepository;
     private final UserAccountRepository userAccountRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
 
@@ -46,9 +48,9 @@ public class StudentService {
     private final StudentResponseMapper studentResponseMapper;
     private final StudentRequestMapper studentRequestMapper;
 
-    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper) {
+    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper) {
         this.studentRepository = studentRepository;
-        this.permissionsRepository = permissionsRepository;
+        this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
         this.passwordEncoder = passwordEncoder;
@@ -82,7 +84,32 @@ public class StudentService {
         return studentResponseMapper.toDTO(student);
     }
 
-    @Transactional
+    public Student createForExistingAccount(UserAccount userAccount, UUID customerId, StudentProfileDTO studentProfileDTO) {
+        // fazer os dois via nativequery
+        if (studentRepository.existsByTelephoneIgnoringTenant(studentProfileDTO.studentAccept().telephone())) {
+            throw new DuplicateResourceException("Já existe um estudante com esse Telefone");
+        }
+
+        if (studentRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+            throw new DuplicateResourceException("Já existe esse estudante cadastrado no sistema");
+        }
+
+        long countStudents = studentRepository.countStudentsInThisCustomer(customerId);
+
+        if (countStudents >= GlobalAppConstants.STUDENT_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Estudantes no seu plano é de " + GlobalAppConstants.STUDENT_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
+
+        Student student = studentRequestMapper.toEntity(studentProfileDTO);
+
+        student.setStatus(GeneralStatus.ACTIVE);
+        student.setUserAccount(userAccount);
+        student.assignCustomer(customerId);
+
+        return studentRepository.save(student);
+    }
+
+/*    @Transactional
     public StudentResponseDTO createStudent(StudentRequestDTO requestDTO) {
         verifyFieldsIsNull(requestDTO);
 
@@ -120,7 +147,7 @@ public class StudentService {
         Student savedStudent = studentRepository.save(student);
 
         return studentResponseMapper.toDTO(savedStudent);
-    }
+    }*/
 
     @Transactional
     public void addResponsibleAdult(ResponsibleAdultLinkRequestDTO dto) {
@@ -259,12 +286,12 @@ public class StudentService {
         studentRepository.save(student);
     }
 
-    private void verifyFieldsIsNull(StudentRequestDTO dto) {
+    /*private void verifyFieldsIsNull(StudentRequestDTO dto) {
         if (dto.email() == null || dto.password() == null ||
                 dto.name() == null || dto.telephone() == null || dto.institutionType() == null || dto.course() == null) {
             throw new EmptyMandatoryFieldsFoundException("Você deve preencher todos os campos requeridos");
         }
-    }
+    }*/
 
     private void validateSameCustomer(UUID customerOne, UUID customerTwo) {
         if (!customerOne.equals(customerTwo)) {

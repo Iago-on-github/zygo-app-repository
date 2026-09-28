@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.config.constants;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 public class GlobalAppConstants {
@@ -28,4 +29,7 @@ public class GlobalAppConstants {
     public static final int ADMINISTRATOR_RECORD_LIMIT = 2;
     public static final int DRIVER_RECORD_LIMIT = 4;
     public static final int STUDENT_RECORD_LIMIT = 50;
+
+    // invites
+    public static final Duration INVITE_EXPIRES_AT = Duration.ofDays(1);
 }

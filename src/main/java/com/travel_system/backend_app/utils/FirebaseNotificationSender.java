@@ -2,10 +2,13 @@ package com.travel_system.backend_app.utils;
 
 import com.google.firebase.messaging.*;
 import com.travel_system.backend_app.exceptions.DomainValidationException;
+import com.travel_system.backend_app.interfaces.PushNotificationContent;
 import com.travel_system.backend_app.model.PushNotificationDeviceToken;
 import com.travel_system.backend_app.model.UserAccount;
-import com.travel_system.backend_app.model.dtos.notifications.PushNotificationCommandDTO;
-import com.travel_system.backend_app.model.enums.NotificationAudience;
+import com.travel_system.backend_app.model.dtos.notifications.SystemPushNotificationCommandDTO;
+import com.travel_system.backend_app.model.dtos.notifications.TravelPushNotificationCommandDTO;
+import com.travel_system.backend_app.model.enums.Priority;
+import com.travel_system.backend_app.model.enums.TravelNotificationAudience;
 import com.travel_system.backend_app.model.enums.Platform;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,15 +23,17 @@ public class FirebaseNotificationSender {
 
     private final PushNotificationDeviceTokenRepository deviceTokenRepository;
     private final UserAccountRepository userAccountRepository;
-    private final NotificationRecipientResolver notificationRecipientResolver;
+    private final NotificationRecipientResolver recipientResolver;
     private final FirebaseMessaging firebaseMessaging;
+
+    private static final int FCM_MULTICAST_LIMIT = 500;
 
     private static final Logger logger = LoggerFactory.getLogger(FirebaseNotificationSender.class);
 
-    public FirebaseNotificationSender(PushNotificationDeviceTokenRepository deviceTokenRepository, UserAccountRepository userAccountRepository, NotificationRecipientResolver notificationRecipientResolver, FirebaseMessaging firebaseMessaging) {
+    public FirebaseNotificationSender(PushNotificationDeviceTokenRepository deviceTokenRepository, UserAccountRepository userAccountRepository, NotificationRecipientResolver recipientResolver, FirebaseMessaging firebaseMessaging) {
         this.deviceTokenRepository = deviceTokenRepository;
         this.userAccountRepository = userAccountRepository;
-        this.notificationRecipientResolver = notificationRecipientResolver;
+        this.recipientResolver = recipientResolver;
         this.firebaseMessaging = firebaseMessaging;
     }
 
@@ -65,206 +70,96 @@ public class FirebaseNotificationSender {
         deviceTokenRepository.save(deviceToken);
     }
 
-    // envia notificação ao firebase
-    public void sendPushNotification(PushNotificationCommandDTO pushNotificationCommand) {
-        NotificationAudience audience = pushNotificationCommand.notificationAudience();
 
-        Set<String> tokensByAudience = resolveTokensByAudience(pushNotificationCommand);
+    // registra/atualiza os tokens do usuário
+    public void sendTravelNotification(TravelPushNotificationCommandDTO command) {
+        dispatch(command, recipientResolver.resolve(command), command.travelNotificationAudience().name());
+    }
 
-        if (tokensByAudience == null || tokensByAudience.isEmpty()) {
-            logger.info("Nenhum token ativo para o user {}, pulando notificação para a audiência: ", audience);
+    public void sendSystemNotification(SystemPushNotificationCommandDTO command) {
+        dispatch(command, recipientResolver.resolve(command), command.systemNotificationAudience().name());
+    }
+
+    // atua como núcleo genérico para as notificações
+    private void dispatch(PushNotificationContent content, Set<String> tokens, String audience) {
+        if (tokens == null || tokens.isEmpty()) {
+            logger.info("Nenhum token ativo para a audiência {}, pulando notificação", audience);
             return;
         }
 
-        List<String> deviceTokens = tokensByAudience.stream().toList();
+        List<String> allTokens = List.copyOf(tokens);
+        List<String> invalidTokens = new ArrayList<>();
 
-        MulticastMessage payload = buildFcmMessage(pushNotificationCommand, deviceTokens);
+        for (int start = 0; start < allTokens.size(); start += FCM_MULTICAST_LIMIT) {
+            // divide em lotes de FCM_MULTICAST_LIMIT. Math.min protege o último lote parcial
+            List<String> batch = allTokens.subList(start, Math.min(start + FCM_MULTICAST_LIMIT, allTokens.size()));
 
-        try {
-            BatchResponse response = firebaseMessaging.sendEachForMulticast(payload);
+            try {
+                BatchResponse response = firebaseMessaging.sendEachForMulticast(buildFcmMessage(content, batch));
+                logger.info("FCM [{}]: {} enviados, {} falhas", audience, response.getSuccessCount(), response.getFailureCount());
 
-            logger.info("Tokens enviados ao firebase: {}", response.getSuccessCount());
-
-            if (response.getFailureCount() > 0) {
-                List<String> failureTokens = getFailureDeviceTokens(response, deviceTokens);
-                logger.error("Falha crítica no FCM para a audiência: {}, {} ", audience, response.getFailureCount());
-
-                if (!failureTokens.isEmpty()) {
-                    logger.warn("Desativando {} tokens inválidos no banco.", failureTokens.size());
-                    deviceTokenRepository.deactivateTokensByValue(failureTokens);
+                if (response.getFailureCount() > 0) {
+                    invalidTokens.addAll(getInvalidTokens(response, batch));
                 }
+            } catch (FirebaseMessagingException e) {
+                logger.error("Erro no envio ao Firebase [{}]: {}", audience, e.getMessagingErrorCode(), e);
             }
-        } catch (FirebaseMessagingException e) {
-            logger.error("Erro no envio da mensagem para o Firebase: {} ", e.getMessagingErrorCode());
+        }
+
+        if (!invalidTokens.isEmpty()) {
+            logger.warn("Desativando {} tokens inválidos", invalidTokens.size());
+            deviceTokenRepository.deactivateTokensByValue(invalidTokens);
         }
     }
 
-    // retorna os tokens que falharam da response
-    private static List<String> getFailureDeviceTokens(BatchResponse response, List<String> deviceTokens) {
+    // a posição i da resposta corresponde à posição i do lote enviado
+    public static List<String> getInvalidTokens(BatchResponse response, List<String> batch) {
+        List<String> invalid = new ArrayList<>();
         List<SendResponse> responses = response.getResponses();
-        List<String> failureTokens = new ArrayList<>();
 
         for (int i = 0; i < responses.size(); i++) {
-            if (!responses.get(i).isSuccessful()) {
+            SendResponse sendResponse = responses.get(i);
+            if (sendResponse.isSuccessful()) continue;
 
-                String failedToken = deviceTokens.get(i);
+            MessagingErrorCode msgErrCode = sendResponse.getException().getMessagingErrorCode();
 
-                MessagingErrorCode messagingErrorCode = responses.get(i).getException()
-                        .getMessagingErrorCode();
-
-                // usuário removeu o app ou limpou os dados ou formato incorreto do token
-                if (messagingErrorCode.equals(MessagingErrorCode.UNREGISTERED) || messagingErrorCode.equals(MessagingErrorCode.INVALID_ARGUMENT)) {
-                    logger.info("Processo de desativação do token... motivo: {}", messagingErrorCode);
-
-                    // lista temporária para desativar os tokens
-                    failureTokens.add(failedToken);
-                }
-
-                if (messagingErrorCode.equals(MessagingErrorCode.QUOTA_EXCEEDED)) {
-                    logger.warn("Limite do firebase atingido: {}", messagingErrorCode);
-                }
+            // mapeamento de erros + aviso de excesso de quota
+            if (msgErrCode == MessagingErrorCode.UNREGISTERED || msgErrCode == MessagingErrorCode.INVALID_ARGUMENT) {
+                invalid.add(batch.get(i));
+            } else if (msgErrCode == MessagingErrorCode.QUOTA_EXCEEDED) {
+                logger.warn("Limite do Firebase atingido");
             }
         }
-        return failureTokens;
+
+        return invalid;
     }
 
-    // converte para o formato FCM do firebase
-    private MulticastMessage buildFcmMessage(PushNotificationCommandDTO notificationCommandDTO, List<String> deviceTokens) {
-        if (deviceTokens == null || deviceTokens.isEmpty()) {
-            throw new DomainValidationException("[buildFcmMessage] tokens não podem ser vazios");
+    private MulticastMessage buildFcmMessage(PushNotificationContent content, List<String> tokens) {
+        Map<String, String> data = content.data() != null ? new HashMap<>(content.data()) : new HashMap<>();
+
+        WebpushConfig.Builder webpush = WebpushConfig.builder()
+                .setNotification(WebpushNotification.builder()
+                        .setTitle(content.title())
+                        .setBody(content.message())
+                        .build());
+
+        if (content.link() != null) {
+            webpush.setFcmOptions(WebpushFcmOptions.builder().setLink(content.link()).build());
         }
 
-        Map<String, String> data = notificationCommandDTO.data() != null
-                ? new HashMap<>(notificationCommandDTO.data())
-                : new HashMap<>();
-
-        Set<String> convertedTokens = new HashSet<>(deviceTokens);
-
-        /*
-         * setNotification: notificação padrão para dispositivos móveis
-         * setWebpushConfig: notificação para navegadores, caso o user esteja no pc ou navegador.
-         * "setLink" faz o direcionamento para a página da viagem ao clicar na notificação
-         */
         return MulticastMessage.builder()
                 .setNotification(Notification.builder()
-                        .setTitle(notificationCommandDTO.title())
-                        .setBody(notificationCommandDTO.message())
+                        .setTitle(content.title())
+                        .setBody(content.message())
                         .build())
-                .setWebpushConfig(WebpushConfig.builder()
-                        .setNotification(WebpushNotification.builder()
-                                .setTitle(notificationCommandDTO.title())
-                                .setBody(notificationCommandDTO.message())
-                                .build())
-                        .setFcmOptions(WebpushFcmOptions.builder()
-                                .setLink(notificationCommandDTO.link())
-                                .build())
+                .setAndroidConfig(AndroidConfig.builder()
+                        .setPriority(content.priority() == Priority.HIGH
+                                ? AndroidConfig.Priority.HIGH
+                                : AndroidConfig.Priority.NORMAL)
                         .build())
+                .setWebpushConfig(webpush.build())
                 .putAllData(data)
-                .addAllTokens(convertedTokens)
+                .addAllTokens(tokens)
                 .build();
-
-    }
-
-    // separa cada tokem com base na audiência dele (a quem deve ser enviado)
-    private Set<String> resolveTokensByAudience(PushNotificationCommandDTO command) {
-        if (command == null || command.notificationAudience() == null) {
-            throw new DomainValidationException("[resolveTokensByAudience] audience não pode ser null");
-        }
-
-        return switch (command.notificationAudience()) {
-            case CUSTOMER_RESPONSIBLES -> {
-                if (command.customerId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_RESPONSIBLES");
-                }
-                yield notificationRecipientResolver.resolveCustomerResponsibles(command.customerId());
-            }
-
-            case ALL_CUSTOMER_USERS -> {
-                if (command.customerId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para ALL_CUSTOMER_USERS");
-                }
-                yield notificationRecipientResolver.resolveAllCustomerUsers(command.customerId());
-            }
-
-            case CUSTOMER_STUDENTS -> {
-                if (command.customerId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_STUDENTS");
-                }
-
-                yield notificationRecipientResolver.resolveCustomerStudents(command.customerId());
-            }
-
-            case CUSTOMER_DRIVERS -> {
-                if (command.customerId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_DRIVERS");
-                }
-
-                yield notificationRecipientResolver.resolveCustomerDrivers(command.customerId());
-            }
-
-            case CUSTOMER_ADMINS -> {
-                if (command.customerId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId obrigatório para CUSTOMER_ADMINS");
-                }
-
-                yield notificationRecipientResolver.resolveCustomerAdmins(command.customerId());
-            }
-
-            case SPECIFIC_STUDENT -> {
-                if (command.studentId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] studentId obrigatório para SPECIFIC_STUDENT");
-                }
-
-                yield notificationRecipientResolver.resolveSpecificStudent(command.studentId());
-            }
-
-            case SPECIFIC_DRIVER -> {
-                if (command.driverId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] driverId obrigatório para SPECIFIC_DRIVER");
-                }
-
-                yield notificationRecipientResolver.resolveSpecificDriver(command.driverId());
-            }
-
-            case PERIOD_STUDENTS -> {
-                if (command.customerId() == null || command.shift() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] customerId e shift obrigatórios para PERIOD_STUDENTS");
-                }
-
-                yield notificationRecipientResolver.resolvePeriodStudents(command.customerId(), command.shift());
-            }
-
-            case TRAVEL_STUDENTS -> {
-                if (command.travelId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para TRAVEL_STUDENTS");
-                }
-
-                yield notificationRecipientResolver.resolveTravelStudents(command.travelId());
-            }
-
-            case TRAVEL_RESPONSIBLES -> {
-                if (command.travelId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para TRAVEL_RESPONSIBLES");
-                }
-
-                yield notificationRecipientResolver.resolveCustomerResponsiblesByTravel(command.travelId());
-            }
-
-            case STUDENT_RESPONSIBLE -> {
-                if (command.studentId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] studentId obrigatório para STUDENT_RESPONSIBLE");
-                }
-
-                yield notificationRecipientResolver.resolveStudentResponsible(command.studentId());
-            }
-
-            case EMBARKED_TRAVEL_STUDENTS -> {
-                if (command.travelId() == null) {
-                    throw new DomainValidationException("[resolveTokensByAudience] travelId obrigatório para EMBARKED_TRAVEL_STUDENTS");
-                }
-
-                yield notificationRecipientResolver.resolveEmbarkedTravelStudents(command.travelId());
-            }
-        };
     }
 }

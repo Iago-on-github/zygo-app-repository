@@ -55,14 +55,14 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getCurrentStudent());
     }
 
-    @PostMapping("/new")
+/*    @PostMapping("/new")
     public ResponseEntity<StudentResponseDTO> createStudent(@Valid @RequestBody StudentRequestDTO studentRequestDTO, UriComponentsBuilder componentsBuilder) {
         StudentResponseDTO student = studentService.createStudent(studentRequestDTO);
 
         URI uri = componentsBuilder.path("{/id}").buildAndExpand(student.id()).toUri();
 
         return ResponseEntity.created(uri).body(student);
-    }
+    }*/
 
     @PatchMapping("/add/responsible")
     public ResponseEntity<Void> addResponsibleAdult(@Valid @RequestBody ResponsibleAdultLinkRequestDTO dto) {

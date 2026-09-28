@@ -1,15 +1,15 @@
 package com.travel_system.backend_app.model.dtos.notifications;
 
-import com.travel_system.backend_app.model.enums.NotificationAudience;
+import com.travel_system.backend_app.interfaces.PushNotificationContent;
+import com.travel_system.backend_app.model.enums.TravelNotificationAudience;
 import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.model.enums.Shift;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public record PushNotificationCommandDTO(
-        NotificationAudience notificationAudience,
+public record TravelPushNotificationCommandDTO(
+        TravelNotificationAudience travelNotificationAudience,
         UUID customerId,
         UUID travelId,
         UUID studentId,
@@ -20,7 +20,7 @@ public record PushNotificationCommandDTO(
         String link,
         Priority priority,
         Map<String, String> data
-) {
+) implements PushNotificationContent {
 }
 
 /* GUIDE dos IDs das Domain Entites
