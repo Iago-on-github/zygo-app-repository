@@ -56,31 +56,25 @@ public class InvitationService {
     private final AdministratorRepository administratorRepository;
     private final CustomerRepository customerRepository;
 
-    private final StudentService studentService;
     private final PermissionsService permissionsService;
     private final TokenConfig tokenConfig;
 
-    private final InvitationRequestMapper invitationRequestMapper;
     private final InvitationResponseMapper invitationResponseMapper;
 
-    private final Validator validator;
     private final ObjectMapper objectMapper;
 
     private final StudentInvitationProfileStrategy studentInvitationProfileStrategy;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, StudentService studentService, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationRequestMapper invitationRequestMapper, InvitationResponseMapper invitationResponseMapper, Validator validator, ProfileCreator profileCreator, ObjectMapper objectMapper, StudentInvitationProfileStrategy studentInvitationProfileStrategy, ApplicationEventPublisher eventPublisher) {
+    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, StudentInvitationProfileStrategy studentInvitationProfileStrategy, ApplicationEventPublisher eventPublisher) {
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
-        this.studentService = studentService;
         this.permissionsService = permissionsService;
         this.tokenConfig = tokenConfig;
-        this.invitationRequestMapper = invitationRequestMapper;
         this.invitationResponseMapper = invitationResponseMapper;
-        this.validator = validator;
         this.objectMapper = objectMapper;
         this.studentInvitationProfileStrategy = studentInvitationProfileStrategy;
         this.eventPublisher = eventPublisher;
@@ -200,7 +194,7 @@ public class InvitationService {
 
         Map<UUID, String> customerNames  = customerRepository.findAllById(customerIds).stream().collect(Collectors.toMap(Customer::getId, Customer::getName));
 
-        Map<UUID, String> inviterNames  = administratorRepository.findAllByUserAccountIdIgnoringCustomer(inviterIds).stream()
+        Map<UUID, String> inviterNames  = administratorRepository.findAllByUserAccountIdInIgnoringTenant(inviterIds).stream()
                 .collect(Collectors.toMap(a -> a.getUserAccount().getId(), Administrator::getName));
 
         return myPendingInvitations.stream()

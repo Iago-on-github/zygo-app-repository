@@ -59,7 +59,7 @@ public class TravelTrackingNotificationService {
                 travelStudents, null, travelId, null, null, null, title, message, link, Priority.HIGH, data);
 
         // envia as notificações
-        firebaseNotificationSender.sendPushNotification(students);
+        firebaseNotificationSender.sendTravelNotification(students);
     }
 
     /*
@@ -86,7 +86,7 @@ public class TravelTrackingNotificationService {
                 travelStudents, null, travelId, null, null, null, title, message, link, Priority.HIGH, data);
 
         // envia as notificações
-        firebaseNotificationSender.sendPushNotification(students);
+        firebaseNotificationSender.sendTravelNotification(students);
     }
 
     /*
@@ -118,8 +118,8 @@ public class TravelTrackingNotificationService {
         TravelPushNotificationCommandDTO responsibleCommand = new TravelPushNotificationCommandDTO(
                 studentResponsible, null,  travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(studentCommand);
-        firebaseNotificationSender.sendPushNotification(responsibleCommand);
+        firebaseNotificationSender.sendTravelNotification(studentCommand);
+        firebaseNotificationSender.sendTravelNotification(responsibleCommand);
     }
 
     /*
@@ -152,7 +152,7 @@ public class TravelTrackingNotificationService {
 
         // verifica se é a primeira notificação, envia e retorna direto
         if (countInvalidRouteNotifications == 0) {
-            firebaseNotificationSender.sendPushNotification(studentCommand);
+            firebaseNotificationSender.sendTravelNotification(studentCommand);
 
             // primeira notificação
             Instant notifyAt = Instant.now();
@@ -193,7 +193,7 @@ public class TravelTrackingNotificationService {
                 new TravelPushNotificationCommandDTO(specificStudent, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
         // envia notificação
-        firebaseNotificationSender.sendPushNotification(studentCommand);
+        firebaseNotificationSender.sendTravelNotification(studentCommand);
     }
 
     /*
@@ -227,7 +227,7 @@ public class TravelTrackingNotificationService {
                 new TravelPushNotificationCommandDTO(specificStudent, null, travelId, studentId, null,null, title, message, link, Priority.NORMAL, data);
 
         // envia notificação
-        firebaseNotificationSender.sendPushNotification(studentCommand);
+        firebaseNotificationSender.sendTravelNotification(studentCommand);
     }
 
     // decide quando enviar as notifications para InvalidRoute
@@ -245,7 +245,7 @@ public class TravelTrackingNotificationService {
             if (totalTimeOfLastNotify >= INVALID_ROUTE_LAST_NOTIFY_TIME && countInvalidRouteNotifications == 1) {
                 log.info("[InvalidRoute - notify] - Segunda notificação enviada");
 
-                firebaseNotificationSender.sendPushNotification(studentCommand);
+                firebaseNotificationSender.sendTravelNotification(studentCommand);
 
                 Instant notifyAt = Instant.now();
                 countInvalidRouteNotifications += 1;
@@ -265,7 +265,7 @@ public class TravelTrackingNotificationService {
             if (totalTimeOfLastNotify >= multiplyNotificationTime && countInvalidRouteNotifications < MAX_SENT_NOT_ASSOCIATED_ROUTE_STOP_NOTIFICATIONS) {
                 log.info("[InvalidRoute - notify] - Notificação enviada de número {} enviada: ", countInvalidRouteNotifications);
 
-                firebaseNotificationSender.sendPushNotification(studentCommand);
+                firebaseNotificationSender.sendTravelNotification(studentCommand);
 
                 Instant notifyAt = Instant.now();
                 countInvalidRouteNotifications += 1;

@@ -85,7 +85,7 @@ public class StudentService {
     }
 
     public Student createForExistingAccount(UserAccount userAccount, UUID customerId, StudentProfileDTO studentProfileDTO) {
-        // fazer os dois via nativequery
+        // via nativequery = busca globalmente
         if (studentRepository.existsByTelephoneIgnoringTenant(studentProfileDTO.studentAccept().telephone())) {
             throw new DuplicateResourceException("Já existe um estudante com esse Telefone");
         }
@@ -108,46 +108,6 @@ public class StudentService {
 
         return studentRepository.save(student);
     }
-
-/*    @Transactional
-    public StudentResponseDTO createStudent(StudentRequestDTO requestDTO) {
-        verifyFieldsIsNull(requestDTO);
-
-        long countStudents = studentRepository.count();
-
-        if (countStudents >= GlobalAppConstants.STUDENT_RECORD_LIMIT) {
-            throw new EntityLimitExceededException("O limite de cadastro para Estudantes no seu plano é de " + GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
-        }
-
-        if (userAccountRepository.existsByEmail(requestDTO.email())) {
-            throw new DuplicateResourceException("O email " + requestDTO.email() + " já existe");
-        }
-
-        if (studentRepository.existsByTelephone(requestDTO.telephone())) {
-            throw new DuplicateResourceException("O telefone " + requestDTO.telephone() + " já existe");
-        }
-
-        UserAccount userAccount = new UserAccount();
-        userAccount.setPassword(passwordEncoder.encode(requestDTO.password()));
-        userAccount.setEmail(requestDTO.email());
-        userAccount.setPermissions(List.of());
-        userAccount.setUserAccountType(UserAccountType.UNASSIGNED);
-
-        UserAccount savedAccount = userAccountRepository.save(userAccount);
-
-        Student student = studentRequestMapper.toEntity(requestDTO);
-
-        student.setUserAccount(savedAccount);
-
-        // vínculo com o(s) período(s)
-        if (!requestDTO.studentShift().isEmpty()) {
-            student.setStudentShift(requestDTO.studentShift());
-        }
-
-        Student savedStudent = studentRepository.save(student);
-
-        return studentResponseMapper.toDTO(savedStudent);
-    }*/
 
     @Transactional
     public void addResponsibleAdult(ResponsibleAdultLinkRequestDTO dto) {
@@ -285,13 +245,6 @@ public class StudentService {
 
         studentRepository.save(student);
     }
-
-    /*private void verifyFieldsIsNull(StudentRequestDTO dto) {
-        if (dto.email() == null || dto.password() == null ||
-                dto.name() == null || dto.telephone() == null || dto.institutionType() == null || dto.course() == null) {
-            throw new EmptyMandatoryFieldsFoundException("Você deve preencher todos os campos requeridos");
-        }
-    }*/
 
     private void validateSameCustomer(UUID customerOne, UUID customerTwo) {
         if (!customerOne.equals(customerTwo)) {

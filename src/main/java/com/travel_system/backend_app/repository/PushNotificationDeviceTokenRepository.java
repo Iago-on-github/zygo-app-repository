@@ -198,10 +198,10 @@ public interface PushNotificationDeviceTokenRepository extends JpaRepository<Pus
             @Param("travelId") UUID travelId
     );
 
-    @Query("SELECT DISTINCT dt.token FROM PushNotificationToken dt WHERE dt.active = TRUE AND EXISTS( SELECT 1 FROM Administrator adm WHERE adm.id = :adminId AND adm.userAccount.id = dt.userAccount.id)")
+    @Query("SELECT DISTINCT dt.token FROM PushNotificationDeviceToken dt WHERE dt.active = TRUE AND EXISTS( SELECT 1 FROM Administrator adm WHERE adm.id = :adminId AND adm.userAccount.id = dt.userAccount.id)")
     Set<String> findActiveTokensBySpecificAdmin(UUID adminId);
 
-    @Query("SELECT DISTINCT dt.token FROM PushNotificationToken dt WHERE dt.active = TRUE AND EXISTS (SELECT 1 FROM UserAccount us WHERE us.id = :userAccountId) ")
+    @Query("SELECT DISTINCT dt.token FROM PushNotificationDeviceToken dt WHERE dt.active = TRUE AND EXISTS (SELECT 1 FROM UserAccount us WHERE us.id = :userAccountId) ")
     Set<String> findActiveTokensBySpecificUserAccount(UUID userAccountId);
 }
 

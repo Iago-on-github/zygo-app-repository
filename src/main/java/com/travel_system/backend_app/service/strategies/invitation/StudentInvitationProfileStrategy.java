@@ -12,10 +12,12 @@ import com.travel_system.backend_app.service.StudentService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import org.springframework.stereotype.Component;
 
 import java.util.Set;
 import java.util.UUID;
 
+@Component
 public class StudentInvitationProfileStrategy {
 
     private final StudentService studentService;

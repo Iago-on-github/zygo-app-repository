@@ -67,9 +67,9 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO periodStudentsCommandDTO = new TravelPushNotificationCommandDTO(
                 periodStudents, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(adminCommandDTO);
-        firebaseNotificationSender.sendPushNotification(responsibleCommandDTO);
-        firebaseNotificationSender.sendPushNotification(periodStudentsCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(adminCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(responsibleCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(periodStudentsCommandDTO);
     }
 
     /*
@@ -109,9 +109,9 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO studentsCommandDTO =
                 new TravelPushNotificationCommandDTO(periodStudentsNotification, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(responsiblesCommandDTO);
-        firebaseNotificationSender.sendPushNotification(adminCommandDTO);
-        firebaseNotificationSender.sendPushNotification(studentsCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(responsiblesCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(adminCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(studentsCommandDTO);
     }
 
     /*
@@ -149,9 +149,9 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO studentsCommandDTO =
                 new TravelPushNotificationCommandDTO(periodStudentsNotification, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(responsiblesCommandDTO);
-        firebaseNotificationSender.sendPushNotification(adminCommandDTO);
-        firebaseNotificationSender.sendPushNotification(studentsCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(responsiblesCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(adminCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(studentsCommandDTO);
     }
 
     /*
@@ -189,9 +189,9 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO studentsCommandDTO =
                 new TravelPushNotificationCommandDTO(periodStudentsNotification, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(responsiblesCommandDTO);
-        firebaseNotificationSender.sendPushNotification(adminCommandDTO);
-        firebaseNotificationSender.sendPushNotification(studentsCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(responsiblesCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(adminCommandDTO);
+        firebaseNotificationSender.sendTravelNotification(studentsCommandDTO);
     }
 
     /*
@@ -235,10 +235,10 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO students =
                 new TravelPushNotificationCommandDTO(periodStudentsNotification, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(driver);
-        firebaseNotificationSender.sendPushNotification(responsibles);
-        firebaseNotificationSender.sendPushNotification(admins);
-        firebaseNotificationSender.sendPushNotification(students);
+        firebaseNotificationSender.sendTravelNotification(driver);
+        firebaseNotificationSender.sendTravelNotification(responsibles);
+        firebaseNotificationSender.sendTravelNotification(admins);
+        firebaseNotificationSender.sendTravelNotification(students);
     }
 
     /*
@@ -263,7 +263,7 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO responsible =
                 new TravelPushNotificationCommandDTO(studentResponsible, null, travel.getId(), student.getId(), null, null, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(responsible);
+        firebaseNotificationSender.sendTravelNotification(responsible);
     }
 
     /*
@@ -288,7 +288,7 @@ public class TravelNotificationService {
         TravelPushNotificationCommandDTO responsible =
                 new TravelPushNotificationCommandDTO(studentResponsible, null, travelId, studentId, null, null, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendPushNotification(responsible);
+        firebaseNotificationSender.sendTravelNotification(responsible);
     }
 
     // timeable change

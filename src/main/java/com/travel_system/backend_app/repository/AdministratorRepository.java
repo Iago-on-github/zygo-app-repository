@@ -34,5 +34,6 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
 
     List<Administrator> findAllByUserAccountIdIn(Collection<UUID> userAccountIds);
 
-    List<Administrator> findAllByUserAccountIdIgnoringCustomer(Set<UUID> inviterIds);
+    @Query(value = "SELECT * FROM administrator_table WHERE user_account_id IN (:userAccountIds)", nativeQuery = true)
+    List<Administrator> findAllByUserAccountIdInIgnoringTenant(@Param("userAccountIds") Collection<UUID> userAccountIds);
 }
