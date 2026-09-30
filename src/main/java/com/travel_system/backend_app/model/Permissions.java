@@ -4,6 +4,7 @@ import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -32,5 +33,17 @@ public class Permissions implements GrantedAuthority {
     @Override
     public String getAuthority() {
         return description;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Permissions that = (Permissions) o;
+        return Objects.equals(id, that.id) && Objects.equals(description, that.description);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, description);
     }
 }

@@ -3,6 +3,7 @@ package com.travel_system.backend_app.model;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import jakarta.persistence.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -25,21 +26,23 @@ public class UserAccount {
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.REMOVE)
     @JoinTable(name = "user_account_permissions", joinColumns = {@JoinColumn (name="id_account_id")},
     inverseJoinColumns = {@JoinColumn (name = "permission_id")})
-    private List<Permissions> permissions = new ArrayList<>();
+    private Set<Permissions> permissions = new HashSet<>();
     @OneToMany(mappedBy = "userAccount", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PushNotificationDeviceToken> PushNotificationDeviceTokens = new HashSet<>();
-    private LocalDate emailVerifiedAt;
+    private Instant emailVerifiedAt;
+    private LocalDate termsAcceptedAt;
 
     public UserAccount() {
     }
 
-    public UserAccount(UUID id, String email, String password, UserAccountType userAccountType, boolean emailVerified, LocalDate emailVerifiedAt) {
+    public UserAccount(UUID id, String email, String password, UserAccountType userAccountType, boolean emailVerified, Instant emailVerifiedAt, LocalDate termsAcceptedAt) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.userAccountType = userAccountType;
         this.emailVerified = emailVerified;
         this.emailVerifiedAt = emailVerifiedAt;
+        this.termsAcceptedAt = termsAcceptedAt;
     }
 
     public List<String> getRoles() {
@@ -90,11 +93,11 @@ public class UserAccount {
         this.emailVerified = emailVerified;
     }
 
-    public List<Permissions> getPermissions() {
+    public Set<Permissions> getPermissions() {
         return permissions;
     }
 
-    public void setPermissions(List<Permissions> permissions) {
+    public void setPermissions(Set<Permissions> permissions) {
         this.permissions = permissions;
     }
 
@@ -106,12 +109,20 @@ public class UserAccount {
         PushNotificationDeviceTokens = pushNotificationDeviceTokens;
     }
 
-    public LocalDate getEmailVerifiedAt() {
+    public Instant getEmailVerifiedAt() {
         return emailVerifiedAt;
     }
 
-    public void setEmailVerifiedAt(LocalDate emailVerifiedAt) {
+    public void setEmailVerifiedAt(Instant emailVerifiedAt) {
         this.emailVerifiedAt = emailVerifiedAt;
+    }
+
+    public LocalDate getTermsAcceptedAt() {
+        return termsAcceptedAt;
+    }
+
+    public void setTermsAcceptedAt(LocalDate termsAcceptedAt) {
+        this.termsAcceptedAt = termsAcceptedAt;
     }
 }
 

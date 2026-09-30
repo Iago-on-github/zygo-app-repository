@@ -26,14 +26,23 @@ public interface AdministratorRepository extends JpaRepository<Administrator, UU
     @Query("SELECT a FROM Administrator a WHERE a.status = :status AND a.customerId IS NOT NULL")
     Page<Administrator> findByStatusWithCustomerId(GeneralStatus status, Pageable pageable);
 
-    boolean existsByTelephone(@Param("telephone") String telephone);
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM administrator_table WHERE cpf = :cpf)", nativeQuery = true)
+    boolean existsByCpfIgnoringTenant(@Param("cpf") String cpf);
 
-    boolean existsByCpf(@Param("cpf") String cpf);
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM administrator_table WHERE telephone = :telephone)", nativeQuery = true)
+    boolean existsByTelephoneIgnoringTenant(@Param("telephone") String telephone);
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM user_account_table WHERE email = :email)", nativeQuery = true)
+    boolean existsByEmailIgnoringTenant(@Param("email") String email);
+
+    @Query(value = "SELECT * FROM administrator_table WHERE user_account_id IN (:userAccountIds)", nativeQuery = true)
+    List<Administrator> findAllByUserAccountIdInIgnoringTenant(@Param("userAccountIds") Collection<UUID> userAccountIds);
+
+    @Query("SELECT COUNT(s) > 0 FROM Administrator adm WHERE adm.customerId = :customerId")
+    int countAdministratorsInThisCustomer(UUID customerId);
 
     Optional<Administrator> findByUserAccountId(UUID userAccountId);
 
     List<Administrator> findAllByUserAccountIdIn(Collection<UUID> userAccountIds);
 
-    @Query(value = "SELECT * FROM administrator_table WHERE user_account_id IN (:userAccountIds)", nativeQuery = true)
-    List<Administrator> findAllByUserAccountIdInIgnoringTenant(@Param("userAccountIds") Collection<UUID> userAccountIds);
 }

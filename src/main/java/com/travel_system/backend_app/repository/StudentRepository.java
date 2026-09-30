@@ -24,8 +24,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     @Query(value = "SELECT EXISTS (SELECT 1 FROM student_table WHERE telephone = :telephone)", nativeQuery = true)
     boolean existsByTelephoneIgnoringTenant(@Param("telephone") String telephone);
 
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM student_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
-    boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM user_account_table WHERE email = :email)", nativeQuery = true)
+    boolean existsByEmailIgnoringTenant(@Param("email") String email);
 
     @Query("SELECT COUNT(s) > 0 FROM Student s WHERE s.customerId = :customerId")
     int countStudentsInThisCustomer(UUID customerId);

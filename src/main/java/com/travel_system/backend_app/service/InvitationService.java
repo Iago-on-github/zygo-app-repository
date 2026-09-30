@@ -10,14 +10,12 @@ import com.travel_system.backend_app.events.invitations.InvitationAcceptedEvent;
 import com.travel_system.backend_app.events.invitations.InvitationCreatedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
+import com.travel_system.backend_app.interfaces.InvitationProfileData;
 import com.travel_system.backend_app.interfaces.ProfileCreator;
-import com.travel_system.backend_app.interfaces.mappers.InvitationRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.InvitationResponseMapper;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.MyInvitationResponseDTO;
-import com.travel_system.backend_app.model.dtos.invitation.StudentAcceptDTO;
-import com.travel_system.backend_app.model.dtos.invitation.StudentInvitationDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.AuthTokens;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -28,7 +26,6 @@ import com.travel_system.backend_app.repository.AdministratorRepository;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.InvitationRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
-import com.travel_system.backend_app.service.strategies.invitation.StudentInvitationProfileStrategy;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +35,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.validation.Validator;
 
 import java.time.Instant;
 import java.util.*;
@@ -63,11 +59,10 @@ public class InvitationService {
 
     private final ObjectMapper objectMapper;
 
-    private final StudentInvitationProfileStrategy studentInvitationProfileStrategy;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, StudentInvitationProfileStrategy studentInvitationProfileStrategy, ApplicationEventPublisher eventPublisher) {
+    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.administratorRepository = administratorRepository;
@@ -76,14 +71,7 @@ public class InvitationService {
         this.tokenConfig = tokenConfig;
         this.invitationResponseMapper = invitationResponseMapper;
         this.objectMapper = objectMapper;
-        this.studentInvitationProfileStrategy = studentInvitationProfileStrategy;
         this.eventPublisher = eventPublisher;
-    }
-
-    // delega para o método privado de enviar convites
-    @Transactional
-    public InvitationResponseDTO sendStudentInvitation(String email, StudentInvitationDTO data) {
-        return sendInvitation(email, TargetUserType.STUDENT, data);
     }
 
     @Transactional(readOnly = true)
@@ -211,44 +199,7 @@ public class InvitationService {
     }
 
     @Transactional
-    public InvitationAcceptResponseDTO acceptStudentInvitation(UUID invitationId, StudentAcceptDTO studentAcceptDTO){
-        return acceptInvitation(invitationId, TargetUserType.STUDENT,
-                ((invitation, account) -> studentInvitationProfileStrategy.createProfile(invitation, account, studentAcceptDTO)));
-    }
-
-    @Transactional
-    public void declineInvitation(UUID invitationId) {
-        String authenticatedUserEmail = getAuthenticatedUserEmail();
-
-        Instant now = Instant.now();
-
-        UserAccount user = userAccountRepository.findUserByEmail(authenticatedUserEmail);
-
-        if (user == null) throw new AccessDeniedException("User não encontrado");
-
-        Invitation invitation = invitationRepository.findByIdAndInvitedUserAccountIdIgnoringTenant(invitationId, user.getId())
-                .orElseThrow(() -> new InvitationNotFoundException("Nenhum convite encontrado"));
-
-        if (!invitation.isPending()) {
-            throw new InvitationNotPendingException("O convite não está pendente");
-        }
-
-        if (invitation.isExpired(now)) throw new InvitationExpiredException("Convite expirado");
-
-        // faz o decline
-        invitation.decline(now);
-
-        // publica evento para realizar envio de notificações
-        eventPublisher.publishEvent(new InvitationDeclinedEvent(invitation.getId(), invitation.getCustomerId(), invitation.getInvitedBy(), user.getId()));
-    }
-
-    @Transactional
-    public int expirePendingInvitations() {
-        // usa job
-        return invitationRepository.expirePendingInvitationsWithoutTenantFilter(Instant.now());
-    }
-
-    private InvitationAcceptResponseDTO acceptInvitation(UUID invitationId, TargetUserType expectedType, ProfileCreator creator) {
+    public InvitationAcceptResponseDTO acceptInvitation(UUID invitationId, TargetUserType expectedType, ProfileCreator creator) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
         Instant now = Instant.now();
@@ -318,8 +269,39 @@ public class InvitationService {
 
     }
 
-    private InvitationResponseDTO sendInvitation(String email, TargetUserType targetUserType, Object profileData) {
+    @Transactional
+    public void declineInvitation(UUID invitationId) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
         Instant now = Instant.now();
+
+        UserAccount user = userAccountRepository.findUserByEmail(authenticatedUserEmail);
+
+        if (user == null) throw new AccessDeniedException("User não encontrado");
+
+        Invitation invitation = invitationRepository.findByIdAndInvitedUserAccountIdIgnoringTenant(invitationId, user.getId())
+                .orElseThrow(() -> new InvitationNotFoundException("Nenhum convite encontrado"));
+
+        if (!invitation.isPending()) {
+            throw new InvitationNotPendingException("O convite não está pendente");
+        }
+
+        if (invitation.isExpired(now)) throw new InvitationExpiredException("Convite expirado");
+
+        // faz o decline
+        invitation.decline(now);
+
+        // publica evento para realizar envio de notificações
+        eventPublisher.publishEvent(new InvitationDeclinedEvent(invitation.getId(), invitation.getCustomerId(), invitation.getInvitedBy(), user.getId()));
+    }
+
+    @Transactional
+    public InvitationResponseDTO sendInvitation(String rawEmail, InvitationProfileData profileData) {
+        Instant now = Instant.now();
+
+        TargetUserType targetUserType = profileData.targetUserType();
+
+        String email = normalizeEmail(rawEmail);
 
         // admin logado, ativo e no tenant correto
         Administrator administrator = getAuthenticatedActiveAdministrator(getAuthenticatedUserEmail());
@@ -363,6 +345,12 @@ public class InvitationService {
                 randomPureToken));
 
         return invitationResponseMapper.toResponse(saved, administrator.getName(), now);
+    }
+
+    @Transactional
+    public int expirePendingInvitations() {
+        // usa job
+        return invitationRepository.expirePendingInvitationsWithoutTenantFilter(Instant.now());
     }
 
     private UserAccount resolveInvitableUserById(UUID invitedUserAccountId) {
@@ -411,6 +399,10 @@ public class InvitationService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Falha ao serializar os dados do perfil do convite", e);
         }
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
     // converte json para String como estrutura Json manipulável

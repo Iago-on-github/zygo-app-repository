@@ -7,6 +7,7 @@ import com.travel_system.backend_app.interfaces.mappers.response.DriverResponseM
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.dtos.invitation.driver.DriverProfileDTO;
 import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
@@ -64,7 +65,32 @@ public class DriverService {
         return driverByStatus.map(driverResponseMapper::toDTO);
     }
 
-    @Transactional
+    public Driver createForExistingAccount(UserAccount userAccount, UUID customerId, DriverProfileDTO dto) {
+
+        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+            throw new DuplicateResourceException("Já existe esse driver cadastrado no sistema");
+        }
+
+        if (driverRepository.existsByTelephoneIgnoringTenant(dto.driverAccept().telephone())) {
+            throw new DuplicateResourceException("Já existe um user com esse telefone");
+        }
+
+        int countDriverInThisCustomer = driverRepository.countDriverInThisCustomer(customerId);
+
+        if (countDriverInThisCustomer >= GlobalAppConstants.DRIVER_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Motoristas no seu plano é de " + GlobalAppConstants.DRIVER_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
+
+        Driver driver = driverRequestMapper.toEntity(dto);
+
+        driver.setUserAccount(userAccount);
+        driver.assignCustomer(customerId);
+        driver.setStatus(GeneralStatus.ACTIVE);
+
+        return driverRepository.save(driver);
+    }
+
+/*    @Transactional
     public DriverResponseDTO createDriver(DriverRequestDTO driverRequestDTO) {
         verifyFieldsIsNull(driverRequestDTO);
 
@@ -104,7 +130,7 @@ public class DriverService {
         Driver savedDriver = driverRepository.save(driver);
 
         return driverResponseMapper.toDTO(savedDriver);
-    }
+    }*/
 
     @Transactional
     public DriverResponseDTO updateCurrentDriver(DriverUpdateDTO driverUpdateDTO) {
@@ -168,13 +194,6 @@ public class DriverService {
         driverRequestMapper.driverUpdateStatusFromDTO(driverStatus, driver);
 
         driverRepository.save(driver);
-    }
-
-    private void verifyFieldsIsNull(DriverRequestDTO dto) {
-        if (dto.email() == null || dto.password() == null ||
-                dto.name() == null || dto.telephone() == null || dto.birthdate() == null || dto.driverShifts().isEmpty()) {
-            throw new EmptyMandatoryFieldsFoundException("Você deve preencher todos os campos requeridos");
-        }
     }
 
 }

@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.listeners.invitations;
+package com.travel_system.backend_app.listeners.send_emails;
 
 import com.travel_system.backend_app.events.invitations.InvitationCreatedEvent;
 import com.travel_system.backend_app.model.Customer;

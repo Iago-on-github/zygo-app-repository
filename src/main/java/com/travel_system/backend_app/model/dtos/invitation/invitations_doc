@@ -1,0 +1,14 @@
+Explicação sobre os DTOs:
+
+- DTOs com flag "Accept":
+Eles são preenchidos pelo convidado no ACCEPT com dados pessoais, como nome, idade, cpf, etc.
+
+- DTOs com flag "Invitation":
+Eles são preenchidos por quem está enviando o convite (um admin) e são dados do PAPEL daquela pessoa no Customer
+ou seja, são informações como: período, curso, acessos, etc.
+
+- DTOs com flag "Profile":
+Eles são uma junção de ambos os DTOs acima, usados para criar efetivamente o tipo de usuário no sistema
+
+Dados que não devem entrar:
+- Dados que são gerados pelo próprio sistema, como customerId, Status, totalTrips, etc

@@ -2,35 +2,24 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.constants.GlobalAppConstants;
 import com.travel_system.backend_app.exceptions.*;
-import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.StudentRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StudentResponseMapper;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.invitation.StudentAcceptDTO;
-import com.travel_system.backend_app.model.dtos.invitation.StudentProfileDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentProfileDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
-import com.travel_system.backend_app.model.enums.Shift;
-import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.*;
-import com.travel_system.backend_app.model.dtos.request.StudentRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
-import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Period;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.config.constants.ResponsibleAdultConstants.MAX_STUDENTS_PER_RESPONSIBLE_ADULT;
@@ -90,7 +79,7 @@ public class StudentService {
             throw new DuplicateResourceException("Já existe um estudante com esse Telefone");
         }
 
-        if (studentRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
             throw new DuplicateResourceException("Já existe esse estudante cadastrado no sistema");
         }
 
@@ -178,14 +167,14 @@ public class StudentService {
 
         // verifica se email já existe
         if (studentUpdateDTO.email() != null && !studentUpdateDTO.email().equals(userAccount.getEmail())) {
-            if (userAccountRepository.existsByEmail(studentUpdateDTO.email())) {
+            if (studentRepository.existsByEmailIgnoringTenant(studentUpdateDTO.email())) {
                 throw new DuplicateResourceException("Email já em uso por outro usuário.");
             }
         }
 
         // verifica se telefone já existe
         if (studentUpdateDTO.telephone() != null && !studentUpdateDTO.telephone().equals(studentEntity.getTelephone())) {
-            if (studentRepository.existsByTelephone(studentUpdateDTO.telephone())) {
+            if (studentRepository.existsByTelephoneIgnoringTenant(studentUpdateDTO.telephone())) {
                 throw new DuplicateResourceException("Telefone já em uso por outro usuário.");
             }
         }

@@ -12,18 +12,6 @@ public record ResponsibleAdultRequestDTO(
         String email,
         @NotNull
         @Min(value = 7, message = "a senha deve conter ao menos 7 caracteres")
-        String password,
-        @NotNull
-        String name,
-        String lastName,
-        @NotNull @Min(value = 11, message = "O CPF deve ter no mínimo 11 digitos") @Max(value = 11, message = "O CPF deve ter no máximo 11 digitos")
-        String cpf,
-        @NotNull @Min(value = 11, message = "O número de telefone deve ter no mínimo 11 digitos") @Max(value = 11, message = "O número de telefone deve ter no máximo 11 digitos")
-        String telephone,
-        @NotNull
-        ResponsibleAdultType responsibleAdultType,
-        @Past(message = "A data de nascimento deve estar no passado")
-        @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate
+        String password
 ) {
 }

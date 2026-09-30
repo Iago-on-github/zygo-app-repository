@@ -80,4 +80,23 @@ public class EmailService {
         mailSender.send(msg);
     }
 
+    public void sendEmailVerification(String email, Instant expiresAt, String pureToken) {
+        String link = baseUrl + "/verify-email/token=" + pureToken;
+
+        String expiresAtFormatted = dateTimeFormats.formatInstantDate(expiresAt);
+
+        String message = "Olá! Tudo bem?! \n \n" +
+                "Você acabou de criar uma conta na Zyggo, e o próximo passo é verificar o seu e-mail. \n\n" +
+                "email: " + email + "\n\n" +
+                "Link: " + link + "\n\n" +
+                "Expira em: " + expiresAtFormatted + "\n\n";
+
+        SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setTo(email);
+        msg.setSubject("Verificação de Email");
+        msg.setText(message);
+
+        mailSender.send(msg);
+    }
+
 }

@@ -5,9 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.model.Invitation;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.UserAccount;
-import com.travel_system.backend_app.model.dtos.invitation.StudentAcceptDTO;
-import com.travel_system.backend_app.model.dtos.invitation.StudentInvitationDTO;
-import com.travel_system.backend_app.model.dtos.invitation.StudentProfileDTO;
+import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentAcceptDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentInvitationDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentProfileDTO;
+import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
+import com.travel_system.backend_app.model.enums.TargetUserType;
+import com.travel_system.backend_app.service.InvitationService;
 import com.travel_system.backend_app.service.StudentService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -21,17 +25,30 @@ import java.util.UUID;
 public class StudentInvitationProfileStrategy {
 
     private final StudentService studentService;
+    private final InvitationService invitationService;
 
     private final Validator validator;
     private final ObjectMapper objectMapper;
 
-    public StudentInvitationProfileStrategy(StudentService studentService, Validator validator, ObjectMapper objectMapper) {
+    public StudentInvitationProfileStrategy(StudentService studentService, InvitationService invitationService, Validator validator, ObjectMapper objectMapper) {
         this.studentService = studentService;
+        this.invitationService = invitationService;
         this.validator = validator;
         this.objectMapper = objectMapper;
     }
 
-    public UUID createProfile(Invitation invitation, UserAccount userAccount, StudentAcceptDTO studentAcceptDTO) {
+    // envia convite especificamente para o estudante
+    public InvitationResponseDTO sendStudentInvitation(String email, StudentInvitationDTO dto) {
+        return invitationService.sendInvitation(email, dto);
+    }
+
+    // realiza ação de aceite do estudante
+    public InvitationAcceptResponseDTO acceptStudentInvitation(UUID invitationId, StudentAcceptDTO dto) {
+        return invitationService.acceptInvitation(invitationId, TargetUserType.STUDENT,
+                ((invitation, account) -> createProfile(invitation, account, dto)));
+    }
+
+    private UUID createProfile(Invitation invitation, UserAccount userAccount, StudentAcceptDTO studentAcceptDTO) {
         StudentInvitationDTO studentInvitationDTO = readProfileData(invitation.getProfileData());
 
         StudentProfileDTO studentProfileDTO = new StudentProfileDTO(studentInvitationDTO, studentAcceptDTO);

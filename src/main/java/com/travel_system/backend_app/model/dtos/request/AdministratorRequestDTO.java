@@ -15,23 +15,6 @@ public record AdministratorRequestDTO(
         @NotNull
         @Min(7)
         @NotBlank(message = "Campo 'Senha' é obrigatório")
-        String password,
-        @NotNull
-        @Min(4)
-        @NotBlank(message = "Campo 'Nome' é obrigatório")
-        String name,
-        String lastName,
-        @NotNull
-        @NotBlank
-        @Min(11)
-        String cpf,
-        @Past(message = "A data de nascimento deve estar no passado")
-        @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate,
-        String jobTitle,
-        @NotNull
-        @Min(8)
-        @NotBlank(message = "Campo 'Telefone' é obrigatório")
-        String telephone
+        String password
 ) {
 }

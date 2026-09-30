@@ -45,7 +45,7 @@ public class PermissionsService {
             case ADMINISTRATOR -> userAccountType.ADMINISTRATOR_PERMISSION_ROLE;
             case PLATFORM_ADMINISTRATOR -> userAccountType.PLATFORM_ADMINISTRATOR_PERMISSION_ROLE;
             case RESPONSIBLE_ADULT -> userAccountType.RESPONSIBLE_ADULT_PERMISSION_ROLE;
-            case UNASSIGNED -> null;
+            case UNASSIGNED -> throw new IllegalArgumentException("UNASSIGNED não possui uma permissão no sistema");
         };
     }
 

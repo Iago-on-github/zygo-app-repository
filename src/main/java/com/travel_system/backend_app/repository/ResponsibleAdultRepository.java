@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO;
@@ -14,9 +15,7 @@ import javax.validation.constraints.Email;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdult, UUID> {
@@ -30,6 +29,15 @@ public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdu
     Optional<ResponsibleAdult> findByCpf(@Param("responsibleAdultCpf") String responsibleAdultCpf);
 
     Optional<ResponsibleAdult> findByStudentsId(@Param("studentId") UUID studentId);
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM responsible_adult_table WHERE cpf = :cpf)", nativeQuery = true)
+    boolean existsByCpfIgnoringTenant(@Param("cpf") String cpf);
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM responsible_adult_table WHERE telephone = :telephone)", nativeQuery = true)
+    boolean existsByTelephoneIgnoringTenant(@Param("telephone") String telephone);
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM responsible_adult_table WHERE email = :email)", nativeQuery = true)
+    boolean existsByEmailIgnoringTenant(@Param("email") String email);
 
     @Query("""
         SELECT new com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO(

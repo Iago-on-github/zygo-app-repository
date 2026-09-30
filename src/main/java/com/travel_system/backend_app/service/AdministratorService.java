@@ -7,6 +7,7 @@ import com.travel_system.backend_app.interfaces.mappers.response.AdministratorRe
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorProfileDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
@@ -77,7 +78,38 @@ public class AdministratorService {
         return administratorResponseMapper.toDTO(expectedLoggedAdmin);
     }
 
-    @Transactional
+    public Administrator createForExistingAccount(UserAccount userAccount, UUID customerId, AdministratorProfileDTO profileDTO) {
+
+        // verifica se já não está cadastrado no sistema
+        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+            throw new DuplicateResourceException("Esse usuário já existe no sistema");
+        }
+
+        if (administratorRepository.existsByTelephoneIgnoringTenant(profileDTO.administratorAccept().telephone())) {
+            throw new DuplicateResourceException("Já existe um usuário com esse telefone no sistema");
+        }
+
+        if (administratorRepository.existsByCpfIgnoringTenant(profileDTO.administratorAccept().cpf())) {
+            throw new DuplicateResourceException("Já existe um usuário com esse cpf no sistema");
+        }
+
+        long countAdministrators = administratorRepository.countAdministratorsInThisCustomer(customerId);
+
+        // plano básico: até 02 administradores no sistema
+        if (countAdministrators >= GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT) {
+            throw new EntityLimitExceededException("O limite de cadastro para Administradores no seu plano é de " + GlobalAppConstants.ADMINISTRATOR_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        }
+
+        Administrator administrator = administratorRequestMapper.toEntity(profileDTO);
+
+        administrator.setUserAccount(userAccount);
+        administrator.assignCustomer(customerId);
+        administrator.setStatus(GeneralStatus.ACTIVE);
+
+        return administratorRepository.save(administrator);
+    }
+
+/*    @Transactional
     public AdministratorResponseDTO createAdministrator(AdministratorRequestDTO admRequestDTO) {
         checkFieldsIsNull(admRequestDTO);
 
@@ -111,7 +143,7 @@ public class AdministratorService {
         Administrator savedAdm = administratorRepository.save(administrator);
 
         return administratorResponseMapper.toDTO(savedAdm);
-    }
+    }*/
 
     @Transactional
     public AdministratorResponseDTO updateCurrentAdministrator(AdministratorUpdateDTO admRequestDTO) {
@@ -120,11 +152,17 @@ public class AdministratorService {
         Administrator loggedAdm = administratorRepository.findByEmail(authenticatedUserEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Administrador não encontrado para o email: " + authenticatedUserEmail));
 
-        if (loggedAdm.getStatus() == GeneralStatus.INACTIVE) throw new InactiveAccountModificationException("Não é possível atualizar uma conta desativada");
+        if (loggedAdm.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveAccountModificationException("Não é possível atualizar uma conta desativada");
+        }
 
         // validações de duplicação de recursos no sistema
-        if (userAccountRepository.existsByEmail(admRequestDTO.email())) throw new DuplicateResourceException("Email " + admRequestDTO.email()  + "já registrado");
-        if (administratorRepository.existsByTelephone(admRequestDTO.telephone())) throw new DuplicateResourceException("Telefone " + admRequestDTO.telephone() + " já registrado");
+        if (administratorRepository.existsByEmailIgnoringTenant(admRequestDTO.email())) {
+            throw new DuplicateResourceException("Email " + admRequestDTO.email()  + "já registrado");
+        }
+        if (administratorRepository.existsByTelephoneIgnoringTenant(admRequestDTO.telephone())) {
+            throw new DuplicateResourceException("Telefone " + admRequestDTO.telephone() + " já registrado");
+        }
 
         // usa MapStruct p/ atualizar apenas os campos não nulos
         administratorRequestMapper.administratorUpdateFromDTO(admRequestDTO, loggedAdm);
@@ -156,13 +194,6 @@ public class AdministratorService {
         expectedAdministrator.setStatus(newStatus);
 
         administratorRepository.save(expectedAdministrator);
-    }
-
-    private void checkFieldsIsNull(AdministratorRequestDTO admRequestDTO) {
-       if (admRequestDTO.email() == null || admRequestDTO.password() == null ||
-               admRequestDTO.name() == null || admRequestDTO.cpf() == null || admRequestDTO.telephone() == null)  {
-           throw new EmptyMandatoryFieldsFoundException("Você deve preencher todos os campos requeridos.");
-       }
     }
 
 }

@@ -7,6 +7,7 @@ import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleAdultProfileDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
@@ -110,6 +111,42 @@ public class ResponsibleAdultService {
         return responsibleAdultResponseMapper.toDTO(responsibleAdult);
     }
 
+    public ResponsibleAdult createForExistingAccount(UserAccount userAccount, UUID customerId, ResponsibleAdultProfileDTO profileDTO) {
+
+        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+            throw new DuplicateResourceException("Esse user já existe no sistema");
+        }
+
+        // validação de email, telefone e cpf globais
+        if (responsibleAdultRepository.existsByEmailIgnoringTenant(userAccount.getEmail())) {
+            throw new DuplicateResourceException("Esse email já existe no sistema");
+        }
+
+        if (responsibleAdultRepository.existsByTelephoneIgnoringTenant(profileDTO.responsibleAdultAccept().telephone())) {
+            throw new DuplicateResourceException("Esse telefone já existe no sistema");
+        }
+
+        if (responsibleAdultRepository.existsByCpfIgnoringTenant(profileDTO.responsibleAdultAccept().cpf())) {
+            throw new DuplicateResourceException("Esse cpf já existe no sistema");
+        }
+
+        // validação para idade
+        int responsibleYears = Period.between(profileDTO.responsibleAdultAccept().birthdate(), LocalDate.now()).getYears();
+
+        if (responsibleYears < 18) {
+            throw new UnderageResponsibleAdultException("O responsável deve ter 18 anos ou mais");
+        }
+
+        ResponsibleAdult responsibleAdult = responsibleAdultRequestMapper.toEntity(profileDTO);
+
+        responsibleAdult.setUserAccount(userAccount);
+        responsibleAdult.assignCustomer(customerId);
+        responsibleAdult.setStatus(GeneralStatus.ACTIVE);
+
+        return responsibleAdultRepository.save(responsibleAdult);
+    }
+
+/*
     @Transactional
     public ResponsibleAdultResponseDTO createResponsibleAdult(ResponsibleAdultRequestDTO dto) {
 
@@ -142,6 +179,7 @@ public class ResponsibleAdultService {
 
         return responsibleAdultResponseMapper.toDTO(requestMapperEntity);
     }
+*/
 
     @Transactional
     public ResponsibleAdultResponseDTO updateResponsibleAdult(ResponsibleAdultUpdateDTO dto) {

@@ -57,6 +57,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ErrorWithEmailProcessVerificationException.class)
+    public final ResponseEntity<StandardError> ErrorWithEmailProcessVerificationException(ErrorWithEmailProcessVerificationException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(TripNotFound.class)
     public final ResponseEntity<StandardError> tripNotFoundException(TripNotFound ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -64,6 +69,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(EmailAlreadyVerifiedException.class)
+    public final ResponseEntity<StandardError> EmailAlreadyVerifiedException(EmailAlreadyVerifiedException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 

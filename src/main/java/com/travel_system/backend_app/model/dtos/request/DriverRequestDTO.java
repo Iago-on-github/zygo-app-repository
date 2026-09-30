@@ -14,18 +14,6 @@ public record DriverRequestDTO(
         @NotBlank
         String email,
         @Size(min = 7)
-        String password,
-        @NotNull
-        String name,
-        String lastName,
-        @NotNull
-        String telephone,
-        @NotNull
-        @Past(message = "A data de nascimento deve estar no passado")
-        @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate,
-        @NotNull
-        Set<Shift> driverShifts,
-        String areaOfActivity
+        String password
 ) {
 }

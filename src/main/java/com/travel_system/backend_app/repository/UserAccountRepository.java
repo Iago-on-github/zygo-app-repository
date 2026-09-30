@@ -27,10 +27,15 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     @Query("SELECT u FROM UserAccount u JOIN u.permissions p WHERE u.email = :email AND p.description = :role")
     Optional<UserAccount> findByEmailAndRole(@Param("email") String email, @Param("role") String role);
 */
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM user_account_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
+    boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
 
     boolean existsByEmail(@Param("email") String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE) // impede que outras transações leiam, atualizem ou excluam os dados bloqueados até que a transação atual seja confirmada ou rolada
     @Query("SELECT u FROM UserAccount u WHERE u.email = :email")
     Optional<UserAccount> findByEmailForUpdate(@Param("email") String email);
+
+    @Query("SELECT EXISTS (SELECT 1 FROM user_account_table WHERE email = :email)")
+    boolean existsByEmailIgnoringTenant(@Param("email") String email);
 }

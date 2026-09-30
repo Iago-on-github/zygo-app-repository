@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.model.dtos.invitation;
+package com.travel_system.backend_app.model.dtos.invitation.student;
 
 import javax.validation.Valid;
 
