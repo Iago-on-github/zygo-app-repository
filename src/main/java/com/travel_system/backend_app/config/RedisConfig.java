@@ -83,4 +83,12 @@ public class RedisConfig {
         return script;
     }
 
+    @Bean(name = "incrementWithTtlScript")
+    public DefaultRedisScript<List> incrementWithTtlScript() {
+        DefaultRedisScript<List> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("scripts/increment-with-ttl.lua"));
+        script.setResultType(List.class);
+        return script;
+    }
+
 }

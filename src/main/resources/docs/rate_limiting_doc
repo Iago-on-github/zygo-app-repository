@@ -1,0 +1,137 @@
+Rate Limiting por Endpoint via Annotation
+
+O rate limiting limita a quantidade de requisições que um mesmo identificador (IP ou usuário) pode fazer a um endpoint dentro de uma janela de tempo. A proteção é declarativa: basta anotar o método (ou a classe) do controller com @RateLimited, informando a política desejada.
+
+Algoritmo: janela fixa. O contador de cada chave começa na primeira requisição e é zerado de uma vez quando a janela expira.
+Armazenamento: Redis. Cada combinação de política + identificador é uma chave com TTL igual à janela.
+Atomicidade: incremento e expiração são executados em um único script Lua, garantindo que nenhuma chave fique sem expiração.
+Falha do Redis: comportamento fail-closed. Se o Redis estiver indisponível, os endpoints protegidos retornam 503 em vez de liberar sem limite.
+
+COMPONENTS
+
+[Constants] RateLimitConstants
+Centraliza os valores de cada política: a quantidade máxima de tentativas e a duração da janela (Duration). É o único lugar a ser alterado para ajustar um limite existente.
+
+[Enum] KeyType
+Define como o solicitante é identificado:
+- IP: pelo endereço IP do cliente, resolvido pelo ClientIpResolver. Usado em endpoints públicos (sem autenticação).
+-USER: pelo usuário autenticado. Usado em endpoints autenticados, para que o limite acompanhe a conta independentemente do IP. Se não houver usuário autenticado, o interceptor recorre ao IP, para nunca deixar o endpoint sem limite.
+
+[Enum] RateLimitPolicy
+Cada valor representa uma política completa, com:
+- keyPrefix: nome da política na chave do Redis (ex.: register:);
+- maxAttempts: tentativas permitidas por janela (de RateLimitConstants);
+- window: duração da janela (de RateLimitConstants);
+- keyType: IP ou USER.
+
+[Annotation] @RateLimited
+Recebe uma RateLimitPolicy. Pode ser aplicada:
+- no método: protege apenas aquele endpoint;
+- na classe: protege todos os endpoints do controller.
+
+Se existir nos dois lugares, a do método prevalece. Usa @Retention(RUNTIME), o que permite ao Spring lê-la durante a requisição.
+
+[Infra] ClientIpResolver
+Resolve o IP do cliente. Por padrão, usa o endereço da conexão (request.getRemoteAddr()). Quando security.rate-limit-trust-forwarded-header=true, usa o primeiro valor do cabeçalho X-Forwarded-For, enviado pelo proxy reverso.
+
+[Service] RateLimitService
+Registra uma tentativa e informa se ela está dentro do limite. Método principal: consume(RateLimitPolicy policy, String identifier), que:
+
+monta a chave rl:{keyPrefix}{identifier};
+- executa o script Lua, passando a janela em milissegundos;
+- compara o contador retornado com o maxAttempts da política;
+- retorna um RateLimitResult.
+
+Não lança a exceção de limite excedido: essa decisão fica com o interceptor. Falhas de infraestrutura (Redis indisponível, resposta inválida) são lançadas como RateLimitServiceUnavailableException.
+
+[Script Lua] increment_with_ttl.lua
+Local: src/main/resources/scripts/rate-limit/increment_with_ttl.lua.
+Executado pelo Redis de forma atômica. Ele:
+- incrementa o contador da chave (INCR), criando-a se não existir;
+- consulta o tempo restante (PTTL);
+- se a chave não tiver expiração, aplica a janela (PEXPIRE). Isso cobre a primeira requisição e também corrige chaves que tenham ficado sem expiração;
+- retorna { contador, milissegundos restantes }.
+
+- Rejeita janelas vazias, zeradas ou negativas, para nunca criar uma chave sem expiração.
+
+[DTO] RateLimitResult
+Resultado de uma tentativa:
+- count: tentativas na janela atual;
+- retryAfter: tempo restante até a janela expirar;
+- allowed: se a tentativa está dentro do limite;
+- retryAfterSeconds(): tempo restante em segundos, arredondado para cima (mínimo 1), usado no cabeçalho Retry-After.
+
+[Infra] RateLimitInterceptor
+Executado antes de cada endpoint (preHandle). Ele:
+- ignora requisições que não são de um método de controller;
+- procura a @RateLimited no método e, se não houver, na classe; sem anotação, libera a requisição;
+- resolve o identificador conforme o KeyType:
+- IP → ip:{endereço};
+- USER → u:{hash do usuário autenticado} (o e-mail nunca é gravado em texto no Redis);
+- chama o RateLimitService.consume;
+- se allowed for falso, lança RateLimitExceededException com o tempo de espera.
+
+Como roda depois dos filtros do Spring Security, o usuário autenticado já está disponível.
+
+[Config] WebConfig
+Registra o RateLimitInterceptor para todas as rotas /v1/**. O interceptor passa por todos os endpoints, mas só age nos que possuem a anotação.
+
+[Exceptions] RateLimitExceededException e RateLimitServiceUnavailableException
+Tratadas no @ControllerAdvice:
+
+Exceção	HTTP	Observação
+- RateLimitExceededException	429 Too Many Requests	Inclui o cabeçalho Retry-After (segundos)
+- RateLimitServiceUnavailableException	503 Service Unavailable	Redis indisponível ou resposta inválida
+
+FLUXO DE REQUISIÇÕES
+- A requisição passa pelos filtros do Spring Security.
+- O RateLimitInterceptor verifica se o endpoint tem @RateLimited. Se não tiver, a requisição segue normalmente.
+- O interceptor resolve o identificador (IP ou usuário) e chama o RateLimitService.
+- O service executa o script no Redis, que incrementa o contador e garante a expiração.
+- Dentro do limite: a requisição segue para o controller.
+- Acima do limite: resposta 429 com Retry-After, e o controller não é executado.
+- Redis indisponível: resposta 503.
+
+FORMATO CHAVES REDIS
+rl:{política}:{tipo}:{identificador}
+
+Exemplos:
+
+rl:register:ip:203.0.113.10
+rl:resend-verification:u:9f86d081884c7d65...
+
+O prefixo rl: separa essas chaves de qualquer outro dado no Redis. Para inspecionar uma chave: GET retorna o contador, e PTTL retorna o tempo restante em milissegundos.
+
+POLÍTICAS E ENDPOINTS
+
+Política	Endpoint(s)	Identificação	Limite
+- BOOTSTRAP	Bootstrap do Platform Administrator	IP	10 / [janela]
+- SENSITIVE_OPERATION	/security/sensitive-operations/** (anotação na classe)	IP	10 / [janela]
+- REGISTER	POST /auth/register	IP	5 / 1 hora
+- VERIFY_EMAIL	POST /auth/verify-email	IP	20 / 15 minutos
+- RESEND_VERIFICATION	POST /auth/verify-email/resend	Usuário	3 / 1 hora
+- SEND_INVITATION	Envio e reenvio de convites (todos os papéis)	Usuário	55 / 1 hora
+
+COMO PROTEGER UM NOVO ENDPOINT
+
+- Se nenhuma política existente servir: adicione os valores em RateLimitConstants e um novo valor em RateLimitPolicy, com um keyPrefix único.
+- Anote o método (ou a classe) do controller com @RateLimited(RateLimitPolicy.NOVA_POLITICA).
+- Escolha o KeyType: IP para endpoints públicos; USER para endpoints autenticados.
+- Atualize a tabela da seção 5.
+
+Nenhuma alteração no interceptor, no service ou no WebConfig é necessária.
+
+CONFIG
+
+properties
+# Define se o IP do cliente é lido do cabeçalho X-Forwarded-For (true) ou da conexão (false)
+security.rate-limit-trust-forwarded-header=false
+
+Mantenha false enquanto a aplicação não estiver atrás de um proxy reverso. Com true, o proxy precisa sobrescrever o cabeçalho, em vez de apenas acrescentar valores a ele. No Nginx: proxy_set_header X-Forwarded-For $remote_addr;. Caso contrário, o cliente pode enviar um IP falso no cabeçalho e escapar do limite.
+
+
+LIMITAÇÕES CONHECIDAS
+
+Janela fixa: é possível fazer o máximo de tentativas no fim de uma janela e o máximo novamente no início da seguinte, chegando ao dobro do limite em um intervalo curto. Aceitável para os endpoints atuais.
+Fail-closed: se o Redis cair, todos os endpoints protegidos ficam indisponíveis (503) até o Redis voltar.
+IP compartilhado: usuários atrás do mesmo IP (rede de uma escola ou empresa, por exemplo) dividem o limite das políticas por IP.

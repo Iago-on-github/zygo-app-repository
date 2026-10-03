@@ -1,7 +1,15 @@
 package com.travel_system.backend_app.exceptions;
 
 public class RateLimitExceededException extends RuntimeException {
-    public RateLimitExceededException(String message) {
+
+    private final long retryAfterSeconds;
+
+    public RateLimitExceededException(String message, long retryAfterSeconds) {
         super(message);
+        this.retryAfterSeconds = retryAfterSeconds;
+    }
+
+    public long getRetryAfterSeconds() {
+        return retryAfterSeconds;
     }
 }
