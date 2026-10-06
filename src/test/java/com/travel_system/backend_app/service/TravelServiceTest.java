@@ -4,8 +4,6 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.StudentTrackingPositionDTO;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
-import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
-import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
@@ -26,7 +24,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -241,7 +238,7 @@ class TravelServiceTest {
         void throwExceptionWhenTravelNotFound() {
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
 
-            assertThrows(TripNotFound.class, () -> travelService.startTravel(travel.getId()));
+            assertThrows(TripNotFoundException.class, () -> travelService.startTravel(travel.getId()));
 
             verify(travelRepository, times(1)).findById(any());
 
@@ -395,7 +392,7 @@ class TravelServiceTest {
         void throwExceptionWhenTravelIdNotFound() {
             when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
 
-            assertThrows(TripNotFound.class, () -> travelService.endTravel(travel.getId()));
+            assertThrows(TripNotFoundException.class, () -> travelService.endTravel(travel.getId()));
 
             // se a viagem não for encontrada, nada mais deve acontecer no método
             verifyNoInteractions(
@@ -753,7 +750,7 @@ class TravelServiceTest {
        void throwTripNotFoundWhenCancelingNonExistingTravel() {
            when(travelRepository.findById(travel.getId())).thenReturn(Optional.empty());
 
-           assertThrows(TripNotFound.class, () -> travelService.cancelTravel(travel.getId()));
+           assertThrows(TripNotFoundException.class, () -> travelService.cancelTravel(travel.getId()));
 
            verifyNoMoreInteractions(travelRepository);
            verifyNoInteractions(studentTravelRepository, travelNotificationService);

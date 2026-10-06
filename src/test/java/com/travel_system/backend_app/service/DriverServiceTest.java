@@ -1,48 +1,31 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
-import com.travel_system.backend_app.exceptions.EmptyMandatoryFieldsFoundException;
-import com.travel_system.backend_app.exceptions.InactiveAccountModificationException;
-import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.interfaces.mappers.DriverRequestMapper;
-import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Permissions;
-import com.travel_system.backend_app.model.dtos.request.DriverRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
-import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
-import com.travel_system.backend_app.model.enums.ClientSector;
+import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.PermissionsRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -464,7 +447,7 @@ class DriverServiceTest {
         void shouldUpdateDriverStatusWithSuccess() {
             when(driverRepository.findById(driverEntity.getId())).thenReturn(Optional.of(driverEntity));
 
-            driverService.updateDriver(driverEntity.getId(), new UpdateEntityStatusDTO(GeneralStatus.INACTIVE));
+            driverService.updateDriver(driverEntity.getId(), new UpdateStatusDTO(GeneralStatus.INACTIVE));
 
             ArgumentCaptor<Driver> driverArgCaptor = ArgumentCaptor.forClass(Driver.class);
 
@@ -481,7 +464,7 @@ class DriverServiceTest {
         void throwExceptionWhenDriverNotFound() {
             when(driverRepository.findById(driverEntity.getId())).thenReturn(Optional.empty());
 
-            assertThrows(EntityNotFoundException.class, () -> driverService.updateDriver(driverEntity.getId(), new UpdateEntityStatusDTO(GeneralStatus.INACTIVE)));
+            assertThrows(EntityNotFoundException.class, () -> driverService.updateDriver(driverEntity.getId(), new UpdateStatusDTO(GeneralStatus.INACTIVE)));
 
             verify(driverRepository, never()).save(any(Driver.class));
         }
@@ -491,7 +474,7 @@ class DriverServiceTest {
         void throwExceptionWhenDriverAlreadyHasStatus() {
             when(driverRepository.findById(driverEntity.getId())).thenReturn(Optional.of(driverEntity));
 
-            assertThrows(DuplicateResourceException.class, () -> driverService.updateDriver(driverEntity.getId(), new UpdateEntityStatusDTO(GeneralStatus.ACTIVE)));
+            assertThrows(DuplicateResourceException.class, () -> driverService.updateDriver(driverEntity.getId(), new UpdateStatusDTO(GeneralStatus.ACTIVE)));
 
             verify(driverRepository, never()).save(any(Driver.class));
 

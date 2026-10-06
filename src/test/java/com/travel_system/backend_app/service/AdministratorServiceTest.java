@@ -4,9 +4,6 @@ import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.AdministratorRequestMapper;
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.Customer;
-import com.travel_system.backend_app.model.Permissions;
-import com.travel_system.backend_app.model.dtos.request.AdministratorRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -28,8 +25,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
