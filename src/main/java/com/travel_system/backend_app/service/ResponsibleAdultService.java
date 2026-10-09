@@ -3,20 +3,17 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.ResponsibleAdultRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.ResponsibleAdultResponseMapper;
-import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleAdultProfileDTO;
-import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.CpfSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultUpdateDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.ResponsibleAdultResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.StudentRelationshipType;
-import com.travel_system.backend_app.model.enums.UserAccountType;
-import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.ResponsibleAdultRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
@@ -26,17 +23,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.config.constants.ResponsibleAdultConstants.MAX_STUDENTS_PER_RESPONSIBLE_ADULT;
+import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 @Service
@@ -62,8 +61,24 @@ public class ResponsibleAdultService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ResponsibleAdultResponseDTO> getAllResponsibleAdults(Pageable pageable) {
-        return responsibleAdultRepository.findAll(pageable).map(responsibleAdultResponseMapper::toDTO);
+    public Page<ResponsibleAdultResponseDTO> getAllResponsibleAdults(String email, String name, String lastName, String neighborhood, Pageable pageable) {
+        UUID customerId = getCurrentTenant();
+        if (customerId == null) {
+            throw new AccessDeniedException("Usuário sem Customer vinculado");
+        }
+
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        return responsibleAdultRepository.findAllByOptionalParameters(
+                customerId,
+                        blankToNull(normalizedEmail),
+                        blankToNull(name),
+                        blankToNull(lastName),
+                        blankToNull(neighborhood),
+                        pageOnly)
+                .map(responsibleAdultResponseMapper::toDTO);
     }
 
     @Transactional(readOnly = true)
@@ -81,9 +96,11 @@ public class ResponsibleAdultService {
     }
 
     @Transactional(readOnly = true)
-    public ResponsibleAdultResponseDTO getResponsibleAdultByCpf(String responsibleAdultCpf) {
-        ResponsibleAdult responsibleAdult = responsibleAdultRepository.findByCpf(responsibleAdultCpf)
-                .orElseThrow(() -> new EntityNotFoundException("Entidade ResponsibleAdult não encontrada pelo Cpf: " + responsibleAdultCpf));
+    public ResponsibleAdultResponseDTO getResponsibleAdultByCpf(CpfSearchRequestDTO dto) {
+        String normalizeCpf = dto.cpf() == null ? null : dto.cpf().replaceAll("\\D", "");
+
+        ResponsibleAdult responsibleAdult = responsibleAdultRepository.findByCpf(normalizeCpf)
+                .orElseThrow(() -> new EntityNotFoundException("Entidade ResponsibleAdult não encontrada pelo Cpf: " + normalizeCpf));
 
         return responsibleAdultResponseMapper.toDTO(responsibleAdult);
     }
@@ -113,12 +130,12 @@ public class ResponsibleAdultService {
 
     public ResponsibleAdult createForExistingAccount(UserAccount userAccount, UUID customerId, ResponsibleAdultProfileDTO profileDTO) {
 
-        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+        if (responsibleAdultRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
             throw new DuplicateResourceException("Esse user já existe no sistema");
         }
 
-        // validação de email, telefone e cpf globais
-        if (responsibleAdultRepository.existsByEmailIgnoringTenant(userAccount.getEmail())) {
+        // validação de email (locais), telefone e cpf (globais)
+        if (responsibleAdultRepository.existsByEmail(userAccount.getEmail())) {
             throw new DuplicateResourceException("Esse email já existe no sistema");
         }
 
@@ -146,41 +163,6 @@ public class ResponsibleAdultService {
         return responsibleAdultRepository.save(responsibleAdult);
     }
 
-/*
-    @Transactional
-    public ResponsibleAdultResponseDTO createResponsibleAdult(ResponsibleAdultRequestDTO dto) {
-
-        log.info("Iniciando criação do responsável para o e-mail: {}", dto.email());
-
-        // validações de duplicação
-        if (userAccountRepository.existsByEmail(dto.email())) throw new DuplicateResourceException("Já existe um responsável com o email: " + dto.email());
-        if (responsibleAdultRepository.existsByCpf(dto.cpf())) throw new DuplicateResourceException("Já existe um responsável com o CPF: " + dto.cpf());
-        if (responsibleAdultRepository.existsByTelephone(dto.telephone())) throw new DuplicateResourceException("Já existe um responsável com o Telefone: " + dto.telephone());
-
-        int responsibleYears = Period.between(dto.birthdate(), LocalDate.now()).getYears();
-
-        if (responsibleYears < 18) {
-            throw new UnderageResponsibleAdultException("O responsável deve ter 18 anos ou mais");
-        }
-
-        UserAccount userAccount = new UserAccount();
-        userAccount.setEmail(dto.email());
-        userAccount.setPassword(passwordEncoder.encode(dto.password()));
-        userAccount.setPermissions(List.of());
-        userAccount.setUserAccountType(UserAccountType.UNASSIGNED);
-
-        UserAccount savedUserAccount = userAccountRepository.save(userAccount);
-
-        ResponsibleAdult requestMapperEntity = responsibleAdultRequestMapper.toEntity(dto);
-
-        requestMapperEntity.setUserAccount(savedUserAccount);
-
-        responsibleAdultRepository.save(requestMapperEntity);
-
-        return responsibleAdultResponseMapper.toDTO(requestMapperEntity);
-    }
-*/
-
     @Transactional
     public ResponsibleAdultResponseDTO updateResponsibleAdult(ResponsibleAdultUpdateDTO dto) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
@@ -189,9 +171,31 @@ public class ResponsibleAdultService {
                 .orElseThrow(() -> new EntityNotFoundException("Entidade ResponsibleAdult não encontrada pelo email: " + authenticatedUserEmail));
 
         // validações de duplicação
-        if (responsibleAdultRepository.existsByEmail(dto.email())) throw new DuplicateResourceException("Já existe um responsável com o email: " + dto.email());
-        if (responsibleAdultRepository.existsByCpf(dto.cpf())) throw new DuplicateResourceException("Já existe um responsável com o CPF: " + dto.cpf());
-        if (responsibleAdultRepository.existsByTelephone(dto.telephone())) throw new DuplicateResourceException("Já existe um responsável com o Telefone: " + dto.telephone());
+        if (dto.email() != null && !dto.email().isBlank()) {
+            if (!dto.email().equals(responsibleAdult.getUserAccount().getEmail())) {
+                if (userAccountRepository.existsByEmail(dto.email())) {
+                    throw new DuplicateResourceException("Já existe um responsável com o email: " + dto.email());
+                }
+            }
+        }
+
+        // cpf
+        if (dto.cpf() != null && !dto.cpf().isBlank()) {
+            if (!dto.cpf().equals(responsibleAdult.getCpf())) {
+                if (responsibleAdultRepository.existsByCpfIgnoringTenant(dto.cpf())) {
+                    throw new DuplicateResourceException("Já existe um responsável com o CPF: " + dto.cpf());
+                }
+            }
+        }
+
+        // telephone
+        if (dto.telephone() != null && !dto.telephone().isBlank()) {
+            if (!dto.telephone().equals(responsibleAdult.getTelephone())) {
+                if (responsibleAdultRepository.existsByTelephoneIgnoringTenant(dto.telephone())) {
+                    throw new DuplicateResourceException("Já existe um responsável com o Telefone: " + dto.telephone());
+                }
+            }
+        }
 
         // validação da troca da data de aniversário
         if (dto.birthdate() != null) {
@@ -206,11 +210,6 @@ public class ResponsibleAdultService {
 
         ResponsibleAdult responsibleAdultUpdated = responsibleAdultRequestMapper.toUpdate(dto, responsibleAdult);
 
-        // atualiza email
-        if (dto.email() != null) {
-            userAccount.setEmail(dto.email());
-        }
-
         // atualiza senha
         if (dto.password() != null && !dto.password().isBlank()) {
             userAccount.setPassword(passwordEncoder.encode(dto.password()));
@@ -222,7 +221,7 @@ public class ResponsibleAdultService {
     }
 
     @Transactional
-    public void updateResponsibleAdultStatus(UpdateEntityStatusDTO dto) {
+    public void updateResponsibleAdultStatus(UpdateStatusDTO dto) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
         ResponsibleAdult responsibleAdult = responsibleAdultRepository.findByEmail(authenticatedUserEmail)
@@ -392,4 +391,7 @@ public class ResponsibleAdultService {
         }
     }
 
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
+    }
 }

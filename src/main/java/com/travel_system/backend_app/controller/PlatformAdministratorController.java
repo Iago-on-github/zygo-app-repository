@@ -1,8 +1,11 @@
 package com.travel_system.backend_app.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
+import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorCreationPayload;
+import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorCreationRequestDTO;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationResponseDTO;
+import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.PlatformAdministratorService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +26,13 @@ public class PlatformAdministratorController {
     }
 
     @PostMapping("/new")
-    public ResponseEntity<SensitiveOperationResponseDTO> createPlatformAdm(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdministratorRequestDTO) throws JsonProcessingException {
-        return ResponseEntity.accepted().body(platformAdministratorService.createPlatformAdm(platformAdministratorRequestDTO));
+    public ResponseEntity<SensitiveOperationResponseDTO> createPlatformAdm(@Valid @RequestBody PlatformAdministratorCreationRequestDTO request) {
+        return ResponseEntity.accepted().body(platformAdministratorService.createPlatformAdm(request));
     }
 
+    @RateLimited(RateLimitPolicy.BOOTSTRAP)
     @PostMapping("/bootstrap")
-    public ResponseEntity<SensitiveOperationResponseDTO> createFirstPlatformAdministrator(@Valid @RequestBody PlatformAdministratorRequestDTO platformAdministratorRequestDTO, HttpServletRequest request) throws JsonProcessingException {
-        return ResponseEntity.accepted().body(platformAdministratorService.createFirstPlatformAdministrator(platformAdministratorRequestDTO, request));
+    public ResponseEntity<SensitiveOperationResponseDTO> createFirstPlatformAdministrator(@Valid @RequestBody PlatformAdministratorCreationRequestDTO dto, HttpServletRequest request) throws JsonProcessingException {
+        return ResponseEntity.accepted().body(platformAdministratorService.createFirstPlatformAdministrator(dto, request));
     }
 }

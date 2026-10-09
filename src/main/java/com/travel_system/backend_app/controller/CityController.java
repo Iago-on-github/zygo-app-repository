@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.request.CityRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.CityService;
@@ -56,7 +56,7 @@ public class CityController {
     }
 
     @PatchMapping("/{cityId}/status")
-    public ResponseEntity<Void> updateCityStatus(@PathVariable UUID cityId, @Valid @RequestBody UpdateEntityStatusDTO dto) {
+    public ResponseEntity<Void> updateCityStatus(@PathVariable UUID cityId, @Valid @RequestBody UpdateStatusDTO dto) {
         cityService.updateCityStatus(cityId, dto);
 
         return ResponseEntity.noContent().build();

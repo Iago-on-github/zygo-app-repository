@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -192,4 +193,39 @@ public class RedisNotificationService {
 
         return quantityOfNotify != null ? Integer.parseInt(quantityOfNotify) : 0;
     }
+
+    // reserva atomicamente o lembrete e define seu TTL para evitar duplicidades
+    public boolean reserveReminderStartTravelNotification(UUID travelId, long minutes, Duration ttl) {
+        if (travelId == null || ttl.isNegative() || ttl.isZero()) {
+            return false;
+        }
+
+        String key = HASH_KEY_PREFIX + travelId + ":" + minutes;
+
+        return Boolean.TRUE.equals(
+                redisTemplate.opsForValue().setIfAbsent(key, "PROCESSING", ttl)
+        );
+    }
+
+    // marca o lembrete como enviado, mantendo o controle até a expiração da chave
+    public void markReminderStartTravelNotificationAsSent(UUID travelId, long minutes, Duration ttl) {
+        String key = HASH_KEY_PREFIX + travelId + ":" + minutes;
+
+        redisTemplate.opsForValue().set(key, "SENT", ttl);
+    }
+
+    // remove a reserva em caso de falha, permitindo uma nova tentativa
+    public void releaseReminderStartTravelNotification(UUID travelId, long minutes) {
+        String key = HASH_KEY_PREFIX + travelId + ":" + minutes;
+
+        redisTemplate.delete(key);
+    }
+
+    // verifica se o lembrete já foi enviado com sucesso
+    public boolean isReminderStartTravelNotificationSent(UUID travelId, long minutes) {
+        String key = HASH_KEY_PREFIX + travelId + ":" + minutes;
+
+        return "SENT".equals(redisTemplate.opsForValue().get(key));
+    }
+
 }

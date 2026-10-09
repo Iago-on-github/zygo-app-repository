@@ -140,6 +140,52 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
+    @Bean(name = "emailVerificationTaskExecutor")
+    public ThreadPoolTaskExecutor emailVerificationExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("Email-Verification-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        // rejeita e lança a exception
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
+    @Bean(name = "emailInvitationsTaskExecutor")
+    public ThreadPoolTaskExecutor emailInvitationsTaskExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 10;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 5;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("Email-Invitation-");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        // rejeita e lança a exception
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
     @Bean(name = "routeStopTaskExecutor")
     public ThreadPoolTaskExecutor routeStopLifecycleExecutor() {
         int MAXIMUM_QUEUE_CAPACITY = 10;

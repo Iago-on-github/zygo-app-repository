@@ -1,7 +1,9 @@
 package com.travel_system.backend_app.model.dtos.invitation.admin;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.travel_system.backend_app.model.dtos.request.AddressRequestDTO;
 
+import javax.validation.Valid;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
 
@@ -25,6 +27,9 @@ public record AdministratorAcceptDTO(
 
         @NotBlank(message = "Campo 'Telefone' é obrigatório")
         @Pattern(regexp = "\\d{11}", message = "O telefone deve ter 11 dígitos")
-        String telephone
+        String telephone,
+
+        @Valid
+        AddressRequestDTO addressRequest
 ) {
 }

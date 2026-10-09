@@ -23,11 +23,10 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     @Query(value = "SELECT * FROM user_account_table u WHERE u.email = :email", nativeQuery = true)
     Optional<UserAccount> findByEmailForAuthentication(@Param("email") String email);
 
-/*
-    @Query("SELECT u FROM UserAccount u JOIN u.permissions p WHERE u.email = :email AND p.description = :role")
-    Optional<UserAccount> findByEmailAndRole(@Param("email") String email, @Param("role") String role);
-*/
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM user_account_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
+    /*
+    * useraccount nao tem customerId, o nome "ignoringTenant" serve apenas para deixar mais explicíto, mas nao é nativequery
+    * */
+    @Query("SELECT COUNT (u) > 0 FROM UserAccount u WHERE u.id = :userAccountId")
     boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
 
     boolean existsByEmail(@Param("email") String email);
@@ -36,6 +35,4 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     @Query("SELECT u FROM UserAccount u WHERE u.email = :email")
     Optional<UserAccount> findByEmailForUpdate(@Param("email") String email);
 
-    @Query("SELECT EXISTS (SELECT 1 FROM user_account_table WHERE email = :email)")
-    boolean existsByEmailIgnoringTenant(@Param("email") String email);
 }

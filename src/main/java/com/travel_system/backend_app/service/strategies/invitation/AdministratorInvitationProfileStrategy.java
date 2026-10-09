@@ -7,6 +7,7 @@ import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorAcceptDTO;
 import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorInvitationDTO;
+import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorProfileDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentProfileDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
@@ -38,8 +39,8 @@ public class AdministratorInvitationProfileStrategy {
     }
 
     // envia o convite para o adm
-    public InvitationResponseDTO sendAdministratorInvitation(String email, AdministratorInvitationDTO admInvitationDTO) {
-        return invitationService.sendInvitation(email, admInvitationDTO);
+    public InvitationResponseDTO sendAdministratorInvitation(AdministratorInvitationRequestDTO dto) {
+        return invitationService.sendInvitation(dto.email(), dto.admInvitation());
     }
 
     // adm aceita o convite

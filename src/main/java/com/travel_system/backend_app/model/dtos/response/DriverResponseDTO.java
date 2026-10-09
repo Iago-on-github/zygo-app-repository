@@ -12,10 +12,13 @@ public record DriverResponseDTO(
         String email,
         String telephone,
         String profilePicture,
-        LocalDateTime createdAt,
-        GeneralStatus status,
+        String cpf,
+        AddressResponseDTO addressResponse,
+        CnhResponseDTO cnhResponse,
         String areaOfActivity,
         Integer totalTrips,
-        UUID customerId
+        UUID customerId,
+        LocalDateTime createdAt,
+        GeneralStatus status
 ) {
 }

@@ -10,6 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -23,11 +24,19 @@ public class Driver extends BaseTenantEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @OneToOne(optional = false)
-    @JoinColumn(name = "user_account_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_account_id", unique = true)
     private UserAccount userAccount;
     private String name;
     private String lastName;
     private String telephone;
+    @Column(unique = true)
+    private String cpf;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "address_id")
+    private Address address;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "cnh_id")
+    private Cnh cnh;
     private String profilePicture;
     @DateTimeFormat(pattern = "dd/MM/yyyy")
     private LocalDate birthdate;
@@ -45,16 +54,20 @@ public class Driver extends BaseTenantEntity {
     private LocalDateTime createdAt;
     @LastModifiedDate
     private LocalDateTime updatedAt;
+    private Instant leftAt;
 
     public Driver() {
     }
 
-    public Driver(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String profilePicture, LocalDate birthdate, GeneralStatus status, String areaOfActivity, Integer totalTrips, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Driver(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String cpf, Address address, Cnh cnh, String profilePicture, LocalDate birthdate, GeneralStatus status, String areaOfActivity, Integer totalTrips, LocalDateTime createdAt, LocalDateTime updatedAt, Instant leftAt) {
         this.id = id;
         this.userAccount = userAccount;
         this.name = name;
         this.lastName = lastName;
         this.telephone = telephone;
+        this.cpf = cpf;
+        this.address = address;
+        this.cnh = cnh;
         this.profilePicture = profilePicture;
         this.birthdate = birthdate;
         this.status = status;
@@ -62,6 +75,7 @@ public class Driver extends BaseTenantEntity {
         this.totalTrips = totalTrips;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.leftAt = leftAt;
     }
 
     public LocalDateTime getUpdatedAt() {
@@ -129,6 +143,14 @@ public class Driver extends BaseTenantEntity {
         this.birthdate = birthdate;
     }
 
+    public Cnh getCnh() {
+        return cnh;
+    }
+
+    public void setCnh(Cnh cnh) {
+        this.cnh = cnh;
+    }
+
     public String getProfilePicture() {
         return profilePicture;
     }
@@ -143,6 +165,22 @@ public class Driver extends BaseTenantEntity {
 
     public void setTelephone(String telephone) {
         this.telephone = telephone;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
     }
 
     public String getLastName() {
@@ -175,5 +213,13 @@ public class Driver extends BaseTenantEntity {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public Instant getLeftAt() {
+        return leftAt;
+    }
+
+    public void setLeftAt(Instant leftAt) {
+        this.leftAt = leftAt;
     }
 }

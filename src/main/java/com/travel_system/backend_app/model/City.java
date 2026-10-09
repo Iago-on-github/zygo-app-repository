@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,7 +16,9 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "city_table")
+@EntityListeners(AuditingEntityListener.class)
 public class City {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -43,8 +46,15 @@ public class City {
         this.id = id;
     }
 
+    public void addCustomer(Customer customer) {
+        this.customers.add(customer);
+
+        customer.setCity(this);
+    }
+
     public void removeCustomer(Customer customer) {
         this.customers.remove(customer);
+
         customer.setCity(null);
     }
 

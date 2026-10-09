@@ -1,5 +1,7 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.config.constants.GlobalAppConstants;
+import com.travel_system.backend_app.config.constants.NotificationConstants;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.Travel;
@@ -8,12 +10,19 @@ import com.travel_system.backend_app.model.enums.TravelNotificationAudience;
 import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.utils.DateTimeFormats;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /*
@@ -22,13 +31,21 @@ import java.util.UUID;
 @Service
 @Async("staticNotificationTaskExecutor")
 public class TravelNotificationService {
+    private final Logger log = LoggerFactory.getLogger(TravelNotificationService.class);
+
+    private final RedisTemplate<String, String> redisTemplate;
 
     private final FirebaseNotificationSender firebaseNotificationSender;
+    private final DateTimeFormats dateTimeFormats;
+    private final RedisNotificationService redisNotificationService;
 
     private final TravelRepository travelRepository;
 
-    public TravelNotificationService(FirebaseNotificationSender firebaseNotificationSender, TravelRepository travelRepository) {
+    public TravelNotificationService(RedisTemplate<String, String> redisTemplate, FirebaseNotificationSender firebaseNotificationSender, DateTimeFormats dateTimeFormats, RedisNotificationService redisNotificationService, TravelRepository travelRepository) {
+        this.redisTemplate = redisTemplate;
         this.firebaseNotificationSender = firebaseNotificationSender;
+        this.dateTimeFormats = dateTimeFormats;
+        this.redisNotificationService = redisNotificationService;
         this.travelRepository = travelRepository;
     }
 
@@ -73,7 +90,7 @@ public class TravelNotificationService {
     }
 
     /*
-     * criação de nova viagem:
+     * inicio de  viagem:
      * - notifica apenas os alunos que são cadastrados no período da viagem
      * - notifica todos dos admins
      * - notifica os responsáveis pelos alunos
@@ -86,7 +103,7 @@ public class TravelNotificationService {
         TravelNotificationAudience periodStudentsNotification = TravelNotificationAudience.PERIOD_STUDENTS;
 
         String title = "Viagem iniciada";
-        String message = "A viagem do turno " + travel.getTravelPeriod() + " foi iniciada às " + travel.getStartHourTravel();
+        String message = "A viagem do turno " + travel.getTravelPeriod() + " foi iniciada às " + travel.getStartHourTravelAt();
         String link = "/travels/" + travel.getId() + "/tracking";
 
         Map<String, String> data = Map.of(
@@ -126,7 +143,7 @@ public class TravelNotificationService {
         TravelNotificationAudience periodStudentsNotification = TravelNotificationAudience.PERIOD_STUDENTS;
 
         String title = "Viagem finalizada";
-        String message = "A viagem do turno" + travel.getTravelPeriod() + "foi finalizada às " + travel.getEndHourTravel();
+        String message = "A viagem do turno" + travel.getTravelPeriod() + "foi finalizada às " + travel.getEndHourTravelAt();
         String link = "/travels/" + travel.getId() + "/tracking";
 
         Map<String, String> data = Map.of(
@@ -267,7 +284,7 @@ public class TravelNotificationService {
     }
 
     /*
-     * embarque de estudantes:
+     * desembarque de estudantes:
      * - notifica o responsável pelo estudante embarcado
      * */
     public void sendDisembarkStudentNotificationToResponsible(UUID travelId, String studentName, UUID studentId, Instant disembarkHour) {
@@ -293,4 +310,171 @@ public class TravelNotificationService {
 
     // timeable change
 
+    /*
+    * agendamento de viagem
+     * - notifica apenas os alunos que são cadastrados no período da viagem
+     * - notifica todos dos admins
+     * - notifica os responsáveis pelos alunos
+     *  */
+    public void sendTravelScheduleNotification(Travel travel) {
+        TravelNotificationAudience periodStudents = TravelNotificationAudience.PERIOD_STUDENTS;
+        TravelNotificationAudience customerAdmins = TravelNotificationAudience.CUSTOMER_ADMINS;
+        TravelNotificationAudience studentResponsible = TravelNotificationAudience.STUDENT_RESPONSIBLE;
+
+        String title = "Nova viagem agendada";
+        String message = "Uma nova viagem foi agendada para o período " + travel.getTravelPeriod() + ", às " + dateTimeFormats.formatInstantDate(travel.getScheduledStartAt());
+        String link = "/travels/" + travel.getId() + "/scheduled";
+
+        Map<String, String> data = Map.of(
+                "eventType", "SCHEDULED_TRAVEL",
+                "travelId", travel.getId().toString(),
+                "startHour", travel.getScheduledStartAt().toString(),
+                "createdBy", travel.getTravelScheduleCreatedBy(),
+                "period", travel.getTravelPeriod().toString()
+        );
+
+        Shift shift = Shift.valueOf(travel.getTravelPeriod().name());
+
+        // students
+        TravelPushNotificationCommandDTO students =
+                new TravelPushNotificationCommandDTO(periodStudents, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
+
+        // admin
+        TravelPushNotificationCommandDTO admins =
+                new TravelPushNotificationCommandDTO(customerAdmins, travel.getCustomerId(), travel.getId(), null, null, null, title, message, link, Priority.NORMAL, data);
+
+        // responsible
+        TravelPushNotificationCommandDTO responsible =
+                new TravelPushNotificationCommandDTO(studentResponsible, null, travel.getId(), null, null, null, title, message, link, Priority.NORMAL, data);
+
+        firebaseNotificationSender.sendTravelNotification(students);
+        firebaseNotificationSender.sendTravelNotification(admins);
+        firebaseNotificationSender.sendTravelNotification(responsible);
+    }
+
+    /*
+     * lembretes de início de viagem (ex. [inicio 10h] -> 09h -> 09h40 -> 9h55)
+     * - notifica apenas os alunos que são cadastrados no período da viagem
+     * - notifica todos dos admins
+     * - notifica os responsáveis pelos alunos
+     * - notifica o motorista responsável pela viagem
+    * */
+    public void sendScheduleRemindersTravelStart(Travel travel) {
+
+        Optional<Long> allowToNotify = isAllowToNotify(
+                travel.getId(),
+                travel.getScheduledStartAt()
+        );
+
+        if (allowToNotify.isEmpty()) {
+            return;
+        }
+
+        long minutes = allowToNotify.get();
+
+        TravelNotificationAudience periodStudents = TravelNotificationAudience.PERIOD_STUDENTS;
+        TravelNotificationAudience customerAdmins = TravelNotificationAudience.CUSTOMER_ADMINS;
+        TravelNotificationAudience studentResponsible = TravelNotificationAudience.STUDENT_RESPONSIBLE;
+        TravelNotificationAudience driverNotification = TravelNotificationAudience.SPECIFIC_DRIVER;
+
+        String title = "Lembrete de início de viagem";
+        String message = "A viagem agendada pelo motorista "
+                + travel.getTravelScheduleCreatedBy()
+                + " começa às "
+                + dateTimeFormats.formatInstantDate(travel.getScheduledStartAt());
+
+        String link = "/travels/" + travel.getId() + "/reminder";
+
+        Map<String, String> data = Map.of(
+                "eventType", "REMINDER_START_SCHEDULED_TRAVEL",
+                "travelId", travel.getId().toString(),
+                "startHour", travel.getScheduledStartAt().toString(),
+                "createdBy", travel.getTravelScheduleCreatedBy(),
+                "period", travel.getTravelPeriod().toString(),
+                "minutes", Long.toString(minutes)
+        );
+
+        Shift shift = Shift.valueOf(travel.getTravelPeriod().name());
+
+        TravelPushNotificationCommandDTO students =
+                new TravelPushNotificationCommandDTO(periodStudents, travel.getCustomerId(), travel.getId(), null, null, shift, title, message, link, Priority.NORMAL, data);
+
+        TravelPushNotificationCommandDTO admins =
+                new TravelPushNotificationCommandDTO(customerAdmins, travel.getCustomerId(), travel.getId(), null, null, null, title, message, link, Priority.HIGH, data);
+
+        TravelPushNotificationCommandDTO responsible =
+                new TravelPushNotificationCommandDTO(studentResponsible, null, travel.getId(), null, null, null, title, message, link, Priority.HIGH, data);
+
+        TravelPushNotificationCommandDTO driver =
+                new TravelPushNotificationCommandDTO(driverNotification, null, travel.getId(), null, travel.getDriver().getId(), null, title, message, link, Priority.HIGH, data);
+
+        /*
+         * calcula o ttl p/ manter a chave no Redis por, no mínimo, 24 horas após o início previsto da viagem,
+         * evitando a expiração prematura do controle dos lembretes.
+         * */
+        Duration ttl = Duration.between(Instant.now(), travel.getScheduledStartAt()).plus(Duration.ofDays(1));
+
+        if (ttl.compareTo(Duration.ofDays(1)) < 0) {
+            ttl = Duration.ofDays(1);
+        }
+
+        try {
+            firebaseNotificationSender.sendTravelNotification(students);
+            firebaseNotificationSender.sendTravelNotification(admins);
+            firebaseNotificationSender.sendTravelNotification(responsible);
+            firebaseNotificationSender.sendTravelNotification(driver);
+
+            redisNotificationService.markReminderStartTravelNotificationAsSent(travel.getId(), minutes, ttl);
+
+        } catch (Exception e) {
+            log.error("[sendScheduleRemindersTravelStart] Erro ao enviar lembretes da viagem {}", travel.getId(), e);
+
+            redisNotificationService.releaseReminderStartTravelNotification(travel.getId(), minutes);
+        }
+    }
+
+    // verifica individualmente os lembretes e reserva no Redis o primeiro que estiver elegível
+    private Optional<Long> isAllowToNotify(UUID travelId, Instant scheduledStartAt) {
+        Instant now = Instant.now();
+
+        List<Long> reminderIntervals = List.of(
+                NotificationConstants.NOTIFICATION_SCHEDULE_SIXTY_MINUTES,
+                NotificationConstants.NOTIFICATION_SCHEDULE_TWENTY_MINUTES,
+                NotificationConstants.NOTIFICATION_SCHEDULE_FIVE_MINUTES
+        );
+
+        /*
+         * calcula o ttl p/ manter a chave no Redis por, no mínimo, 24 horas após o início previsto da viagem,
+         * evitando a expiração prematura do controle dos lembretes.
+         * */
+        Duration ttl = Duration.between(now, scheduledStartAt).plus(Duration.ofDays(1));
+
+        if (ttl.compareTo(Duration.ofDays(1)) < 0) {
+            ttl = Duration.ofDays(1);
+        }
+
+        for (Long minutes : reminderIntervals) {
+            if (!calculateExactlyTime(now, scheduledStartAt, minutes)) {
+                continue;
+            }
+
+            boolean reserved = redisNotificationService.reserveReminderStartTravelNotification(travelId, minutes, ttl);
+
+            if (reserved) {
+                return Optional.of(minutes);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    // verifica se o horário do lembrete foi atingido, respeitando uma tolerância de 1 minuto
+    private boolean calculateExactlyTime(Instant now, Instant scheduledStartAt, long minutes) {
+        Duration remaining = Duration.between(now, scheduledStartAt);
+        Duration reminderTime = Duration.ofMinutes(minutes);
+
+        Duration elapsedSinceReminder = reminderTime.minus(remaining);
+
+        return !elapsedSinceReminder.isNegative() && elapsedSinceReminder.compareTo(Duration.ofMinutes(1)) <= 0;
+    }
 }

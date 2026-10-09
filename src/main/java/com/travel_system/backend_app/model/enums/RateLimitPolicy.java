@@ -4,9 +4,9 @@ import java.time.Duration;
 
 public enum RateLimitPolicy {
     BOOTSTRAP("bootstrap:", 5, Duration.ofMinutes(15), KeyType.IP),
-    SENSITIVE_OPERATION("sensitive-operation:", 5, Duration.ofMinutes(15), KeyType.IP),
+    SENSITIVE_OPERATION("sensitive-operation:", 10, Duration.ofMinutes(15), KeyType.IP),
     REGISTER("register:", 5, Duration.ofHours(1), KeyType.IP),
-    VERIFY_EMAIL("verify-email:", 20, Duration.ofMinutes(15), KeyType.IP),
+    VERIFY_EMAIL("verify-email:", 10, Duration.ofMinutes(15), KeyType.IP),
     RESEND_VERIFICATION("resend-verification:", 3, Duration.ofHours(1), KeyType.USER),
     SEND_INVITATION("send-invitation:", 50, Duration.ofHours(1), KeyType.USER);
 

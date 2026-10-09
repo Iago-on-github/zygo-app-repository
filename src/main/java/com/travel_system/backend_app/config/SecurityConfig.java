@@ -155,15 +155,16 @@ public class SecurityConfig {
         auth.requestMatchers(HttpMethod.POST, "/v1/drivers").permitAll();
 
         auth.requestMatchers("/v1/drivers/me").hasAnyRole(ROLE_DRIVER);
+        auth.requestMatchers("/v1/drivers/delete").hasAnyRole(ROLE_DRIVER);
         auth.requestMatchers("/v1/drivers/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
     private void configureStudentEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
-        auth.requestMatchers(HttpMethod.POST, "/v1/students/new").permitAll();
+/*        auth.requestMatchers(HttpMethod.POST, "/v1/students/new").permitAll();
 
         auth.requestMatchers("/v1/students/me").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
         auth.requestMatchers("/v1/students/add/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
-        auth.requestMatchers("/v1/students/remove/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
+        auth.requestMatchers("/v1/students/remove/responsible").hasAnyRole(ROLE_USER, ROLE_ADMIN, ROLE_PLATFORM_ADMIN);*/
         auth.requestMatchers("/v1/students/**").hasAnyRole(ROLE_ADMIN, ROLE_PLATFORM_ADMIN);
     }
 
@@ -216,6 +217,18 @@ public class SecurityConfig {
     private void configureCitiesEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth.requestMatchers("/v1/cities/**").hasRole(ROLE_PLATFORM_ADMIN);
 
+    }
+
+    private void configureCnhEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/cnh/**").hasRole(ROLE_ADMIN);
+    }
+
+    private void configureInstitutionEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/institution/**").hasRole(ROLE_ADMIN);
+    }
+
+    private void configureVehicleEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth.requestMatchers("/v1/vehicle/**").hasRole(ROLE_ADMIN);
     }
 
     private void configureAnyRequireAuthEndpoints(AuthorizeHttpRequestsConfigurer<?>.AuthorizationManagerRequestMatcherRegistry auth) {

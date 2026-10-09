@@ -5,6 +5,8 @@ import com.travel_system.backend_app.config.StorageProperties;
 import com.travel_system.backend_app.exceptions.StorageException;
 import com.travel_system.backend_app.interfaces.StorageInterfaceService;
 import org.slf4j.ILoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -24,6 +26,7 @@ import java.io.IOException;
 
 @Service
 public class S3StorageService implements StorageInterfaceService {
+    private final Logger log = LoggerFactory.getLogger(S3StorageService.class);
 
     private final StorageProperties storageProperties;
 
@@ -40,6 +43,8 @@ public class S3StorageService implements StorageInterfaceService {
         if (bytes == null || bytes.length == 0) {
             throw new IllegalArgumentException("[upload] - bytes vazios ou null");
         }
+
+        System.out.println("Storage endpoint em uso: {}" + storageProperties.getEndpoint());
 
         if (objectKey == null || objectKey.isBlank()) {
             throw new IllegalArgumentException("[upload] - objectKey inválida");
@@ -60,7 +65,8 @@ public class S3StorageService implements StorageInterfaceService {
             s3Client.putObject(request, RequestBody.fromBytes(bytes));
 
             return objectKey; // retorna a objectKey ao invés da URL completa
-        } catch (S3Exception e) {
+        }  catch (S3Exception e) {
+            log.error("[upload] Falha no storage. código={}, mensagem={}", e.awsErrorDetails().errorCode(), e.awsErrorDetails().errorMessage());
             throw new StorageException("[upload] erro ao enviar arquivo para storage", e);
         }
     }

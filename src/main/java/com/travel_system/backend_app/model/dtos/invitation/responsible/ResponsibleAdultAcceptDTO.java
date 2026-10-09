@@ -1,7 +1,9 @@
 package com.travel_system.backend_app.model.dtos.invitation.responsible;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.travel_system.backend_app.model.dtos.request.AddressRequestDTO;
 
+import javax.validation.Valid;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
 
@@ -24,6 +26,9 @@ public record ResponsibleAdultAcceptDTO(
 
         @Past(message = "A data de nascimento deve estar no passado")
         @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate
+        LocalDate birthdate,
+
+        @Valid
+        AddressRequestDTO addressRequest
 ) {
 }

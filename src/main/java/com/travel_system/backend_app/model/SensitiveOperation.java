@@ -23,12 +23,13 @@ public class SensitiveOperation {
     private SensitiveOperationStatus sensitiveOperationStatus;
     private Instant expiresAt;
     private Instant approvedAt;
+    private Instant rejectedAt;
     private Instant executedAt;
 
     public SensitiveOperation() {
     }
 
-    public SensitiveOperation(UUID id, SensitiveOperationType sensitiveOperationType, String requestedByUserAccountEmail, String payload, String verificationTokenHash, SensitiveOperationStatus sensitiveOperationStatus, Instant expiresAt, Instant approvedAt, Instant executedAt) {
+    public SensitiveOperation(UUID id, SensitiveOperationType sensitiveOperationType, String requestedByUserAccountEmail, String payload, String verificationTokenHash, SensitiveOperationStatus sensitiveOperationStatus, Instant expiresAt, Instant approvedAt, Instant rejectedAt, Instant executedAt) {
         this.id = id;
         this.sensitiveOperationType = sensitiveOperationType;
         this.requestedByUserAccountEmail = requestedByUserAccountEmail;
@@ -37,6 +38,7 @@ public class SensitiveOperation {
         this.sensitiveOperationStatus = sensitiveOperationStatus;
         this.expiresAt = expiresAt;
         this.approvedAt = approvedAt;
+        this.rejectedAt = rejectedAt;
         this.executedAt = executedAt;
     }
 
@@ -102,6 +104,14 @@ public class SensitiveOperation {
 
     public void setApprovedAt(Instant approvedAt) {
         this.approvedAt = approvedAt;
+    }
+
+    public Instant getRejectedAt() {
+        return rejectedAt;
+    }
+
+    public void setRejectedAt(Instant rejectedAt) {
+        this.rejectedAt = rejectedAt;
     }
 
     public Instant getExecutedAt() {

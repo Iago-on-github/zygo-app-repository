@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.model.enums.StudentRelationshipType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -25,13 +26,20 @@ public class Student extends BaseTenantEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @OneToOne(optional = false)
-    @JoinColumn(name = "user_account_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_account_id", unique = true)
     private UserAccount userAccount;
     private String name;
     private String lastName;
     private String telephone;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "address_id")
+    private Address address;
+    @Column(unique = true)
+    private String cpf;
+    @BatchSize(size = 25)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<StudentEnrollment> enrollments = new HashSet<>();
     private String profilePicture;
-    @DateTimeFormat(pattern = "dd/MM/yyyy")
     private LocalDate birthdate;
     @ElementCollection
     @CollectionTable(name = "student_shifts", joinColumns = @JoinColumn(name = "student_id"))
@@ -39,9 +47,6 @@ public class Student extends BaseTenantEntity {
     private Set<Shift> studentShift = new HashSet<>();
     @Enumerated(EnumType.STRING)
     private GeneralStatus status = GeneralStatus.ACTIVE;
-    @Enumerated(EnumType.STRING)
-    private InstitutionType institutionType;
-    private String course;
     @Enumerated(EnumType.STRING)
     private StudentRelationshipType studentRelationshipType;
     @OneToMany(mappedBy = "student")
@@ -55,25 +60,41 @@ public class Student extends BaseTenantEntity {
     private Instant createdAt;
     @LastModifiedDate
     private Instant updatedAt;
+    private Instant leftAt;
 
     public Student() {
     }
 
-    public Student(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String profilePicture, LocalDate birthdate, GeneralStatus status, InstitutionType institutionType, String course, ResponsibleAdult responsibleAdult, Instant createdAt, Instant updatedAt, StudentRelationshipType studentRelationshipType) {
+    public Student(UUID id, UserAccount userAccount, String name, String lastName, String telephone, Address address, String cpf, String profilePicture, LocalDate birthdate, GeneralStatus status, String poolOfEnrollment, StudentRelationshipType studentRelationshipType, ResponsibleAdult responsibleAdult, Instant createdAt, Instant updatedAt, Instant leftAt) {
         this.id = id;
         this.userAccount = userAccount;
         this.name = name;
         this.lastName = lastName;
         this.telephone = telephone;
+        this.address = address;
+        this.cpf = cpf;
         this.profilePicture = profilePicture;
         this.birthdate = birthdate;
         this.status = status;
-        this.institutionType = institutionType;
-        this.course = course;
+        this.studentRelationshipType = studentRelationshipType;
         this.responsibleAdult = responsibleAdult;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-        this.studentRelationshipType = studentRelationshipType;
+        this.leftAt = leftAt;
+    }
+
+    public StudentEnrollment addEnrollment(InstitutionCourse course, String poolOfEnrollment) {
+        StudentEnrollment enrollment = new StudentEnrollment();
+
+        enrollment.setStudent(this);
+        enrollment.setCourse(course);
+        enrollment.setPoolOfEnrollment(poolOfEnrollment);
+        enrollment.setStatus(GeneralStatus.ACTIVE);
+        enrollment.assignCustomer(this.getCustomerId());
+
+        this.enrollments.add(enrollment);
+
+        return enrollment;
     }
 
     public UUID getId() {
@@ -116,6 +137,30 @@ public class Student extends BaseTenantEntity {
         this.telephone = telephone;
     }
 
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
+    }
+
+    public Set<StudentEnrollment> getEnrollments() {
+        return enrollments;
+    }
+
+    public void setEnrollments(Set<StudentEnrollment> enrollments) {
+        this.enrollments = enrollments;
+    }
+
     public String getProfilePicture() {
         return profilePicture;
     }
@@ -146,22 +191,6 @@ public class Student extends BaseTenantEntity {
 
     public void setStatus(GeneralStatus status) {
         this.status = status;
-    }
-
-    public InstitutionType getInstitutionType() {
-        return institutionType;
-    }
-
-    public void setInstitutionType(InstitutionType institutionType) {
-        this.institutionType = institutionType;
-    }
-
-    public String getCourse() {
-        return course;
-    }
-
-    public void setCourse(String course) {
-        this.course = course;
     }
 
     public StudentRelationshipType getStudentRelationshipType() {
@@ -210,5 +239,13 @@ public class Student extends BaseTenantEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getLeftAt() {
+        return leftAt;
+    }
+
+    public void setLeftAt(Instant leftAt) {
+        this.leftAt = leftAt;
     }
 }

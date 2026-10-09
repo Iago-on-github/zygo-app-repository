@@ -3,26 +3,40 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.config.constants.GlobalAppConstants;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.StudentRequestMapper;
+import com.travel_system.backend_app.interfaces.mappers.response.InstitutionResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StudentResponseMapper;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentAcceptDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentProfileDTO;
+import com.travel_system.backend_app.model.dtos.request.InstitutionRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.StudentInstitutionRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
+import com.travel_system.backend_app.model.dtos.response.InstitutionResponseDTO;
+import com.travel_system.backend_app.model.enums.InstitutionType;
+import com.travel_system.backend_app.model.enums.Shift;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.travel_system.backend_app.config.constants.ResponsibleAdultConstants.MAX_STUDENTS_PER_RESPONSIBLE_ADULT;
+import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 @Service
@@ -31,27 +45,81 @@ public class StudentService {
     private final InvitationRepository invitationRepository;
     private final UserAccountRepository userAccountRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
+    private final InstitutionRepository institutionRepository;
+    private final InstitutionCourseRepository institutionCourseRepository;
+    private final StudentEnrollmentRepository studentEnrollmentRepository;
+    private final CustomerRepository customerRepository;
 
     private final PasswordEncoder passwordEncoder;
 
     private final StudentResponseMapper studentResponseMapper;
     private final StudentRequestMapper studentRequestMapper;
 
-    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper) {
+    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, InstitutionRepository institutionRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper, InstitutionResponseMapper institutionResponseMapper, InstitutionCourseRepository institutionCourseRepository, StudentEnrollmentRepository studentEnrollmentRepository, CustomerRepository customerRepository) {
         this.studentRepository = studentRepository;
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
+        this.institutionRepository = institutionRepository;
         this.passwordEncoder = passwordEncoder;
         this.studentResponseMapper = studentResponseMapper;
         this.studentRequestMapper = studentRequestMapper;
+        this.institutionCourseRepository = institutionCourseRepository;
+        this.studentEnrollmentRepository = studentEnrollmentRepository;
+        this.customerRepository = customerRepository;
     }
 
     @Transactional(readOnly = true)
-    public Page<StudentResponseDTO> getAllStudents(Pageable pageable) {
-        Page<Student> getAllStudents = studentRepository.findAll(pageable);
+    public Page<StudentResponseDTO> getAllStudents(String email, String name, String lastName, String neighborhood, String institutionName, InstitutionType institutionType, Shift shift, Pageable pageable) {
+        UUID customerId = getCurrentTenant();
+        if (customerId == null) {
+            throw new AccessDeniedException("Usuário sem Customer vinculado");
+        }
 
-        return getAllStudents.map(studentResponseMapper::toDTO);
+        String normalizedEmail = blankToNull(email);
+        if (normalizedEmail != null) {
+            normalizedEmail = normalizedEmail.toLowerCase(Locale.ROOT);
+        }
+
+        Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        return studentRepository.findAllByOptionalFilters(
+                        customerId,
+                        normalizedEmail,
+                        blankToNull(name),
+                        blankToNull(lastName),
+                        blankToNull(neighborhood),
+                        blankToNull(institutionName),
+                        institutionType != null ? institutionType.name() : null,
+                        shift != null ? shift.name() : null,
+                        pageOnly)
+                .map(studentResponseMapper::toDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<StudentResponseDTO> getAllStudentsByInstitution(UUID institutionId, Set<UUID> courseIds, Pageable pageable) {
+        UUID customerId = getCurrentTenant();
+        if (customerId == null) {
+            throw new IllegalArgumentException("Usuário sem customer ID");
+        }
+
+        boolean filterByCourses = courseIds != null && !courseIds.isEmpty();
+        Collection<UUID> courses = filterByCourses ? courseIds : List.of(institutionId);
+
+        PageRequest pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        return studentRepository.findAllByInstitution(customerId, institutionId, filterByCourses, courses, pageOnly).map(studentResponseMapper::toDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public StudentResponseDTO getStudentById(UUID studentId) {
+        return studentResponseMapper.toDTO(studentRepository.findById(studentId).orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado")));
+    }
+
+    @Transactional(readOnly = true)
+    public StudentResponseDTO getStudentByCpf(String cpf) {
+        return studentResponseMapper.toDTO(studentRepository.findByCpf(normalizeField(cpf))
+                .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado")));
     }
 
     @Transactional(readOnly = true)
@@ -74,19 +142,24 @@ public class StudentService {
     }
 
     public Student createForExistingAccount(UserAccount userAccount, UUID customerId, StudentProfileDTO studentProfileDTO) {
-        // via nativequery = busca globalmente
-        if (studentRepository.existsByTelephoneIgnoringTenant(studentProfileDTO.studentAccept().telephone())) {
-            throw new DuplicateResourceException("Já existe um estudante com esse Telefone");
+        StudentAcceptDTO accept = studentProfileDTO.studentAccept();
+
+        // unicidade global (queries nativas)
+        if (studentRepository.existsByTelephoneIgnoringTenant(accept.telephone())) {
+            throw new DuplicateResourceException("Já existe um estudante com esse telefone");
+        }
+        if (accept.cpf() != null && studentRepository.existsByCpfIgnoringTenant(accept.cpf())) {
+            throw new DuplicateResourceException("Já existe um estudante com esse CPF");
+        }
+        if (studentRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
+            throw new DuplicateResourceException("Esta conta já possui um perfil de estudante");
         }
 
-        if (userAccountRepository.existsByUserAccountIdIgnoringTenant(userAccount.getId())) {
-            throw new DuplicateResourceException("Já existe esse estudante cadastrado no sistema");
-        }
+        // limite do plano
+        long countStudents = countStudentsInThisCustomer(customerId);
 
-        long countStudents = studentRepository.countStudentsInThisCustomer(customerId);
-
-        if (countStudents >= GlobalAppConstants.STUDENT_RECORD_LIMIT) {
-            throw new EntityLimitExceededException("O limite de cadastro para Estudantes no seu plano é de " + GlobalAppConstants.STUDENT_RECORD_LIMIT + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
+        if (countStudents >= studentRegisterLimit(customerId)) {
+            throw new EntityLimitExceededException("O limite de cadastro para Estudantes no seu plano é de " + studentRegisterLimit(customerId) + ". Para mais cadastros faça um upgrade ou personalize seu plano.");
         }
 
         Student student = studentRequestMapper.toEntity(studentProfileDTO);
@@ -94,6 +167,13 @@ public class StudentService {
         student.setStatus(GeneralStatus.ACTIVE);
         student.setUserAccount(userAccount);
         student.assignCustomer(customerId);
+        student.getStudentShift().addAll(studentProfileDTO.studentInvitation().studentShifts());
+
+        // matrículas nos cursos escolhidos
+        StudentInstitutionRequestDTO studentInstitutionRequestDTO = accept.studentInstitutionRequest();
+        if (studentInstitutionRequestDTO != null) {
+            enrollmentCourses(student, customerId, studentInstitutionRequestDTO);
+        }
 
         return studentRepository.save(student);
     }
@@ -166,16 +246,20 @@ public class StudentService {
         UserAccount userAccount = studentEntity.getUserAccount();
 
         // verifica se email já existe
-        if (studentUpdateDTO.email() != null && !studentUpdateDTO.email().equals(userAccount.getEmail())) {
-            if (studentRepository.existsByEmailIgnoringTenant(studentUpdateDTO.email())) {
-                throw new DuplicateResourceException("Email já em uso por outro usuário.");
+        if (studentUpdateDTO.email() != null && !studentUpdateDTO.email().isBlank()) {
+            if (!studentUpdateDTO.email().equals(userAccount.getEmail())) {
+                if (userAccountRepository.existsByEmail(studentUpdateDTO.email())) {
+                    throw new DuplicateResourceException("Email já em uso por outro usuário.");
+                }
             }
         }
 
         // verifica se telefone já existe
-        if (studentUpdateDTO.telephone() != null && !studentUpdateDTO.telephone().equals(studentEntity.getTelephone())) {
-            if (studentRepository.existsByTelephoneIgnoringTenant(studentUpdateDTO.telephone())) {
-                throw new DuplicateResourceException("Telefone já em uso por outro usuário.");
+        if (studentUpdateDTO.telephone() != null && !studentUpdateDTO.telephone().isBlank()) {
+            if (!studentUpdateDTO.telephone().equals(studentEntity.getTelephone())) {
+                if (studentRepository.existsByTelephoneIgnoringTenant(studentUpdateDTO.telephone())) {
+                    throw new DuplicateResourceException("Telefone já em uso por outro usuário.");
+                }
             }
         }
 
@@ -239,5 +323,49 @@ public class StudentService {
         if (!customerOne.equals(customerTwo)) {
             throw new CustomerMismatchException("Divergência entre customer identificada entre as entidades.");
         }
+    }
+
+    protected long countStudentsInThisCustomer(UUID customerId) {
+        return studentRepository.countStudentsInThisCustomer(customerId);
+    }
+
+    private long studentRegisterLimit(UUID customerId) {
+        Customer customer = customerRepository.findById(customerId).orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
+
+        return customer.getPlan().getMaxAdministrators();
+    }
+
+    // "123.456.789-00" e "12345678900" viram o mesmo valor
+    private String normalizeField(String field) {
+        return field == null ? null : field.replaceAll("\\D", "");
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
+    }
+
+    /*
+    * processa os cursos que atendem a todas as condições p/ o aluno
+     * */
+    private void enrollmentCourses(Student student, UUID customerId, StudentInstitutionRequestDTO studentInstitutionRequestDTO) {
+        institutionRepository.findActiveByIdAndCustomerIdIgnoringTenant(studentInstitutionRequestDTO.institutionId(), customerId)
+                .orElseThrow(() -> new InstitutionNotFoundException("Instituição não encontrada ou inativa"));
+
+        List<InstitutionCourse> courses  = institutionCourseRepository.findActiveByIdsAndInstitutionIgnoringTenant(studentInstitutionRequestDTO.courseIds(), studentInstitutionRequestDTO.institutionId(), customerId);
+
+        // se algum id não encontrado: inexistente, inativo, de outra instituição ou de outro Customer
+        if (courses.size() != studentInstitutionRequestDTO.courseIds().size()) {
+            throw new DomainValidationException("Um ou mais cursos informados são inválidos para esta instituição");
+        }
+
+        String poolOfEnrollment = studentInstitutionRequestDTO.poolOfEnrollment() == null ? null : studentInstitutionRequestDTO.poolOfEnrollment().trim();
+
+        if (poolOfEnrollment != null
+                && !poolOfEnrollment.isEmpty()
+                && studentEnrollmentRepository.existsPoolOfEnrollmentInInstitutionIgnoringTenant(studentInstitutionRequestDTO.institutionId(), poolOfEnrollment)) {
+            throw new DuplicateResourceException("Este número de matrícula já está em uso nesta instituição");
+        }
+
+        courses.forEach(course -> student.addEnrollment(course, poolOfEnrollment));
     }
 }

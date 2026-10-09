@@ -23,6 +23,7 @@ public class VerificationUserEmailListener {
     public void sendVerificationEmail(EmailVerificationRequestedEvent event) {
 
         try {
+            log.info("[sendVerificationEmail] - bateu aqui");
             emailService.sendEmailVerification(event.email(), event.expiresAt(), event.pureToken());
         } catch (Exception e) {
             log.warn("[sendVerificationEmail]: Falha ao enviar email de verificação. UserAccountId: {}", event.userAccountId(), e);

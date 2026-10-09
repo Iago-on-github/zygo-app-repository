@@ -4,26 +4,37 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.travel_system.backend_app.model.enums.ResponsibleAdultType;
 import com.travel_system.backend_app.model.enums.StudentRelationshipType;
 
+import javax.validation.Valid;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
 
 public record ResponsibleAdultUpdateDTO(
-        @NotNull @Email
+        @Email(message = "Verifique a inserção do email.")
         String email,
-        @NotNull
-        @Min(value = 7, message = "a senha deve conter ao menos 7 caracteres")
+
+        @Size(min = 7, max = 75, message = "A senha deve ter entre 7 e 75 caracteres")
         String password,
-        @NotNull
+
+        @Size(min = 4, max = 10, message = "O nome deve ter entre 4 e 10 caracteres")
         String name,
+
+        @Size(max = 10, message = "O sobrenome deve ter no máximo 10 caracteres")
         String lastName,
-        @NotNull @Min(value = 11, message = "O CPF deve ter no mínimo 11 digitos") @Max(value = 11, message = "O CPF deve ter no máximo 11 digitos")
+
+        @Pattern(regexp = "\\d{11}", message = "O CPF deve ter 11 dígitos")
         String cpf,
-        @NotNull @Min(value = 11, message = "O número de telefone deve ter no mínimo 11 digitos") @Max(value = 11, message = "O número de telefone deve ter no máximo 11 digitos")
+
+        @Pattern(regexp = "\\d{11}", message = "O telefone deve ter 11 dígitos")
         String telephone,
-        @NotNull
+
         ResponsibleAdultType responsibleAdultType,
+
         @Past(message = "A data de nascimento deve estar no passado")
         @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate
+        LocalDate birthdate,
+
+        @Valid
+        AddressUpdateDTO addressUpdate
+
 ) {
 }

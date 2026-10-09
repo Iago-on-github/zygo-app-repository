@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -24,13 +25,16 @@ public class Administrator extends BaseTenantEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @OneToOne(optional = false)
-    @JoinColumn(name = "user_account_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_account_id", unique = true)
     private UserAccount userAccount;
     private String name;
     private String lastName;
     private String telephone;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "address_id")
+    private Address address;
     private String profilePicture;
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String cpf;
     @DateTimeFormat(pattern = "dd/MM/yyyy")
     private LocalDate birthdate;
@@ -41,16 +45,18 @@ public class Administrator extends BaseTenantEntity {
     private LocalDateTime createdAt;
     @LastModifiedDate
     private LocalDateTime updatedAt;
+    private Instant leftAt;
 
     public Administrator() {
     }
 
-    public Administrator(UUID id, UserAccount userAccount, String name, String lastName, String telephone, String profilePicture, String cpf, LocalDate birthdate, String jobTitle, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Administrator(UUID id, UserAccount userAccount, String name, String lastName, String telephone, Address address, String profilePicture, String cpf, LocalDate birthdate, String jobTitle, GeneralStatus status, LocalDateTime createdAt, LocalDateTime updatedAt, Instant leftAt) {
         this.id = id;
         this.userAccount = userAccount;
         this.name = name;
         this.lastName = lastName;
         this.telephone = telephone;
+        this.address = address;
         this.profilePicture = profilePicture;
         this.cpf = cpf;
         this.birthdate = birthdate;
@@ -58,6 +64,7 @@ public class Administrator extends BaseTenantEntity {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.leftAt = leftAt;
     }
 
     public UUID getId() {
@@ -98,6 +105,14 @@ public class Administrator extends BaseTenantEntity {
 
     public void setTelephone(String telephone) {
         this.telephone = telephone;
+    }
+
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
     }
 
     public String getProfilePicture() {
@@ -154,5 +169,13 @@ public class Administrator extends BaseTenantEntity {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getLeftAt() {
+        return leftAt;
+    }
+
+    public void setLeftAt(Instant leftAt) {
+        this.leftAt = leftAt;
     }
 }

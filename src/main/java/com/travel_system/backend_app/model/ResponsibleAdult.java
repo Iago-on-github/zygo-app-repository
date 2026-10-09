@@ -27,7 +27,7 @@ public class ResponsibleAdult extends BaseTenantEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @OneToOne(optional = false)
-    @JoinColumn(name = "user_account_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_account_id", unique = true)
     private UserAccount userAccount;
     private String name;
     private String lastName;
@@ -36,6 +36,9 @@ public class ResponsibleAdult extends BaseTenantEntity {
     @Column(unique = true)
     private String cpf;
     private String telephone;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "address_id")
+    private Address address;
     @Enumerated(EnumType.STRING)
     private ResponsibleAdultType responsibleAdultType;
     private String profilePicture;
@@ -47,23 +50,26 @@ public class ResponsibleAdult extends BaseTenantEntity {
     private Instant createdAt;
     @LastModifiedDate
     private Instant updatedAt;
+    private Instant leftAt;
 
     public ResponsibleAdult() {
     }
 
-    public ResponsibleAdult(UUID id, UserAccount userAccount, String name, String lastName, String cpf, String telephone, ResponsibleAdultType responsibleAdultType, String profilePicture, LocalDate birthdate, GeneralStatus status, Instant createdAt, Instant updatedAt) {
+    public ResponsibleAdult(UUID id, UserAccount userAccount, String name, String lastName, String cpf, String telephone, Address address, ResponsibleAdultType responsibleAdultType, String profilePicture, LocalDate birthdate, GeneralStatus status, Instant createdAt, Instant updatedAt, Instant leftAt) {
         this.id = id;
         this.userAccount = userAccount;
         this.name = name;
         this.lastName = lastName;
         this.cpf = cpf;
         this.telephone = telephone;
+        this.address = address;
         this.responsibleAdultType = responsibleAdultType;
         this.profilePicture = profilePicture;
         this.birthdate = birthdate;
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.leftAt = leftAt;
     }
 
     public void addStudent(Student student) {
@@ -128,6 +134,14 @@ public class ResponsibleAdult extends BaseTenantEntity {
         return telephone;
     }
 
+    public Address getAddress() {
+        return address;
+    }
+
+    public void setAddress(Address address) {
+        this.address = address;
+    }
+
     public void setTelephone(String telephone) {
         this.telephone = telephone;
     }
@@ -178,5 +192,13 @@ public class ResponsibleAdult extends BaseTenantEntity {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getLeftAt() {
+        return leftAt;
+    }
+
+    public void setLeftAt(Instant leftAt) {
+        this.leftAt = leftAt;
     }
 }

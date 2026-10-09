@@ -7,7 +7,7 @@ import com.travel_system.backend_app.interfaces.mappers.response.CityResponseMap
 import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.dtos.request.CityRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CityResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.CityRepository;
@@ -17,8 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -94,7 +92,7 @@ public class CityService {
     }
 
     @Transactional
-    public void updateCityStatus(UUID cityId, UpdateEntityStatusDTO dto) {
+    public void updateCityStatus(UUID cityId, UpdateStatusDTO dto) {
         City city = cityRepository.findById(cityId)
                 .orElseThrow(() -> new EntityNotFoundException("City não encontrada pelo id: " + cityId));
 

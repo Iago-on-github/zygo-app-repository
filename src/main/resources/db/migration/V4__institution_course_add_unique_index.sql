@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS ux_institution_course_name ON institution_course_table (institution_id, LOWER(name));

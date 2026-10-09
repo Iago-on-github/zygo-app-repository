@@ -12,12 +12,7 @@ import java.util.Set;
 
 public record StudentInvitationDTO(
         @NotEmpty
-        Set<Shift> studentShifts,
-        @NotEmpty
-        InstitutionType institutionType,
-        @NotEmpty
-        @Size(min = 4, max = 15, message = "o nome do seu curso deve ter entre 4 e 15 caracteres")
-        String course
+        Set<Shift> studentShifts
 ) implements InvitationProfileData {
 
         @Override

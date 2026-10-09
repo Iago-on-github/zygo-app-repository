@@ -23,7 +23,7 @@ public class UserAccount {
     @Column(nullable = false)
     private UserAccountType userAccountType;
     private boolean emailVerified = false;
-    @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.REMOVE)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_account_permissions", joinColumns = {@JoinColumn (name="id_account_id")},
     inverseJoinColumns = {@JoinColumn (name = "permission_id")})
     private Set<Permissions> permissions = new HashSet<>();

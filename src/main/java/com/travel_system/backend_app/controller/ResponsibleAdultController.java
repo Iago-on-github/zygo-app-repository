@@ -1,8 +1,8 @@
 package com.travel_system.backend_app.controller;
 
-import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.CpfSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultUpdateDTO;
-import com.travel_system.backend_app.model.dtos.request.UpdateEntityStatusDTO;
+import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.ResponsibleAdultResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO;
 import com.travel_system.backend_app.service.ResponsibleAdultService;
@@ -13,10 +13,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
-import java.net.URI;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,8 +29,14 @@ public class ResponsibleAdultController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getAllResponsibleAdults(@PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok().body(responsibleAdultService.getAllResponsibleAdults(pageable));
+    public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getAllResponsibleAdults(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String lastName,
+            @RequestParam(required = false) String neighborhood,
+            @PageableDefault(size = 15) Pageable pageable) {
+
+        return ResponseEntity.ok().body(responsibleAdultService.getAllResponsibleAdults(email, name, lastName, neighborhood, pageable));
     }
 
     @GetMapping("/{responsibleAdultId}")
@@ -45,9 +49,9 @@ public class ResponsibleAdultController {
         return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByName(name, pageable));
     }
 
-    @GetMapping("/cpf")
-    public ResponseEntity<ResponsibleAdultResponseDTO> getResponsibleAdultByCpf(@RequestParam String cpf) {
-        return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByCpf(cpf));
+    @GetMapping("/search-by-cpf")
+    public ResponseEntity<ResponsibleAdultResponseDTO> getResponsibleAdultByCpf(@Valid @RequestBody CpfSearchRequestDTO dto) {
+        return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByCpf(dto));
     }
 
     @GetMapping("/student/{studentId}")
@@ -65,22 +69,13 @@ public class ResponsibleAdultController {
         return ResponseEntity.ok().body(responsibleAdultService.getCurrentResponsibleAdult());
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<ResponsibleAdultResponseDTO> createResponsibleAdult(@Valid @RequestBody ResponsibleAdultRequestDTO dto, UriComponentsBuilder componentsBuilder) {
-        ResponsibleAdultResponseDTO responsibleAdult = responsibleAdultService.createResponsibleAdult(dto);
-
-        URI uri = componentsBuilder.path("/{id}").buildAndExpand(responsibleAdult.id()).toUri();
-
-        return ResponseEntity.created(uri).body(responsibleAdult);
-    }
-
     @PatchMapping("/update")
     public ResponseEntity<ResponsibleAdultResponseDTO> updateResponsibleAdult(@Valid @RequestBody ResponsibleAdultUpdateDTO dto) {
         return ResponseEntity.ok().body(responsibleAdultService.updateResponsibleAdult(dto));
     }
 
     @PatchMapping("/status")
-    public ResponseEntity<ResponsibleAdultResponseDTO> updateResponsibleAdultStatus(@Valid @RequestBody UpdateEntityStatusDTO dto) {
+    public ResponseEntity<ResponsibleAdultResponseDTO> updateResponsibleAdultStatus(@Valid @RequestBody UpdateStatusDTO dto) {
         responsibleAdultService.updateResponsibleAdultStatus(dto);
 
         return ResponseEntity.ok().build();

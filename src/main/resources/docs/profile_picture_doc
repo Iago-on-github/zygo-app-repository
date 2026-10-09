@@ -1,0 +1,127 @@
+Fotos de Perfil e de Recursos
+
+O sistema armazena imagens em dois contextos:
+
+- **Foto de perfil de entidades de domínio** (Student, Driver, Administrator, ResponsibleAdult): pertence ao **usuário logado**. A entidade que guarda a foto depende do tipo da conta (`UserAccountType`), e é resolvida por uma **Strategy**.
+- **Foto de recursos** (ex.: Vehicle): pertence a um **registro identificado pelo id**. Cada recurso tem o seu próprio service, sem Strategy.
+
+Os dois contextos usam o mesmo pipeline: **validação → conversão para JPEG → upload no object storage**. A imagem fica no storage; o banco guarda apenas a **chave** do objeto.
+
+```
+Controller
+   │
+   ├── UserProfilePictureService ──► ProfilePictureStrategy (uma por entidade de domínio)
+   │            │
+   └── VehicleProfilePictureService
+                │
+                ▼
+        ImageStorageService
+          │            │
+          ▼            ▼
+ImageProcessingService   StorageInterfaceService
+                                  │
+                                  ▼
+                          S3StorageService (MinIO em DEV, R2 em PROD)
+```
+
+== Componentes ==
+
+| Componente | Responsabilidade |
+|---|---|
+| `StorageInterfaceService` | Contrato do storage: `upload`, `delete` e `getPublicUrl`. As demais classes dependem dele, e não da implementação. |
+| `S3StorageService` | Implementação com o AWS SDK, compatível com MinIO (DEV) e Cloudflare R2 (PROD). Usa o bucket e a URL pública base definidos em `StorageProperties`. |
+| `ImageProcessingService` | Decodifica a imagem e a converte para JPEG (RGB, com fundo branco para imagens com transparência). Rejeita arquivos que não podem ser decodificados. |
+| `ImageStorageService` | Pipeline genérico: valida o arquivo, converte para JPEG e grava na chave recebida. Também remove arquivos. **Não sabe de quem é a imagem** e **não tem controller**. |
+| `UserProfilePictureService` | Foto de perfil do usuário logado: resolve a conta, monta a chave, grava a imagem e delega à Strategy a gravação da chave na entidade de domínio. |
+| `ProfilePictureStrategy` | Interface com uma implementação por entidade de domínio. Define qual entidade guarda a foto de cada tipo de conta. |
+| `VehicleProfilePictureService` | Foto do veículo: busca o Vehicle pelo id (com filtro de tenant), monta a chave, grava a imagem e salva a chave no próprio Vehicle. |
+
+### Interface `ProfilePictureStrategy`
+
+| Método | Função |
+|---|---|
+| `supports(UserAccountType)` | Retorna `true` para o tipo de conta que a implementação atende. |
+| `updatePicture(UserAccount, String pictureKey)` | Grava a chave na entidade de domínio da conta. |
+| `deletePicture(UserAccount)` | Remove a chave da entidade de domínio da conta. |
+
+O Spring injeta todas as implementações em uma `List<ProfilePictureStrategy>`, e o `UserProfilePictureService` escolhe a que atende o tipo da conta.
+
+== Regras ==
+
+| Regra | Valor |
+|---|---|
+| Formatos aceitos no envio | JPEG, PNG e WebP (`image/jpeg`, `image/jpg`, `image/png`, `image/webp`) |
+| Tamanho máximo | 150 KB (arquivo original, antes da conversão) |
+| Formato gravado | Sempre JPEG (`image/jpeg`) |
+| O que vai para o banco | Apenas a chave do objeto, nunca a URL |
+| URL para o frontend | Montada nos mappers de resposta com `StorageInterfaceService.getPublicUrl(key)`. Retorna `null` quando não há imagem. |
+
+**Por que guardar a chave e não a URL:** a URL depende do ambiente (MinIO, R2, CDN). Com a chave, a URL é montada na hora com a configuração atual, sem alterar registros no banco.
+
+== Padrão de chaves ==
+
+| Caso | Chave |
+|---|---|
+| Perfil de usuário vinculado a um Customer | `customers/{customerId}/users/{userAccountId}/profile.jpeg` |
+| Perfil de usuário de plataforma | `platform/users/{userAccountId}/profile.jpeg` |
+| Veículo | `customers/{customerId}/vehicles/{vehicleId}/picture.jpeg` |
+
+A chave é fixa por registro: um novo envio **sobrescreve** a imagem anterior.
+
+== Atualizar a foto de perfil ==
+
+1. O controller recebe o arquivo (multipart).
+2. `UserProfilePictureService` obtém o UserAccount autenticado.
+3. Monta a chave conforme a conta pertença ou não a um Customer.
+4. `ImageStorageService.store(file, key)`: valida, converte e envia ao storage.
+5. Seleciona a Strategy pelo `UserAccountType` e chama `updatePicture`, que grava a chave na entidade de domínio.
+
+== Remover a foto de perfil ==
+
+1. `UserProfilePictureService` obtém o UserAccount autenticado.
+2. Seleciona a Strategy e chama `deletePicture`, que limpa a chave na entidade.
+
+== Atualizar e remover a foto do veículo ==
+
+1. O controller recebe o `vehicleId` (e o arquivo, no caso de atualização).
+2. `VehicleProfilePictureService` busca o Vehicle. O filtro de tenant garante que só veículos do Customer do admin são encontrados.
+3. **Atualizar:** monta a chave, chama `ImageStorageService.store` e grava a chave no Vehicle.
+4. **Remover:** limpa a chave no Vehicle e remove o arquivo com `ImageStorageService.delete`.
+
+== Como implementar ==
+
+### Qual padrão usar
+
+| Situação | Padrão |
+|---|---|
+| A foto pertence ao **usuário logado**, e a entidade que a guarda depende do tipo da conta | Nova implementação de `ProfilePictureStrategy` |
+| A foto pertence a um **registro identificado por id** (veículo, logo do Customer etc.) | Novo service dedicado, no modelo do `VehicleProfilePictureService` |
+
+== Nova entidade de domínio com foto de perfil ==
+
+1. **Entidade:** adicione o campo da chave (ex.: `profilePicture`, coluna `profile_picture`) e a migration correspondente.
+2. **Strategy:** crie `XxxProfilePictureStrategy`, anotada com `@Component`, implementando `ProfilePictureStrategy`:
+   - `supports`: retorna `true` para o `UserAccountType` da entidade;
+   - `updatePicture`: busca a entidade pela conta e grava a chave;
+   - `deletePicture`: busca a entidade pela conta e limpa a chave.
+3. **Mapper de resposta:** preencha o campo de URL (ex.: `profilePictureUrl`) com `getPublicUrl`.
+
+Nenhuma alteração é necessária no `UserProfilePictureService` nem no controller: o Spring registra a nova Strategy automaticamente.
+
+== Novo recurso com foto ==
+
+1. **Entidade:** adicione o campo da chave e a migration (coluna opcional).
+2. **Service:** crie `XxxPictureService` com dois métodos `@Transactional`:
+   - `updateXxxPicture(UUID id, MultipartFile file)`: busca o registro, monta a chave `customers/{customerId}/{recurso}/{id}/picture.jpeg`, chama `ImageStorageService.store` e grava a chave;
+   - `deleteXxxPicture(UUID id)`: busca o registro, limpa a chave e chama `ImageStorageService.delete`.
+3. **Endpoints:** no controller do próprio recurso, com a permissão adequada:
+   - `PUT /v1/{recurso}/{id}/picture` (multipart, campo `file`);
+   - `DELETE /v1/{recurso}/{id}/picture`.
+4. **Mapper de resposta:** campo de URL preenchido com `getPublicUrl`.
+
+== Pontos de atenção ==
+
+- **`ImageStorageService` nunca deve ser exposto por um controller.** Ele grava em qualquer chave recebida; quem decide a chave e quem pode alterar a imagem é sempre o service que conhece o dono.
+- **Cache:** como a chave não muda entre envios, uma CDN ou o cache do navegador podem exibir a imagem anterior por algum tempo.
+- **Arquivos órfãos:** se a gravação da chave no banco falhar depois do upload, o arquivo permanece no storage sem referência.
+- **Arquivos privados:** o bucket atual é acessado por URL pública. Documentos sensíveis (ex.: CNH) devem ficar em um bucket privado, acessado por URL assinada.

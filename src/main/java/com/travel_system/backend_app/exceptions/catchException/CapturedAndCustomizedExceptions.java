@@ -37,8 +37,18 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(ReauthenticationRequiredException.class)
+    public final ResponseEntity<StandardError> ReauthenticationRequiredException(ReauthenticationRequiredException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(EmptyMandatoryFieldsFoundException.class)
     public final ResponseEntity<StandardError> emptyMandatoryFieldsException(EmptyMandatoryFieldsFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InactiveVehicleException.class)
+    public final ResponseEntity<StandardError> InactiveVehicleException(InactiveVehicleException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
@@ -62,13 +72,48 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(TripNotFound.class)
-    public final ResponseEntity<StandardError> tripNotFoundException(TripNotFound ex, WebRequest webRequest) {
+    @ExceptionHandler(TripNotFoundException.class)
+    public final ResponseEntity<StandardError> tripNotFoundException(TripNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CnhNotFoundException.class)
+    public final ResponseEntity<StandardError> CnhNotFoundException(CnhNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InstitutionNotFoundException.class)
+    public final ResponseEntity<StandardError> InstitutionNotFoundException(InstitutionNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(VehicleNotFoundException.class)
+    public final ResponseEntity<StandardError> VehicleNotFoundException(VehicleNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(HasAlreadyHolidayDateException.class)
+    public final ResponseEntity<StandardError> HasAlreadyHolidayDateException(HasAlreadyHolidayDateException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(CourseAlreadyExistsException.class)
+    public final ResponseEntity<StandardError> CourseAlreadyExistsException(CourseAlreadyExistsException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ResourceInUseException.class)
+    public final ResponseEntity<StandardError> ResourceInUseException(ResourceInUseException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ScheduledTripAlreadyExistsException.class)
+    public final ResponseEntity<StandardError> ScheduledTripAlreadyExistsException(ScheduledTripAlreadyExistsException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
@@ -112,6 +157,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(FileTooLargeException.class)
+    public final ResponseEntity<StandardError> FileTooLargeException(FileTooLargeException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.PAYLOAD_TOO_LARGE);
+    }
+
     @ExceptionHandler(RecalculateEtaException.class)
     public final ResponseEntity<StandardError> recalculateEtaException(RecalculateEtaException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_GATEWAY);
@@ -119,6 +169,16 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(LiveLocationDataNotFoundException.class)
     public final ResponseEntity<StandardError> LiveLocationDataNotFoundException(LiveLocationDataNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CustomerHolidayNotFoundException.class)
+    public final ResponseEntity<StandardError> CustomerHolidayNotFoundException(CustomerHolidayNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CourseNotFoundException.class)
+    public final ResponseEntity<StandardError> CourseNotFoundException(CourseNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
@@ -144,6 +204,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(BoardingAlreadyConfirmedException.class)
     public final ResponseEntity<StandardError> BoardingAlreadyConfirmedException(BoardingAlreadyConfirmedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(SensitiveOperationException.class)
+    public final ResponseEntity<StandardError> SensitiveOperationException(SensitiveOperationException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
@@ -176,6 +241,12 @@ public class CapturedAndCustomizedExceptions {
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
+
+    @ExceptionHandler(HasAlreadyTermDataExistsException.class)
+    public final ResponseEntity<StandardError> HasAlreadyTermDataExistsException(HasAlreadyTermDataExistsException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
 
     @ExceptionHandler(ConstraintViolationException.class)
     public final ResponseEntity<StandardError> ConstraintViolationException(ConstraintViolationException ex, WebRequest webRequest) {
@@ -229,6 +300,21 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(EntityNotFoundException.class)
     public final ResponseEntity<StandardError> EntityNotFoundException (EntityNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public final ResponseEntity<StandardError> CustomerNotFoundException (CustomerNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CustomerTermNotFoundException.class)
+    public final ResponseEntity<StandardError> CustomerTermNotFoundException (CustomerTermNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(CityNotFoundException.class)
+    public final ResponseEntity<StandardError> CityNotFoundException (CityNotFoundException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
@@ -297,9 +383,14 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(SensitiveOperationInternalError.class)
+    public final ResponseEntity<StandardError> SensitiveOperationInternalError (SensitiveOperationInternalError  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     @ExceptionHandler(RateLimitServiceUnavailableException .class)
     public final ResponseEntity<StandardError> RateLimitServiceUnavailableException  (RateLimitServiceUnavailableException   ex, WebRequest webRequest) {
-        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     @ExceptionHandler(StorageException.class)

@@ -1,0 +1,129 @@
+VISÃO GERAL
+
+Toda pessoa começa com uma conta global (UserAccount), sem Customer e com tipo UNASSIGNED.
+O perfil de domínio (Student, Driver, Administrator ou ResponsibleAdult) só é criado quando a pessoa aceita um convite de um Customer.
+
+- Fluxo resumido:
+o admin do Customer envia um convite para o e-mail de uma conta existente, informando o papel e os dados operacionais do perfil;
+o convidado recebe e-mail e push, lista seus convites pendentes e aceita um deles, preenchendo seus dados pessoais;
+o sistema cria o perfil, vincula a conta ao Customer, atualiza o tipo e as permissões da conta e devolve novos tokens já com o Customer.
+Papéis disponíveis (targetUserType): STUDENT, DRIVER, ADMINISTRATOR, RESPONSIBLE_ADULT.
+
+REGRAS DE NEGÓCIO
+
+Envio do convite (admin):
+- Só um administrador ativo pode enviar. O Customer do convite é o do admin logado.
+- O convidado precisa ter conta existente, e-mail verificado e nenhum perfil (UNASSIGNED).
+- Quando o convidado não atende a essas condições, a resposta é sempre a mesma mensagem genérica ("Não foi possível convidar este usuário"), sem indicar o motivo. Isso evita que um admin descubra quais e-mails têm conta ou pertencem a outro Customer.
+- No máximo um convite pendente por Customer + usuário. Um usuário pode ter convites pendentes de Customers diferentes ao mesmo tempo.
+- Os dados operacionais do perfil (ex.: turnos do aluno) são definidos pelo admin no envio e ficam guardados no convite. Os dados pessoais são preenchidos pelo convidado no aceite.
+- O convite expira após o prazo definido em INVITE_EXPIRES_AT (24h).
+- Envio e reenvio têm rate limit por admin (política SEND_INVITATION). Acima do limite: 429, com o cabeçalho Retry-After.
+
+Aceite do convite (convidado)
+- O convidado precisa estar autenticado, ser o dono do convite e ter o e-mail verificado.
+- O convite precisa estar PENDING e dentro do prazo.
+- A rota de aceite precisa corresponder ao papel do convite (um convite DRIVER só é aceito por /me/drivers/{id}/accept).
+- A conta ainda precisa estar UNASSIGNED: uma conta tem no máximo um perfil, em um único Customer.
+
+Ao aceitar:
+- O perfil é criado e vinculado ao Customer do convite;
+- A conta recebe o novo tipo e as permissões do papel;
+- Todos os outros convites pendentes do usuário passam para CANCELLED.
+
+Validações aplicadas na criação do perfil:
+- Limite de registros do plano por papel no Customer (exemplo: 50 students, 2 admins);
+- Unicidade global de telefone, CPF e CNH.
+Student: escolhe uma instituição ativa e um ou mais cursos ativos do Customer que o convidou (ver fluxo 3.4). O número de matrícula é opcional e não pode estar em uso por outro aluno na mesma instituição.
+
+STATUS DO CONVITE
+PENDING	    Aguardando resposta do convidado
+ACCEPTED	Aceito: o perfil foi criado
+DECLINED	Recusado pelo convidado
+REVOKED	    Cancelado pelo admin
+EXPIRED	    Prazo vencido
+CANCELLED	Encerrado automaticamente porque o usuário aceitou outro convite
+
+Isolamento
+O admin só enxerga e altera convites do próprio Customer.
+O convidado só enxerga os próprios convites. Um convite de outra pessoa retorna 404.
+
+FLUXOS:
+
+3.1 Preparar a conta do convidado
+Passo	Requisição	Observação
+Criar conta	POST /v1/auth/register	Público. Cria a conta UNASSIGNED e envia o e-mail de verificação.
+Verificar e-mail	POST /v1/auth/verify-email	Público. Body: { "token": "<token do link do e-mail>" }
+Login	Endpoint de login atual	Guarde o token do convidado.
+
+Sem o e-mail verificado, a conta não pode ser convidada.
+
+3.2 Enviar o convite (admin)
+Papel	Requisição	Body
+Student	POST /v1/invitation/students	StudentInvitationRequestDTO
+Driver	POST /v1/invitation/drivers	DriverInvitationRequestDTO
+Administrator	POST /v1/invitation/admins	AdministratorInvitationRequestDTO
+ResponsibleAdult	POST /v1/invitation/responsibles	ResponsibleInvitationRequestDTO
+
+Resposta: 201 com o convite criado (InvitationResponseDTO).
+
+Exemplo ilustrativo (Student):
+
+json
+{
+  "email": "aluno@email.com",
+  "profileData": {
+    "studentShifts": ["MORNING"]
+  }
+}
+
+Depois do envio, o convidado recebe um e-mail (com link para /customer/invitation/{token} no frontend) e um push.
+
+3.3 Listar convites pendentes (convidado)
+
+GET /v1/invitation/me/pending → 200
+
+Retorna os convites PENDING e no prazo, com o nome do Customer, quem convidou, o profileData e o targetUserType.
+O targetUserType indica qual rota de aceite usar.
+Para quem já tem perfil, a lista vem vazia.
+3.4 Consultar instituições e cursos (somente Student)
+
+GET /v1/invitation/{invitationId}/institutions → 200
+
+Retorna as instituições ativas do Customer do convite, cada uma com seus cursos ativos (institutionId, institutionName, institutionType, courses[] com courseId e courseName).
+Só funciona para um convite do próprio usuário, pendente e no prazo.
+Os ids retornados são os usados no aceite.
+3.5 Aceitar o convite (convidado)
+Papel	Requisição	Body
+Student	POST /v1/invitation/me/students/{invitationId}/accept	StudentAcceptDTO
+Driver	POST /v1/invitation/me/drivers/{invitationId}/accept	DriverAcceptDTO
+Administrator	POST /v1/invitation/me/admins/{invitationId}/accept	AdministratorAcceptDTO
+ResponsibleAdult	POST /v1/invitation/me/responsibles/{invitationId}/accept	ResponsibleAdultAcceptDTO
+
+Exemplo ilustrativo (Student):
+
+json
+{
+  "name": "Maria",
+  "lastName": "Souza",
+  "cpf": "12345678901",
+  "telephone": "71999998888",
+  "birthdate": "15/03/2004",
+  "addressRequest": {
+    "street": "Rua das Flores",
+    "number": 120,
+    "neighborhood": "Centro",
+    "city": "Salvador",
+    "cep": "40000000",
+    "complement": "Apto 2"
+  },
+  "studentInstitutionRequest": {
+    "institutionId": "<institutionId do catálogo>",
+    "courseIds": ["<courseId do catálogo>"],
+    "poolOfEnrollment": "2026001234"
+  }
+}
+
+Resposta: 200 com InvitationAcceptResponseDTO: novo accessToken e refreshToken, tipo da conta, id do perfil criado e dados do Customer.
+
+Importante: depois do aceite, substitua o token do convidado no Insomnia pelo novo accessToken. O token antigo não tem o Customer, e as próximas requisições do perfil falham com ele.

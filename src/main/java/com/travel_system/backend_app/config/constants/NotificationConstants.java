@@ -17,4 +17,10 @@ public class NotificationConstants {
     public static final long STATE_TIME_LIMIT_MS = 4_000;
     public static final long NOTIFICATION_COOLDOWN_MS = 12_000;
     public static final long NOTIFICATION_COOLDOWN_MS_STOPPED = 300_000;
+
+    // lembretes de notificações para inicio de viagem agendada
+    public static final long NOTIFICATION_SCHEDULE_SIXTY_MINUTES = TimeUnit.MINUTES.toMillis(60);
+    public static final long NOTIFICATION_SCHEDULE_TWENTY_MINUTES = TimeUnit.MINUTES.toMillis(20);
+    public static final long NOTIFICATION_SCHEDULE_FIVE_MINUTES = TimeUnit.MINUTES.toMillis(5);
+
 }

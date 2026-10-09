@@ -41,7 +41,7 @@ public class AcceptInvitationNotificationListener {
     @EventListener
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Async("invitationsTaskExecutor")
+    @Async("emailInvitationsTaskExecutor")
     public void notifyInviterOnAccept(InvitationAcceptedEvent event) {
         // notificação para o admin que mandou o convite e para o user que aceitou
         invitationNotificationService.sendNotifyInvitationAcceptedToAdmin(event);

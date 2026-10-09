@@ -1,39 +1,36 @@
 package com.travel_system.backend_app.service.strategies.platform_administrator;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.exceptions.PayloadNotFoundException;
-import com.travel_system.backend_app.exceptions.PermissionNotFoundException;
 import com.travel_system.backend_app.interfaces.SensitiveOperationExecutorStrategy;
-import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.PlatformAdministrator;
 import com.travel_system.backend_app.model.SensitiveOperation;
 import com.travel_system.backend_app.model.UserAccount;
-import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorCreationPayload;
 import com.travel_system.backend_app.model.enums.SensitiveOperationType;
+import com.travel_system.backend_app.model.enums.TargetUserType;
 import com.travel_system.backend_app.model.enums.UserAccountType;
-import com.travel_system.backend_app.repository.PermissionsRepository;
 import com.travel_system.backend_app.repository.PlatformAdministratorRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
+import com.travel_system.backend_app.service.PermissionsService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Component
 public class CreatePlatformAdminExecutor implements SensitiveOperationExecutorStrategy {
 
-    private final ObjectMapper objectMapper;
-
     private final UserAccountRepository userAccountRepository;
     private final PlatformAdministratorRepository platformAdministratorRepository;
-    private final PermissionsRepository permissionsRepository;
 
-    public CreatePlatformAdminExecutor(ObjectMapper objectMapper, UserAccountRepository userAccountRepository, PlatformAdministratorRepository platformAdministratorRepository, PermissionsRepository permissionsRepository) {
-        this.objectMapper = objectMapper;
+    private final PermissionsService permissionsService;
+
+    private final ObjectMapper objectMapper;
+
+    public CreatePlatformAdminExecutor(UserAccountRepository userAccountRepository, PlatformAdministratorRepository platformAdministratorRepository, PermissionsService permissionsService, ObjectMapper objectMapper) {
         this.userAccountRepository = userAccountRepository;
         this.platformAdministratorRepository = platformAdministratorRepository;
-        this.permissionsRepository = permissionsRepository;
+        this.permissionsService = permissionsService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -50,27 +47,23 @@ public class CreatePlatformAdminExecutor implements SensitiveOperationExecutorSt
 
         String payload = operation.getPayload();
 
-        PlatformAdministratorRequestDTO platformAdministratorRequestDTO;
+        PlatformAdministratorCreationPayload platformAdministratorCreationPayload;
         try {
-            platformAdministratorRequestDTO = objectMapper.readValue(payload, PlatformAdministratorRequestDTO.class);
+            platformAdministratorCreationPayload = objectMapper.readValue(payload, PlatformAdministratorCreationPayload.class);
         } catch (Exception e) {
             throw new RuntimeException("Erro durante a desserialziação ObjectMapper");
         }
 
-        if (platformAdministratorRepository.existsByEmail(platformAdministratorRequestDTO.email())) {
-            throw new IllegalArgumentException("Já existe um Platform ADM com o email: " + platformAdministratorRequestDTO.email());
+        if (platformAdministratorRepository.existsByEmail(platformAdministratorCreationPayload.email())) {
+            throw new IllegalArgumentException("Já existe um Platform ADM com o email: " + platformAdministratorCreationPayload.email());
         }
 
         UserAccount userAccount = new UserAccount();
 
-        String platformAdmRole = "ROLE_PLATFORM_ADMIN";
-        Permissions permissions = permissionsRepository.findByDescription(platformAdmRole)
-                .orElseThrow(() -> new PermissionNotFoundException("Permissão " + platformAdmRole + " não encontrada"));
-
-        userAccount.setEmail(platformAdministratorRequestDTO.email());
-        userAccount.setPassword(platformAdministratorRequestDTO.password()); // ja vem encoded
+        userAccount.setEmail(platformAdministratorCreationPayload.email());
+        userAccount.setPassword(platformAdministratorCreationPayload.hashPassword()); // ja vem encoded
         userAccount.setUserAccountType(UserAccountType.PLATFORM_ADMINISTRATOR);
-        userAccount.setPermissions(List.of(permissions));
+        permissionsService.assignPermissions(userAccount, TargetUserType.PLATFORM_ADMINISTRATOR);
 
         UserAccount savedUserAccount = userAccountRepository.save(userAccount);
 

@@ -36,9 +36,6 @@ public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdu
     @Query(value = "SELECT EXISTS (SELECT 1 FROM responsible_adult_table WHERE telephone = :telephone)", nativeQuery = true)
     boolean existsByTelephoneIgnoringTenant(@Param("telephone") String telephone);
 
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM responsible_adult_table WHERE email = :email)", nativeQuery = true)
-    boolean existsByEmailIgnoringTenant(@Param("email") String email);
-
     @Query("""
         SELECT new com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO(
                 s.id,
@@ -50,10 +47,43 @@ public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdu
         """)
     Set<StudentResponsibleAdultDTO> findStudentsById(@Param("responsibleAdultId") UUID responsibleAdultId);
 
-    @Query("SELECT COUNT(ra) > 0 FROM ResponsibleAdult ra WHERE ra.userAccount.email = :email")
+    @Query(value = """
+        SELECT r.* FROM responsible_adult_table r
+        JOIN user_account_table ua ON ua.id = r.user_account_id
+        LEFT JOIN address_table a ON a.id = r.address_id
+        WHERE r.customer_id = :customerId
+          AND (CAST(:email AS text) IS NULL OR ua.email = CAST(:email AS text))
+          AND (CAST(:name AS text) IS NULL OR similarity(r.name, CAST(:name AS text)) > 0.3)
+          AND (CAST(:lastName AS text) IS NULL OR similarity(r.last_name, CAST(:lastName AS text)) > 0.3)
+          AND (CAST(:neighborhood AS text) IS NULL OR similarity(a.neighborhood, CAST(:neighborhood AS text)) > 0.3)
+        ORDER BY
+            COALESCE(similarity(r.name, CAST(:name AS text)), 0)
+          + COALESCE(similarity(r.last_name, CAST(:lastName AS text)), 0)
+          + COALESCE(similarity(a.neighborhood, CAST(:neighborhood AS text)), 0) DESC,
+            r.name ASC
+        """,
+            countQuery = """
+        SELECT COUNT(*) FROM responsible_adult_table r
+        JOIN user_account_table ua ON ua.id = r.user_account_id
+        LEFT JOIN address_table a ON a.id = r.address_id
+        WHERE r.customer_id = :customerId
+          AND (CAST(:email AS text) IS NULL OR ua.email = CAST(:email AS text))
+          AND (CAST(:name AS text) IS NULL OR similarity(r.name, CAST(:name AS text)) > 0.3)
+          AND (CAST(:lastName AS text) IS NULL OR similarity(r.last_name, CAST(:lastName AS text)) > 0.3)
+          AND (CAST(:neighborhood AS text) IS NULL OR similarity(a.neighborhood, CAST(:neighborhood AS text)) > 0.3)
+        """,
+            nativeQuery = true)
+    Page<ResponsibleAdult> findAllByOptionalParameters(
+            @Param("customerId") UUID customerId,
+            @Param("email") String email,
+            @Param("name") String name,
+            @Param("lastName") String lastName,
+            @Param("neighborhood") String neighborhood,
+            Pageable pageable);
+
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM responsible_adult_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
+    boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
+
+    @Query("SELECT COUNT (ra) > 0 FROM ResponsibleAdult ra WHERE ra.userAccount.email = :email")
     boolean existsByEmail(@Param("email") String email);
-
-    boolean existsByCpf(@Param("cpf") String cpf);
-
-    boolean existsByTelephone(@Param("telephone") String telephone);
 }

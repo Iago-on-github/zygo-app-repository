@@ -12,6 +12,7 @@ public record AdministratorResponseDTO(
         String lastName,
         String telephone,
         String profilePicture,
+        AddressResponseDTO addressResponse,
         String birthdate,
         String jobTitle,
         GeneralStatus status,

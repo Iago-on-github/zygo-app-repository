@@ -29,9 +29,7 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     List<Invitation> findMyPendingInvitations(@Param("userAccountId") UUID userAccountId, @Param("now") Instant now);
 
     @Query(value = """
-        SELECT * FROM invitation_table
-        WHERE id = :id AND invited_user_account_id = :userAccountId
-        """, nativeQuery = true)
+        SELECT * FROM invitation_table WHERE id = :id AND invited_user_account_id = :userAccountId """, nativeQuery = true)
     Optional<Invitation> findByIdAndInvitedUserAccountIdIgnoringTenant(@Param("id") UUID id, @Param("userAccountId") UUID userAccountId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -49,4 +47,7 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     int expirePendingInvitationsWithoutTenantFilter(Instant now);
 
     boolean existsByCustomerIdAndInvitedUserAccountIdAndInvitationStatus(UUID customerId, UUID invitedUserAccountId, InvitationStatus invitationStatus);
+
+    @Query("SELECT i FROM Invitation i WHERE i.invitedBy = :invitedByUserAccountId  AND i.invitationStatus = :status")
+    List<Invitation> findAllByInvitedByAndInvitationStatus(@Param("invitedByUserAccountId") UUID invitedByUserAccountId, @Param("status") InvitationStatus status);
 }

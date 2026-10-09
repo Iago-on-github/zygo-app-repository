@@ -22,7 +22,7 @@ public class DeclineInvitationNotificationLister {
     @EventListener
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Async("invitationsTaskExecutor")
+    @Async("emailInvitationsTaskExecutor")
     public void notifyInviterOnDecline(InvitationDeclinedEvent event) {
         // notificação para o admin que mandou o convite e para o user que revogou
         invitationNotificationService.sendNotifyInvitationDeclinedToAdmin(event);

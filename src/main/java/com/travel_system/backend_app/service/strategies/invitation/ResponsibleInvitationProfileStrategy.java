@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptRespo
 import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleAdultAcceptDTO;
 import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleAdultInvitationDTO;
 import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleAdultProfileDTO;
+import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.enums.TargetUserType;
 import com.travel_system.backend_app.service.InvitationService;
@@ -37,8 +38,8 @@ public class ResponsibleInvitationProfileStrategy {
     }
 
     // envia convite para o responsible
-    public InvitationResponseDTO sendResponsibleAdultInvitation(String email, ResponsibleAdultInvitationDTO dto) {
-        return invitationService.sendInvitation(email, dto);
+    public InvitationResponseDTO sendResponsibleAdultInvitation(ResponsibleInvitationRequestDTO dto) {
+        return invitationService.sendInvitation(dto.email(), dto.responsibleAdultInvitation());
     }
 
     // responsible aceita convite

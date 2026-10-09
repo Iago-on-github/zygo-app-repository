@@ -84,4 +84,6 @@ public interface StudentRouteStopAssignmentRepository extends JpaRepository<Stud
             @Param("travelDirection") TravelDirection travelDirection,
             @Param("currentAssignmentId") UUID currentAssignmentId
     );
+
+    void deleteAllByStudentId(UUID studentId);
 }

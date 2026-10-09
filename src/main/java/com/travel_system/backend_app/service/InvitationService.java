@@ -16,6 +16,7 @@ import com.travel_system.backend_app.interfaces.mappers.response.InvitationRespo
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.MyInvitationResponseDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.InstitutionCatalogResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.AuthTokens;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -52,6 +53,7 @@ public class InvitationService {
     private final AdministratorRepository administratorRepository;
     private final CustomerRepository customerRepository;
 
+    private final InstitutionService institutionService;
     private final PermissionsService permissionsService;
     private final TokenConfig tokenConfig;
 
@@ -62,11 +64,12 @@ public class InvitationService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
+    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, InstitutionService institutionService, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
+        this.institutionService = institutionService;
         this.permissionsService = permissionsService;
         this.tokenConfig = tokenConfig;
         this.invitationResponseMapper = invitationResponseMapper;
@@ -99,6 +102,27 @@ public class InvitationService {
             Administrator inviter = invitersByUserAccountId.get(inv.getInvitedBy());
             return invitationResponseMapper.toResponse(inv, inviter != null ? inviter.getName() : null, now);
         });
+    }
+
+    /*
+     * lista todas as instituições disponíveis para o estudante
+     * */
+    @Transactional(readOnly = true)
+    public List<InstitutionCatalogResponseDTO> getInvitationInstitutions(UUID invitationId) {
+        UserAccount user = userAccountRepository.findUserByEmail(getAuthenticatedUserEmail());
+
+        if (user == null) {
+            throw new EntityNotFoundException("User não encontrado");
+        }
+
+        Invitation invitation = invitationRepository.findByIdAndInvitedUserAccountIdIgnoringTenant(invitationId, user.getId())
+                .orElseThrow(() -> new InvitationNotFoundException("Convite não encontrado"));
+
+        if (!invitation.isPending() || invitation.isExpired(Instant.now())) {
+            throw new InvitationNotPendingException("O convite não está mais disponível");
+        }
+
+        return institutionService.getActiveCatalogByCustomer(invitation.getCustomerId());
     }
 
     @Transactional
@@ -148,12 +172,10 @@ public class InvitationService {
         UserAccount userAccount = userAccountRepository.findById(savedInvitation.getInvitedBy())
                 .orElseThrow(() -> new EntityNotFoundException("UserAccount não encontrado."));
 
-        String email = userAccount.getEmail();
+        String administratorName = administratorRepository.findByUserAccountId(userAccount.getId())
+                .map(Administrator::getName).orElse(null);
 
-        Administrator administrator = administratorRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("Administrator não encontrado."));
-
-        return invitationResponseMapper.toResponse(savedInvitation, administrator.getName(), now);
+        return invitationResponseMapper.toResponse(savedInvitation, administratorName, now);
     }
 
     @Transactional(readOnly = true)
@@ -368,7 +390,7 @@ public class InvitationService {
         UserAccount userAccount = userAccountRepository.findUserByEmail(email);
 
         if (userAccount == null) {
-            throw new AccessDeniedException("Usuário nao encontrado");
+            throw new UserNotInvitableException("Não foi possível convidar este usuário");
         }
 
         if (!userAccount.isEmailVerified() || userAccount.getUserAccountType() != UserAccountType.UNASSIGNED) {

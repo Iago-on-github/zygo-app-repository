@@ -20,7 +20,7 @@ public class SetupAuthenticationController {
 
     @PostMapping
     public ResponseEntity<Void> setUpAuthentication(@RequestBody SetupAuthProcessDTO authPasswordDTO) {
-        setupAuthenticationService.authenticateSensitiveOperation(authPasswordDTO.password());
+        setupAuthenticationService.authenticateSensitiveOperation(authPasswordDTO.password(), authPasswordDTO.type());
 
         return ResponseEntity.noContent().build();
     }

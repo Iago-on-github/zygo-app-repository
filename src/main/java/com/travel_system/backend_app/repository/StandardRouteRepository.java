@@ -69,5 +69,7 @@ public interface StandardRouteRepository extends JpaRepository<StandardRoute, UU
             @Param("standardRouteId") UUID standardRouteId,
             @Param("status") GeneralStatus status,
             @Param("travelDirection") TravelDirection travelDirection);
+
+    List<StandardRoute> findAllByStatus(GeneralStatus status);
 }
 

@@ -16,6 +16,7 @@ public record ResponsibleAdultResponseDTO(
         String lastName,
         String cpf,
         String telephone,
+        AddressResponseDTO addressResponse,
         Set<StudentResponsibleAdultDTO> studentResponsibleAdultDTO,
         ResponsibleAdultType responsibleAdultType,
         String profilePicture,
@@ -27,4 +28,3 @@ public record ResponsibleAdultResponseDTO(
 ) {
 }
 
-// id, name, cpf, responsibleAdultType

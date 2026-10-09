@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentAcceptDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentInvitationDTO;
+import com.travel_system.backend_app.model.dtos.invitation.student.StudentInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentProfileDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.enums.TargetUserType;
@@ -38,8 +39,8 @@ public class StudentInvitationProfileStrategy {
     }
 
     // envia convite especificamente para o estudante
-    public InvitationResponseDTO sendStudentInvitation(String email, StudentInvitationDTO dto) {
-        return invitationService.sendInvitation(email, dto);
+    public InvitationResponseDTO sendStudentInvitation(StudentInvitationRequestDTO dto) {
+        return invitationService.sendInvitation(dto.email(), dto.profileData());
     }
 
     // realiza ação de aceite do estudante

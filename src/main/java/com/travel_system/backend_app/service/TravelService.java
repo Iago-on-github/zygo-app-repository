@@ -1,7 +1,6 @@
 package com.travel_system.backend_app.service;
 
-import com.mapbox.geojson.Point;
-import com.travel_system.backend_app.config.constants.TravelConstants;
+import com.travel_system.backend_app.events.TravelStartedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.mappers.response.RouteStopResponseMapper;
@@ -12,7 +11,10 @@ import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
+import com.travel_system.backend_app.model.dtos.request.CancelTravelDTO;
+import com.travel_system.backend_app.model.dtos.request.CancelTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.TravelScheduleRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.*;
@@ -22,12 +24,11 @@ import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.threeten.bp.Period;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -38,6 +39,7 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 
 @Service
 public class TravelService {
+    private final Logger log = LoggerFactory.getLogger(TravelService.class);
 
     private final TravelRepository travelRepository;
     private final StudentTravelRepository studentTravelRepository;
@@ -46,6 +48,7 @@ public class TravelService {
     private final TravelReportsRepository travelReportsRepository;
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final StandardRouteRepository standardRouteRepository;
+    private final VehicleRepository vehicleRepository;
 
     private final MapboxAPIService mapboxAPIService;
     private final RedisTrackingService redisTrackingService;
@@ -64,9 +67,9 @@ public class TravelService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    private final Logger log = LoggerFactory.getLogger(TravelService.class);
+    private final ApplicationEventPublisher eventPublisher;
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -74,6 +77,7 @@ public class TravelService {
         this.travelReportsRepository = travelReportsRepository;
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.standardRouteRepository = standardRouteRepository;
+        this.vehicleRepository = vehicleRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.redisTrackingService = redisTrackingService;
         this.polylineService = polylineService;
@@ -87,6 +91,7 @@ public class TravelService {
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
         this.redisTemplate = redisTemplate;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -112,6 +117,14 @@ public class TravelService {
 
         if (hasActiveTravel) {
             throw new TravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
+        }
+
+        // validação do veículo
+        Vehicle vehicle = vehicleRepository.findById(travelRequestDTO.vehicleId())
+                .orElseThrow(() -> new EntityNotFoundException("Vehicle não encontrado"));
+
+        if (vehicle.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveVehicleException("Esse veículo está cadastrado como inativo no sistema");
         }
 
         travel.setOriginLongitude(travelRequestDTO.originLongitude());
@@ -179,11 +192,115 @@ public class TravelService {
     }
 
     @Transactional
+    public TravelScheduleResponseDTO scheduledTrip(TravelScheduleRequestDTO scheduledTripRequestDTO, TravelRequestDTO travelRequestDTO) {
+        String authenticatedUserEmail = getAuthenticatedUserEmail();
+
+        Driver driver = driverRepository.findByEmail(authenticatedUserEmail)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado"));
+
+        if (driver.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveDriverException("Motorista inativo, não é possível prosseguir. driverId: " + driver.getId());
+        }
+
+        boolean hasActiveTravel = travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.PENDING, TravelStatus.TRAVELLING));
+
+        if (hasActiveTravel) {
+            throw new TravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir: " + driver.getId());
+        }
+
+        if (travelRepository.existsByDriverIdAndScheduledTrip(driver.getId())) {
+            throw new ScheduledTripAlreadyExistsException("O motorista já tem uma viagem agendada");
+        }
+
+        // cria efetivamente a viagem
+        Travel travel = new Travel();
+
+        // recupera o customerId e valida
+        UUID customerId = TenantContext.getCurrentTenant();
+        if (customerId == null) {
+            throw new DomainValidationException("É necessário estar atuando sobre um Customer válido para criar uma viagem.");
+        }
+
+        // validação do veículo
+        Vehicle vehicle = vehicleRepository.findById(travelRequestDTO.vehicleId())
+                .orElseThrow(() -> new EntityNotFoundException("Vehicle não encontrado"));
+
+        if (vehicle.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveVehicleException("Esse veículo está cadastrado como inativo no sistema");
+        }
+
+        travel.setOriginLongitude(travelRequestDTO.originLongitude());
+        travel.setOriginLatitude(travelRequestDTO.originLatitude());
+        travel.setFinalLongitude(travelRequestDTO.finalLongitude());
+        travel.setFinalLatitude(travelRequestDTO.finalLatitude());
+
+        if (travelRequestDTO.travelPeriod() == null) {
+            throw new TravelException("O período da viagem precisa ser selecionado.");
+        }
+
+        travel.setTravelPeriod(travelRequestDTO.travelPeriod());
+
+        if (travelRequestDTO.travelDirection() == null) {
+            throw new TravelException("A direção da viage precisa ser selecionada");
+        }
+
+        travel.setTravelDirection(travelRequestDTO.travelDirection());
+
+        travel.setCreatedAt(Instant.now());
+        travel.setScheduledStartAt(scheduledTripRequestDTO.scheduledStartAt());
+        travel.setTravelStatus(TravelStatus.SCHEDULED);
+        travel.setDriver(driver);
+        travel.setTravelScheduleCreatedBy(driver.getName());
+
+        /*
+         * verificação da rota padrão da viagem
+         * */
+
+        StandardRoute standardRoute = standardRouteRepository.findById(travelRequestDTO.standardRouteId())
+                .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada"));
+
+        if (standardRoute.getStatus() == GeneralStatus.INACTIVE) {
+            throw new StandardRouteException("A Rota Padão está INATIVA no sistema");
+        }
+
+        // verifica compatibilidade entre Customers
+        if (!isSameCustomer(customerId, standardRoute.getCustomerId())) {
+            throwTravelException("A Rota Padrão deve obrigariamente ser do mesmo customer da Viagem");
+        }
+
+        travel.setStandardRoute(standardRoute);
+
+        // obtém preview da viagem
+        TravelPreviewDTO tripPreview = mapboxAPIService.getTripPreview(
+                travelRequestDTO.originLongitude(),
+                travelRequestDTO.originLatitude(),
+                travelRequestDTO.finalLongitude(),
+                travelRequestDTO.finalLatitude());
+
+        if (tripPreview == null || tripPreview.distance() == null || tripPreview.duration() == null) {
+            throw new RecalculateEtaException("Falha ao buscar dados de Preview da API");
+        }
+
+        // armazena dados 'preview' da viagem
+        travel.setDistance(tripPreview.distance());
+        travel.setDuration(tripPreview.duration());
+
+        travel.setDestinationCity(travelRequestDTO.destinationCity());
+
+        travelRepository.save(travel);
+
+        // envia notificação para o firebase comunicando o agendamento da viagem
+        travelNotificationService.sendTravelScheduleNotification(travel);
+
+        return new TravelScheduleResponseDTO(travel.getId(), driver.getName(), scheduledTripRequestDTO.scheduledStartAt());
+    }
+
+    @Transactional
     public void startTravel(UUID travelId) {
         Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada: " + travelId));
 
-        if (!(actualTrip.getTravelStatus() == TravelStatus.PENDING)) {
+        if (!(actualTrip.getTravelStatus() == TravelStatus.PENDING || actualTrip.getTravelStatus() == TravelStatus.SCHEDULED)) {
             throwTravelException("Não é possível iniciar a viagem " + travelId + " por conta do status: " + actualTrip.getTravelStatus());
         }
 
@@ -206,23 +323,15 @@ public class TravelService {
         actualTrip.setDuration(routeDetailsDTO.duration());
         actualTrip.setDistance(routeDetailsDTO.distance());
         actualTrip.setPolylineRoute(routeDetailsDTO.geometry());
-        actualTrip.setStartHourTravel(Instant.now());
+        actualTrip.setStartHourTravelAt(Instant.now());
 
         actualTrip.setTravelStatus(TravelStatus.TRAVELLING);
 
-        travelRepository.save(actualTrip);
+        // força sincronização
+        travelRepository.saveAndFlush(actualTrip);
 
-        // envia notificação para o firebase comunicando o incio da viagem
-        travelNotificationService.sendTravelStartedNotification(actualTrip);
-
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            // adiciona viagem ativa ao redis para métricas de self-health do sistema
-            redisTrackingService.addActiveTravel(travelId);
-
-            // limpa o cache estático da viagem (por ter mudado o STATUS da viagem)
-            travelCacheService.invalidateTravelStaticCache(travelId);
-            return null;
-        });
+        // publica evento que cuida, após o commit, da notificação + o redis
+        eventPublisher.publishEvent(new TravelStartedEvent(travelId));
 
         log.info("viagem {} iniciada com sucesso. ", travelId);
     }
@@ -230,14 +339,14 @@ public class TravelService {
     @Transactional
     public void endTravel(UUID travelId) {
         Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada: " + travelId));
 
         if (!(actualTrip.getTravelStatus() == TravelStatus.TRAVELLING)) {
             throwTravelException("Não é possível prosseguir, a viagem não está em andamento: " + travelId);
         }
 
         actualTrip.setTravelStatus(TravelStatus.FINISH);
-        actualTrip.setEndHourTravel(Instant.now());
+        actualTrip.setEndHourTravelAt(Instant.now());
 
         UUID baseCustomerId = actualTrip.getCustomerId();
 
@@ -286,8 +395,8 @@ public class TravelService {
 
         travelRepository.save(actualTrip);
 
-        // adiciona +1 no número de totaltrips do motorista
-        setCountDriverTrips(actualTrip);
+        // adiciona +1 no número de totaltrips do motorista e do veículo
+        setCountVehicleAndDriverTrips(actualTrip);
 
         // limpeza do redis
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
@@ -343,7 +452,7 @@ public class TravelService {
     @Transactional
     public void driverChanged(UUID travelId, UUID driverId) {
         Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada: " + travelId));
 
         if (actualTrip.getTravelStatus() == TravelStatus.CANCELED || actualTrip.getTravelStatus() == TravelStatus.FINISH) {
             throwTravelException("Não é possível alterar o motorista de uma viagem cancelada ou finalizada");
@@ -378,24 +487,26 @@ public class TravelService {
     }
 
     @Transactional
-    public void cancelTravel(UUID travelId) {
-        Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFound("Viagem não encontrada: " + travelId));
+    public CancelTravelResponseDTO cancelTravel(CancelTravelDTO dto) {
+        Travel travel = travelRepository.findById(dto.travelId())
+                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada: " + dto.travelId()));
 
-        if (actualTrip.getTravelStatus() != TravelStatus.PENDING) {
-            throwTravelException("Não é possível prosseguir, a viagem " + travelId + " já foi finalizada ou esté em andamento");
+        if (travel.getTravelStatus() != TravelStatus.PENDING) {
+            throwTravelException("Não é possível prosseguir, a viagem " + dto.travelId() + " já foi finalizada ou esté em andamento");
         }
 
-        actualTrip.setTravelStatus(TravelStatus.CANCELED);
-        actualTrip.setEndHourTravel(Instant.now());
+        travel.setTravelStatus(TravelStatus.CANCELED);
+        travel.setCancelledAt(Instant.now());
+        travel.setEndHourTravelAt(Instant.now());
+        travel.setCancelledReason(dto.cancelledReason());
 
-        UUID baseCustomerId = actualTrip.getCustomerId();
+        UUID baseCustomerId = travel.getCustomerId();
 
         List<UUID> studentTravelIdsToDisconnect = new ArrayList<>();
 
         // verifica se existem estudantes vinculados e faz a deconexão
-        if (!actualTrip.getStudentTravels().isEmpty()) {
-            actualTrip.getStudentTravels().forEach(studentTravel -> {
+        if (!travel.getStudentTravels().isEmpty()) {
+            travel.getStudentTravels().forEach(studentTravel -> {
                 UUID studentsCustomerId = studentTravel.getStudent().getCustomerId();
 
                 if (studentTravel.isEmbark() && isSameCustomer(baseCustomerId, studentsCustomerId)) {
@@ -410,18 +521,21 @@ public class TravelService {
 
             studentTravelIdsToDisconnect.forEach(studentTravelId -> {
                 // evento route_stop_algorithm viagem cancelada
-                studentTravelRouteStopService.cancelledStudentRouteStop(travelId, studentTravelId, baseCustomerId);
+                studentTravelRouteStopService.cancelledStudentRouteStop(dto.travelId(), studentTravelId, baseCustomerId);
             });
 
-            batchUpdateProcessing(travelId, studentTravelIdsToDisconnect);
+            batchUpdateProcessing(dto.travelId(), studentTravelIdsToDisconnect);
         }
 
         log.info("[cancelTravel] quantidade de estudantes desvinculados da viagem: {} ", studentTravelIdsToDisconnect.size());
 
-        travelRepository.save(actualTrip);
+        travelRepository.save(travel);
 
         // envia notificação para o firebase comunicando o cancelamento da viagem
-        travelNotificationService.sendTravelCanceledNotification(actualTrip);
+        travelNotificationService.sendTravelCanceledNotification(travel);
+
+        return new CancelTravelResponseDTO(dto.travelId(), travel.getVehicle().getVehicleNumber(), travel.getTravelPeriod(),
+                travel.getTravelDirection(), travel.getCancelledReason(), travel.getCancelledAt());
 
         // não deve registrar nenhum tipo de histórico de viagem
     }
@@ -508,6 +622,21 @@ public class TravelService {
         }
     }
 
+    // pega as viagens agendadas (usado no job)
+    @Transactional(readOnly = true)
+    public List<UUID> getDueTravels() {
+        return travelRepository.findDueTravels(Instant.now());
+    }
+
+    // recupera as viagens agendadas nas quais estão com 1h30 ou menos de começar (usado no job)
+    @Transactional(readOnly = true)
+    public List<UUID> getScheduledTravelsWithinTimeWindow() {
+        Instant now = Instant.now();
+        Instant nowPlusThreshold = now.plus(Duration.ofMinutes(90));
+
+        return travelRepository.findScheduledTravelsWithinTimeWindow(TravelStatus.SCHEDULED, now, nowPlusThreshold);
+    }
+
     @Transactional(readOnly = true)
     public TravelPreviewDTO getTravelPreview(UUID travelId) {
         Travel travel = travelRepository.findById(travelId)
@@ -516,8 +645,8 @@ public class TravelService {
         String arrivalTime = null;
 
         // faz o cálculo do arrivalTime baseando-se na hora de inicio da viagem
-        if (travel.getStartHourTravel() != null && travel.getDuration() != null) {
-            arrivalTime = travel.getStartHourTravel().plusSeconds(travel.getDuration().longValue()).toString();
+        if (travel.getStartHourTravelAt() != null && travel.getDuration() != null) {
+            arrivalTime = travel.getStartHourTravelAt().plusSeconds(travel.getDuration().longValue()).toString();
         }
 
         return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
@@ -649,6 +778,7 @@ public class TravelService {
     private TravelResponseDTO travelConverted(Travel travel) {
         DriverResponseDTO driverResponseDTO = driverMapper(travel.getDriver());
         StandardRouteSimpleResponseDTO standardRouteSimpleResponseDTO = standardRouteSimpleMapper(travel.getStandardRoute());
+        VehicleResponseDTO vehicleResponseDTO = vehicleResponseDTO(travel.getVehicle());
 
         TravelPreviewDTO travelPreviewDTO = getTravelPreviewDTO(travel);
 
@@ -657,11 +787,12 @@ public class TravelService {
                 travel.getTravelStatus(),
                 travel.getTravelPeriod(),
                 travel.getTravelDirection(),
+                vehicleResponseDTO,
                 driverResponseDTO,
                 standardRouteSimpleResponseDTO,
                 travel.getStudentTravels(),
                 travel.getCreatedAt(),
-                travel.getStartHourTravel(),
+                travel.getStartHourTravelAt(),
                 travelPreviewDTO
         );
     }
@@ -679,7 +810,6 @@ public class TravelService {
     }
 
     private DriverResponseDTO driverMapper(Driver driver) {
-
         return new DriverResponseDTO(
                 driver.getId(),
                 driver.getName(),
@@ -687,11 +817,61 @@ public class TravelService {
                 driver.getUserAccount().getEmail(),
                 driver.getTelephone(),
                 driver.getProfilePicture(),
-                driver.getCreatedAt(),
-                driver.getStatus(),
+                driver.getCpf(),
+                addressMapper(driver.getAddress()),
+                cnhMapper(driver.getCnh()),
                 driver.getAreaOfActivity(),
                 driver.getTotalTrips(),
-                driver.getCustomerId()
+                driver.getCustomerId(),
+                driver.getCreatedAt(),
+                driver.getStatus()
+        );
+    }
+
+    private VehicleResponseDTO vehicleResponseDTO(Vehicle vehicle) {
+        return new VehicleResponseDTO(
+                vehicle.getId(),
+                vehicle.getVehicleNumber(),
+                vehicle.getVehicleType(),
+                vehicle.getColor(),
+                vehicle.getVehicleImage(),
+                vehicle.getNumberPlate(),
+                vehicle.getTotalTrips(),
+                vehicle.getStatus(),
+                vehicle.getCreatedAt(),
+                vehicle.getUpdatedAt()
+        );
+    }
+
+    private AddressResponseDTO addressMapper(Address address) {
+        if (address == null) {
+            return null;
+        }
+
+        return new AddressResponseDTO(
+                address.getId(),
+                address.getStreet(),
+                address.getNumber(),
+                address.getNeighborhood(),
+                address.getCity(),
+                address.getCep(),
+                address.getComplement()
+        );
+    }
+
+    private CnhResponseDTO cnhMapper(Cnh cnh) {
+        if (cnh == null) {
+            return null;
+        }
+
+        return new CnhResponseDTO(
+                cnh.getId(),
+                cnh.getCnhNumber(),
+                cnh.getCnhCategories(),
+                cnh.getCnhExpirationDate(),
+                cnh.getCnhFirstIssueDate(),
+                cnh.getCreatedAt(),
+                cnh.getUpdatedAt()
         );
     }
 
@@ -705,15 +885,19 @@ public class TravelService {
                 );
     }
 
-    private void setCountDriverTrips(Travel travel) {
-        Integer totalTrips = travel.getDriver().getTotalTrips();
+    private void setCountVehicleAndDriverTrips(Travel travel) {
+        Integer totalDriverTrips = travel.getDriver().getTotalTrips();
+        Integer totalVehicleTrips = travel.getVehicle().getTotalTrips();
 
-        if (totalTrips == null) totalTrips = 0;
+        if (totalDriverTrips == null) totalDriverTrips = 0;
+        if (totalVehicleTrips == null) totalVehicleTrips = 0;
 
         // n° totaltrips armazenado + 1 da viagem recentemnete feita
-        int newValueOfTotalTrips = totalTrips += 1;
+        int newValueOfDriverTotalTrips = totalDriverTrips += 1;
+        int newValueOfVehicleTotalTrips = totalVehicleTrips += 1;
 
-        driverRepository.updateTotalTrips(newValueOfTotalTrips);
+        driverRepository.updateTotalTrips(newValueOfDriverTotalTrips);
+        vehicleRepository.updateTotalTrips(newValueOfVehicleTotalTrips);
     }
 
     /*

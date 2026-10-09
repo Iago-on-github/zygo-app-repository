@@ -9,9 +9,11 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.UUID;
 
+@BatchSize(size = 25)
 @Entity
 @Table(name = "route_stop_assignment",
         uniqueConstraints = {

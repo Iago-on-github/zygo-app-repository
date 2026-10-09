@@ -16,6 +16,7 @@ public record TravelResponseDTO(
         TravelStatus status,
         TravelPeriod travelPeriod,
         TravelDirection travelDirection,
+        VehicleResponseDTO vehicleResponseDTO,
         DriverResponseDTO driverResponseDTO,
         StandardRouteSimpleResponseDTO standardRouteSimpleResponseDTO,
         Set<StudentTravel> studentTravel,

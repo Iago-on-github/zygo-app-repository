@@ -59,7 +59,7 @@ public class AuthService {
     public void registerAccount(UserAccountRegisterDTO accountRegisterDTO) {
         String email = normalizeEmail(accountRegisterDTO.email());
 
-        if (userAccountRepository.existsByEmailIgnoringTenant(email)) {
+        if (userAccountRepository.existsByEmail(email)) {
             throw new DuplicateResourceException("Esse email já existe no sistema");
         }
 
@@ -140,14 +140,16 @@ public class AuthService {
             throw new BadCredentialsException("Email ou senha inválidos");
         }
 
+        String email = normalizeEmail(loginRequestDto.email());
+
         // processa a autenticação
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequestDto.email(), loginRequestDto.password()));
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, loginRequestDto.password()));
         } catch (Exception e) {
             throw new BadCredentialsException("Email ou senha inválidos. Tente novamente");
         }
 
-        var userAccount = userAccountRepository.findUserByEmail(loginRequestDto.email());
+        var userAccount = userAccountRepository.findUserByEmail(email);
 
         if (userAccount == null){
             throw new EntityNotFoundException("Email não encontrado. Tente novamente");
@@ -163,7 +165,7 @@ public class AuthService {
                 .map(Permissions::getDescription).toList();
 
         // retorna o token
-        return tokenConfig.createAccessToken(loginRequestDto.email(), roles, customerId, userAccount.getUserAccountType());
+        return tokenConfig.createAccessToken(email, roles, customerId, userAccount.getUserAccountType());
     }
 
     @Transactional(readOnly = true)

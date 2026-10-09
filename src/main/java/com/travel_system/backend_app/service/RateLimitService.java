@@ -1,12 +1,12 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.exceptions.RateLimitExceededException;
 import com.travel_system.backend_app.exceptions.RateLimitServiceUnavailableException;
 import com.travel_system.backend_app.model.dtos.security.RateLimitResult;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -18,9 +18,10 @@ import java.util.List;
 
 @Service
 public class RateLimitService {
+    private final Logger log = LoggerFactory.getLogger(RateLimitService.class);
 
     private static final String KEY_NAMESPACE = "rl:";
-    private static final String SCRIPT_PATH = "scripts/rate-limit/increment_with_ttl.lua";
+    private static final String SCRIPT_PATH = "scripts/rate-limit/increment-with-ttl.lua";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -53,6 +54,7 @@ public class RateLimitService {
         try {
             result = redisTemplate.execute(incrementWithTtlScript, List.of(key), windowMillis);
         } catch (Exception e) {
+            log.error("[rate-limit] Falha ao executar o script. key={}", key, e);
             throw new RateLimitServiceUnavailableException("Falha ao consultar o serviço de rate limiting", e);
         }
 

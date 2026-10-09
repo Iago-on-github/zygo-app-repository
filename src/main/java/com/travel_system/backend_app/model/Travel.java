@@ -20,19 +20,26 @@ public class Travel extends BaseTenantEntity {
     private UUID id;
     @Enumerated(value = EnumType.STRING)
     private TravelStatus travelStatus;
-    private int busNumber;
     @ManyToOne
     @JoinColumn(name = "driver_id")
     private Driver driver;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
     @OneToMany(mappedBy = "travel")
     private Set<StudentTravel> studentTravels = new HashSet<>();
     @Enumerated(value = EnumType.STRING)
     private TravelPeriod travelPeriod;
     @Enumerated(EnumType.STRING)
     private TravelDirection travelDirection;
+    @Column(length = 100)
+    private String cancelledReason;
+    private String travelScheduleCreatedBy;
     private Instant createdAt;
-    private Instant startHourTravel;
-    private Instant endHourTravel;
+    private Instant cancelledAt;
+    private Instant startHourTravelAt;
+    private Instant scheduledStartAt;
+    private Instant endHourTravelAt;
 
     // rota (estáticos)
     @Column(columnDefinition = "text")
@@ -52,19 +59,26 @@ public class Travel extends BaseTenantEntity {
     @JoinColumn(name = "standard_route_id")
     private StandardRoute standardRoute;
 
+    @Version
+    private Long version;
+
     public Travel() {
     }
 
-    public Travel(UUID id, TravelStatus travelStatus, int busNumber, Driver driver, TravelPeriod travelPeriod, TravelDirection travelDirection, Instant createdAt, Instant startHourTravel, Instant endHourTravel, String polylineRoute, Double duration, Double distance, String destinationCity, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, StandardRoute standardRoute) {
+    public Travel(UUID id, TravelStatus travelStatus, Driver driver, Vehicle vehicle, TravelPeriod travelPeriod, TravelDirection travelDirection, String cancelledReason, String travelScheduleCreatedBy, Instant createdAt, Instant cancelledAt, Instant startHourTravelAt, Instant scheduledStartAt, Instant endHourTravelAt, String polylineRoute, Double duration, Double distance, String destinationCity, Double originLatitude, Double originLongitude, Double finalLatitude, Double finalLongitude, StandardRoute standardRoute) {
         this.id = id;
         this.travelStatus = travelStatus;
-        this.busNumber = busNumber;
         this.driver = driver;
+        this.vehicle = vehicle;
         this.travelPeriod = travelPeriod;
         this.travelDirection = travelDirection;
+        this.cancelledReason = cancelledReason;
+        this.travelScheduleCreatedBy = travelScheduleCreatedBy;
         this.createdAt = createdAt;
-        this.startHourTravel = startHourTravel;
-        this.endHourTravel = endHourTravel;
+        this.cancelledAt = cancelledAt;
+        this.startHourTravelAt = startHourTravelAt;
+        this.scheduledStartAt = scheduledStartAt;
+        this.endHourTravelAt = endHourTravelAt;
         this.polylineRoute = polylineRoute;
         this.duration = duration;
         this.distance = distance;
@@ -92,20 +106,20 @@ public class Travel extends BaseTenantEntity {
         this.travelStatus = travelStatus;
     }
 
-    public int getBusNumber() {
-        return busNumber;
-    }
-
-    public void setBusNumber(int busNumber) {
-        this.busNumber = busNumber;
-    }
-
     public Driver getDriver() {
         return driver;
     }
 
     public void setDriver(Driver driver) {
         this.driver = driver;
+    }
+
+    public Vehicle getVehicle() {
+        return vehicle;
+    }
+
+    public void setVehicle(Vehicle vehicle) {
+        this.vehicle = vehicle;
     }
 
     public Set<StudentTravel> getStudentTravels() {
@@ -132,8 +146,20 @@ public class Travel extends BaseTenantEntity {
         this.travelDirection = travelDirection;
     }
 
-    public Instant getStartHourTravel() {
-        return startHourTravel;
+    public String getCancelledReason() {
+        return cancelledReason;
+    }
+
+    public void setCancelledReason(String cancelledReason) {
+        this.cancelledReason = cancelledReason;
+    }
+
+    public String getTravelScheduleCreatedBy() {
+        return travelScheduleCreatedBy;
+    }
+
+    public void setTravelScheduleCreatedBy(String travelScheduleCreatedBy) {
+        this.travelScheduleCreatedBy = travelScheduleCreatedBy;
     }
 
     public Instant getCreatedAt() {
@@ -144,16 +170,36 @@ public class Travel extends BaseTenantEntity {
         this.createdAt = createdAt;
     }
 
-    public void setStartHourTravel(Instant startHourTravel) {
-        this.startHourTravel = startHourTravel;
+    public Instant getCancelledAt() {
+        return cancelledAt;
     }
 
-    public Instant getEndHourTravel() {
-        return endHourTravel;
+    public void setCancelledAt(Instant cancelledAt) {
+        this.cancelledAt = cancelledAt;
     }
 
-    public void setEndHourTravel(Instant endHourTravel) {
-        this.endHourTravel = endHourTravel;
+    public Instant getStartHourTravelAt() {
+        return startHourTravelAt;
+    }
+
+    public void setStartHourTravelAt(Instant startHourTravelAt) {
+        this.startHourTravelAt = startHourTravelAt;
+    }
+
+    public Instant getScheduledStartAt() {
+        return scheduledStartAt;
+    }
+
+    public void setScheduledStartAt(Instant scheduledStartAt) {
+        this.scheduledStartAt = scheduledStartAt;
+    }
+
+    public Instant getEndHourTravelAt() {
+        return endHourTravelAt;
+    }
+
+    public void setEndHourTravelAt(Instant endHourTravelAt) {
+        this.endHourTravelAt = endHourTravelAt;
     }
 
     public String getPolylineRoute() {
@@ -178,6 +224,14 @@ public class Travel extends BaseTenantEntity {
 
     public void setDistance(Double distance) {
         this.distance = distance;
+    }
+
+    public String getDestinationCity() {
+        return destinationCity;
+    }
+
+    public void setDestinationCity(String destinationCity) {
+        this.destinationCity = destinationCity;
     }
 
     public Double getOriginLatitude() {
@@ -212,14 +266,6 @@ public class Travel extends BaseTenantEntity {
         this.finalLongitude = finalLongitude;
     }
 
-    public String getDestinationCity() {
-        return destinationCity;
-    }
-
-    public void setDestinationCity(String destinationCity) {
-        this.destinationCity = destinationCity;
-    }
-
     public StandardRoute getStandardRoute() {
         return standardRoute;
     }
@@ -227,6 +273,4 @@ public class Travel extends BaseTenantEntity {
     public void setStandardRoute(StandardRoute standardRoute) {
         this.standardRoute = standardRoute;
     }
-
-
 }

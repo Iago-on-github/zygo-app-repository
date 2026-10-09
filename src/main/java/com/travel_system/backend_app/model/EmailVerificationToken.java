@@ -6,18 +6,21 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "email_verification_token_table")
+@Table(name = "email_verification_token_table", indexes = @Index(name = "idx_email_verification_user_account", columnList = "user_account_id"))
 public class EmailVerificationToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @OneToOne(mappedBy = "user_account_id", optional = false)
+    @Column(name = "user_account_id", nullable = false)
     private UUID userAccountId;
-    @Column(unique = true, nullable = false)
+    @Column(name = "token_hash", nullable = false, unique = true)
     private String tokenHash;
+    @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
+    @Column(name = "used_at")
     private Instant usedAt;
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     public EmailVerificationToken() {

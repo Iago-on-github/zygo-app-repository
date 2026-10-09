@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptRespo
 import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorInvitationDTO;
 import com.travel_system.backend_app.model.dtos.invitation.driver.DriverAcceptDTO;
 import com.travel_system.backend_app.model.dtos.invitation.driver.DriverInvitationDTO;
+import com.travel_system.backend_app.model.dtos.invitation.driver.DriverInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.invitation.driver.DriverProfileDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.enums.TargetUserType;
@@ -38,8 +39,8 @@ public class DriverInvitationProfileStrategy {
     }
 
     // envia o convite para o driver
-    public InvitationResponseDTO sendDriverInvitation(String email, DriverInvitationDTO driverInvitationDTO) {
-        return invitationService.sendInvitation(email, driverInvitationDTO);
+    public InvitationResponseDTO sendDriverInvitation(DriverInvitationRequestDTO dto) {
+        return invitationService.sendInvitation(dto.email(), dto.driverInvitation());
     }
 
     // driver aceita o convite

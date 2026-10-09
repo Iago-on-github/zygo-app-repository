@@ -3,6 +3,7 @@ package com.travel_system.backend_app.model;
 import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.Instant;
 import java.util.*;
 
+@BatchSize(size = 25)
 @Entity
 @Table(name = "route_stop")
 @EntityListeners(AuditingEntityListener.class)

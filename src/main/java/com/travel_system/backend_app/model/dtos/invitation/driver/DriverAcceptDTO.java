@@ -2,8 +2,11 @@ package com.travel_system.backend_app.model.dtos.invitation.driver;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.travel_system.backend_app.interfaces.InvitationProfileData;
+import com.travel_system.backend_app.model.dtos.request.AddressRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.CnhRequestDTO;
 import com.travel_system.backend_app.model.enums.TargetUserType;
 
+import javax.validation.Valid;
 import javax.validation.constraints.*;
 import java.time.LocalDate;
 
@@ -16,6 +19,9 @@ public record DriverAcceptDTO(
         @Size(max = 10, message = "O sobrenome deve ter no máximo 10 caracteres")
         String lastName,
 
+        @Size(min = 11, max = 11, message = "o cpf deve ter 11 caracteres")
+        String cpf,
+
         @NotNull
         @Past(message = "A data de nascimento deve estar no passado")
         @JsonFormat(pattern = "dd/MM/yyyy")
@@ -24,7 +30,13 @@ public record DriverAcceptDTO(
         @NotNull
         @Past(message = "A data de nascimento deve estar no passado")
         @JsonFormat(pattern = "dd/MM/yyyy")
-        LocalDate birthdate
+        LocalDate birthdate,
+
+        @Valid
+        AddressRequestDTO addressRequest,
+
+        @Valid
+        CnhRequestDTO cnhRequest
 
 ) {
 

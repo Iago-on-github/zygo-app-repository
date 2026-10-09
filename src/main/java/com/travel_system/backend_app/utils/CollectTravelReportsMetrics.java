@@ -63,7 +63,7 @@ public class CollectTravelReportsMetrics {
 
         // métricas gerais sobre a viagem (distância acumulada, duração)
         Double accumulatedDistance = Double.valueOf(redisTrackingService.getAccumulatedDistance(travel.getId()));
-        Duration durationInMinutes = Duration.between(travel.getStartHourTravel(), travel.getEndHourTravel());
+        Duration durationInMinutes = Duration.between(travel.getStartHourTravelAt(), travel.getEndHourTravelAt());
         double formattedDurationInMinutes = (double) durationInMinutes.toMinutes() / 60.0;
 
         TravelReports travelReports = new TravelReports(

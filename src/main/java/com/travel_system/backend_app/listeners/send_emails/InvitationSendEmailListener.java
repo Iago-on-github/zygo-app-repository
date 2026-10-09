@@ -41,7 +41,7 @@ public class InvitationSendEmailListener {
     @EventListener
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
-    @Async("invitationsTaskExecutor")
+    @Async("emailInvitationsTaskExecutor")
     public void onInvitationCreated(InvitationCreatedEvent event) {
         // envia notificação para o user em específico
         invitationNotificationService.sendNotifyInvitationCreatedToUser(event);

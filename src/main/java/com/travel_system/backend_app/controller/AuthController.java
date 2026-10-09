@@ -1,10 +1,12 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RateLimited;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.model.dtos.security.LoginRequestDTO;
 import com.travel_system.backend_app.model.dtos.security.LoginResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.RefreshTokenResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.UserAccountRegisterDTO;
+import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.AuthService;
 import com.travel_system.backend_app.service.CurrentUserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,18 +36,21 @@ public class AuthController {
         this.currentUserService = currentUserService;
     }
 
+    @RateLimited(RateLimitPolicy.REGISTER)
     @PostMapping("/register")
     public ResponseEntity<Void> registerAccount(@Valid @RequestBody UserAccountRegisterDTO userAccountRegisterDTO) {
         authService.registerAccount(userAccountRegisterDTO);
         return ResponseEntity.noContent().build();
     }
 
+    @RateLimited(RateLimitPolicy.VERIFY_EMAIL)
     @PostMapping("/verify-email")
     public ResponseEntity<Void> verifyEmail(@RequestParam("token") String token) {
         authService.verifyEmail(token);
         return ResponseEntity.noContent().build();
     }
 
+    @RateLimited(RateLimitPolicy.RESEND_VERIFICATION)
     @PostMapping("/verify-email/resend")
     public ResponseEntity<Void> resendVerificationEmail() {
         authService.resendVerificationEmail();

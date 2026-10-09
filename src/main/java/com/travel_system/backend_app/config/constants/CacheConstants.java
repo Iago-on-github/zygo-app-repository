@@ -25,4 +25,5 @@ public class CacheConstants {
 
     // setup authentication
     public static final String SETUP_AUTH_PLATFORM_ADMIN_KEY = "set-up:PLATFORM_ADMINISTRATOR:";
+    public static final String SETUP_AUTH_DELETE_ACCOUNT_KEY = "set-up:delete:";
 }

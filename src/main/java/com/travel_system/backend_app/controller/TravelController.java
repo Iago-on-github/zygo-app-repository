@@ -1,7 +1,10 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
+import com.travel_system.backend_app.model.dtos.request.CancelTravelDTO;
+import com.travel_system.backend_app.model.dtos.request.CancelTravelResponseDTO;
 import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.TravelScheduleRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
@@ -12,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -47,6 +51,15 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/schedule")
+    public ResponseEntity<TravelScheduleResponseDTO> scheduledTrip(@Valid @RequestBody TravelScheduleRequestDTO scheduledTripRequestDTO, @Valid @RequestBody TravelRequestDTO travelRequestDTO, UriComponentsBuilder componentsBuilder) {
+        TravelScheduleResponseDTO responseDTO = travelService.scheduledTrip(scheduledTripRequestDTO, travelRequestDTO);
+
+        URI uri = componentsBuilder.path("/{id}").buildAndExpand(responseDTO.id()).toUri();
+
+        return ResponseEntity.created(uri).body(responseDTO);
+    }
+
     @PostMapping("/{travelId}/end")
     public ResponseEntity<Void> endTravel(@PathVariable UUID travelId) {
         travelService.endTravel(travelId);
@@ -66,10 +79,9 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{travelId}/cancel")
-    public ResponseEntity<Void> cancelTravel(@PathVariable UUID travelId) {
-        travelService.cancelTravel(travelId);
-        return ResponseEntity.noContent().build();
+    @PutMapping("/cancel")
+    public ResponseEntity<CancelTravelResponseDTO> cancelTravel(CancelTravelDTO dto) {
+        return ResponseEntity.ok().body(travelService.cancelTravel(dto));
     }
 
     @PostMapping("/{travelId}/leave")
