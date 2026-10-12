@@ -18,6 +18,14 @@ services:
     networks:
       - mynet
 
+  clamav:
+    image: "clamav/clamav:stable_base"
+    container_name: "clamav"
+    volumes:
+      - /var/run/clamav/:/var/run/clamav/
+      - /var/docker/clamav/virus_db/:/var/lib/clamav/
+    restart: unless-stopped
+
   minio:
     image: minio/minio
     container_name: minio
