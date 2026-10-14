@@ -1,0 +1,16 @@
+Visão Geral:
+
+Funcionalidade que visa proteger alunos e motoristas contra situações de emergência envolvendo condiões de saúde.
+Os respectivos users poderão preencher em seus prefis as informaçoes sobre suas condições (caso haja). A base é:
+
+- HealthDeclaration: a “ficha de saúde” de um aluno ou motorista, em um momento. Registra se a pessoa tem condições que exigem atenção, quem declarou e quando.
+É o que a exigência do admin cobra, e o que fica desatualizado na virada do período letivo.
+
+- HealthCondition: cada condição declarada (uma alergia, uma neurodivergência etc.), com gravidade e instruções de emergência.
+É o dado operacional: o que o motorista vê durante a viagem.
+
+- HealthConsent: a prova de que o titular (ou o responsável, no caso do aluno menor) autorizou o tratamento dos dados de saúde.
+É exigência da LGPD para dados sensíveis, e é o que o advogado vai querer ver.
+
+- Document: o laudo, receita ou plano de ação que comprova uma condição.
+

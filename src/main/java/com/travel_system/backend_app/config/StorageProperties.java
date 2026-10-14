@@ -10,8 +10,9 @@ public class StorageProperties {
     private String accessKey;
     private String secretKey;
     private String region;
-    private String bucketName;
+    private String bucketPicture;
     private String publicBaseUrl;
+    private String bucketDocuments;
 
     public String getEndpoint() {
         return endpoint;
@@ -45,12 +46,12 @@ public class StorageProperties {
         this.region = region;
     }
 
-    public String getBucketName() {
-        return bucketName;
+    public String getBucketPicture() {
+        return bucketPicture;
     }
 
-    public void setBucketName(String bucketName) {
-        this.bucketName = bucketName;
+    public void setBucketPicture(String bucketPicture) {
+        this.bucketPicture = bucketPicture;
     }
 
     public String getPublicBaseUrl() {
@@ -59,5 +60,13 @@ public class StorageProperties {
 
     public void setPublicBaseUrl(String publicBaseUrl) {
         this.publicBaseUrl = publicBaseUrl;
+    }
+
+    public String getBucketDocuments() {
+        return bucketDocuments;
+    }
+
+    public void setBucketDocuments(String bucketDocuments) {
+        this.bucketDocuments = bucketDocuments;
     }
 }

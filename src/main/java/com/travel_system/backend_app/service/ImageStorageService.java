@@ -54,7 +54,6 @@ public class ImageStorageService {
         return key;
     }
 
-
     public void delete(String key) {
         if (key == null || key.isBlank()) {
             return;

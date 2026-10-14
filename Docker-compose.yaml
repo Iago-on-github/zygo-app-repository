@@ -21,10 +21,19 @@ services:
   clamav:
     image: "clamav/clamav:stable_base"
     container_name: "clamav"
+    ports:
+      - "3310:3310"
     volumes:
-      - /var/run/clamav/:/var/run/clamav/
-      - /var/docker/clamav/virus_db/:/var/lib/clamav/
+      - /clamav_db:/var/lib/clamav
+      - "C:/Zyggo backend/clamAv.conf:/etc/clamav/clamd.conf:ro"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      -
 
   minio:
     image: minio/minio
@@ -72,9 +81,14 @@ services:
       - MAPBOX-ACCESS-TOKEN=${MAPBOX-ACCESS-TOKEN}
       - FIREBASE_CONFIG_PATH=/app/firebase-config.json
     depends_on:
-      - rabbitmq
-      - minio
-      - redis
+      rabbitmq:
+        condition: service_started
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+      clamav:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - mynet

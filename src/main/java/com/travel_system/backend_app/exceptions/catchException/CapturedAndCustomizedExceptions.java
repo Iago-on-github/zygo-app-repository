@@ -47,6 +47,16 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(DocumentProcessingException.class)
+    public final ResponseEntity<StandardError> DocumentProcessingException(DocumentProcessingException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MinorStudentNotAllowedException.class)
+    public final ResponseEntity<StandardError> MinorStudentNotAllowedException(MinorStudentNotAllowedException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(InactiveVehicleException.class)
     public final ResponseEntity<StandardError> InactiveVehicleException(InactiveVehicleException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
@@ -94,6 +104,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(DocumentConflictException.class)
+    public final ResponseEntity<StandardError> DocumentConflictException(DocumentConflictException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
@@ -253,6 +268,16 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    @ExceptionHandler(DocumentValidationException.class)
+    public final ResponseEntity<StandardError> DocumentValidationException(DocumentValidationException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    @ExceptionHandler(InfectedFileException.class)
+    public final ResponseEntity<StandardError> InfectedFileException(InfectedFileException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(UserNotInvitableException.class)
     public final ResponseEntity<StandardError> UserNotInvitableException(UserNotInvitableException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.UNPROCESSABLE_ENTITY);
@@ -390,6 +415,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(RateLimitServiceUnavailableException .class)
     public final ResponseEntity<StandardError> RateLimitServiceUnavailableException  (RateLimitServiceUnavailableException   ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(AntivirusUnavailableException .class)
+    public final ResponseEntity<StandardError> AntivirusUnavailableException (AntivirusUnavailableException   ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.SERVICE_UNAVAILABLE);
     }
 

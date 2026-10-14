@@ -56,7 +56,7 @@ public class S3StorageService implements StorageInterfaceService {
 
         try {
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(storageProperties.getBucketName())
+                    .bucket(storageProperties.getBucketPicture())
                     .key(objectKey)
                     .contentType(contentType) // brower needs to know image type
                     .contentLength((long) bytes.length) // stream length
@@ -79,7 +79,7 @@ public class S3StorageService implements StorageInterfaceService {
 
         try {
             DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
-                    .bucket(storageProperties.getBucketName())
+                    .bucket(storageProperties.getBucketPicture())
                     .key(objectKey)
                     .build();
 

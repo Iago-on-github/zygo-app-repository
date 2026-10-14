@@ -300,6 +300,34 @@ public class ThreadPoolExecutorConfig {
 
         return executor;
     }
+
+    /*
+     *  executor dedicado ao scan:
+     * - permite aplicar timeout (a biblioteca não expõe configuração de timeout)
+     * - fila limitada: se lotar, a tarefa é rejeitada e o upload responde 503
+     * */
+    @Bean(name = "antivirusExecutor", destroyMethod = "shutdown")
+    public ThreadPoolTaskExecutor antivirusExecutor() {
+        int MAXIMUM_QUEUE_CAPACITY = 20;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 4;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setThreadNamePrefix("antivirus-");
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+
+        executor.initialize();
+
+        return executor;
+    }
 }
 
 /*

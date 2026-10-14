@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.StudentTokensDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
@@ -150,4 +151,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     @Query(value = "SELECT EXISTS (SELECT 1 FROM student_table WHERE cpf = :cpf)", nativeQuery = true)
     boolean existsByCpfIgnoringTenant(String cpf);
+
+    Optional<Student> findLinkedToResponsible(UUID studentId, UUID id);
 }

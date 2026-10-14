@@ -1,9 +1,9 @@
 package com.travel_system.backend_app.model.enums;
 
 public enum CustomerPlan {
-    LITE(150, 2, 4, 4, 8, 1, 6, 6, 1, 15),
-    PRO(350, 3, 6, 6, 15, 3, 10, 30, 1, 25),
-    ULTIMATE(500, 5, 12, 12, 30, 5, 15, 45, 3, 50);
+    LITE(150, 2, 4, 4, 8, 1, 6, 6, 1, 15, 3),
+    PRO(350, 3, 6, 6, 15, 3, 10, 30, 1, 25, 5),
+    ULTIMATE(500, 5, 12, 12, 30, 5, 15, 45, 3, 50, 7);
 
     final int maxStudents;
     final int maxAdministrators;
@@ -20,6 +20,8 @@ public enum CustomerPlan {
 
     final int maxPendingInvitations;
 
+    final int maxHealthDocumentsPerOwner;
+
     /*
     * controle de notificações por plano
     * controle de painel administrativo
@@ -34,7 +36,7 @@ public enum CustomerPlan {
     * controle de notificações ao calendário (lembretes automáticos)
     * */
 
-    CustomerPlan(int maxStudents, int maxAdministrators, int maxDrivers, int maxVehicles, int maxInstitutions, int maxStandardRoutes, int maxStopsPerStandardRoute, int maxTotalRouteStops, int maxResponsiblePerStudent, int maxPendingInvitations) {
+    CustomerPlan(int maxStudents, int maxAdministrators, int maxDrivers, int maxVehicles, int maxInstitutions, int maxStandardRoutes, int maxStopsPerStandardRoute, int maxTotalRouteStops, int maxResponsiblePerStudent, int maxPendingInvitations, int maxHealthDocumentsPerOwner) {
         this.maxStudents = maxStudents;
         this.maxAdministrators = maxAdministrators;
         this.maxDrivers = maxDrivers;
@@ -45,6 +47,7 @@ public enum CustomerPlan {
         this.maxTotalRouteStops = maxTotalRouteStops;
         this.maxResponsiblePerStudent = maxResponsiblePerStudent;
         this.maxPendingInvitations = maxPendingInvitations;
+        this.maxHealthDocumentsPerOwner = maxHealthDocumentsPerOwner;
     }
 
     public int getMaxStudents() {
@@ -85,5 +88,9 @@ public enum CustomerPlan {
 
     public int getMaxPendingInvitations() {
         return maxPendingInvitations;
+    }
+
+    public int getMaxHealthDocumentsPerOwner() {
+        return maxHealthDocumentsPerOwner;
     }
 }
