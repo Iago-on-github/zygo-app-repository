@@ -2,6 +2,8 @@ package com.travel_system.backend_app.model.enums;
 
 public enum SystemNotificationAudience {
     SPECIFIC_CUSTOMER_ADMIN,
+    ALL_CUSTOMER_ADMINS,
+
     SPECIFIC_USER_ACCOUNT,
 }
 

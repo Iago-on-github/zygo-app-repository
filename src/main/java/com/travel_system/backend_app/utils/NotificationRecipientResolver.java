@@ -89,6 +89,10 @@ public class NotificationRecipientResolver {
         return deviceTokenRepository.findActiveTokensBySpecificAdmin(adminId);
     }
 
+    public Set<String> resolveAllCustomerAdmins(UUID customerId) {
+        return deviceTokenRepository.findActiveTokensByCustomerIdAdministrators(customerId);
+    }
+
     public Set<String> resolveSpecificUserAccount(UUID userAccountId) {
         return deviceTokenRepository.findActiveTokensBySpecificUserAccount(userAccountId);
     }
@@ -209,8 +213,16 @@ public class NotificationRecipientResolver {
                     throw new DomainValidationException("[resolveSystemTokensBuAudience] adminId obrigatório para SPECIFIC_CUSTOMER_ADMIN");
                 }
 
-                yield  resolveSpecificAdmin(command.adminId());
-            } case SPECIFIC_USER_ACCOUNT -> {
+                yield resolveSpecificAdmin(command.adminId());
+            }
+            case ALL_CUSTOMER_ADMINS -> {
+                if (command.customerId() == null) {
+                    throw new DomainValidationException("[resolveSystemTokensBuAudience] customerID obrigatório para ALL_CUSTOMER_ADMINS");
+                }
+
+                yield resolveAllCustomerAdmins(command.customerId());
+            }
+            case SPECIFIC_USER_ACCOUNT -> {
                 if (command.userAccountId() == null) {
                     throw new DomainValidationException("[resolveSystemTokensBuAudience] userAccoundId obrigatório para SPECIFIC_USER_ACCOUNT");
                 }
