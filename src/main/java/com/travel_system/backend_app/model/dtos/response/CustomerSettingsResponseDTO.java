@@ -11,6 +11,7 @@ public record CustomerSettingsResponseDTO(
         Set<Shift> shifts,
         Set<DayOfWeek> operatingDays,
         String timeZone,
+        CustomerOptionalFunctionalities optionalFunctionalities,
         CustomerOperationDataResponseDTO customerOperationDataResponse
 ) {
 }

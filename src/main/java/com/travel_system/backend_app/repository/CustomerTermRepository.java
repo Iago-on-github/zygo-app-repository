@@ -25,4 +25,16 @@ public interface CustomerTermRepository extends JpaRepository<CustomerTerm, UUID
 
     @Query("SELECT COUNT(t) > 0 FROM CustomerTerm t WHERE t.startTerm <= :end AND t.endTerm >= :start AND t.id <> :ignoreId")
     boolean existsOverlappingExcluding(@Param("start") LocalDate start, @Param("end") LocalDate end, @Param("ignoreId") UUID ignoreId);
+
+    @Query("SELECT ct FROM CustomerTerm ct WHERE ct.startTerm >= now AND ct.endTerm < now")
+    Optional<CustomerTerm> findByCurrentDate(@Param("now") LocalDate now);
+
+    Optional<CustomerTerm> findFirstByStartTermGreaterThanEqualOrderByStartTermAsc(LocalDate now);
+
+    @Query("""
+        SELECT t FROM CustomerTerm t
+        WHERE t.customer.id = :customerId
+          AND :today BETWEEN t.startDate AND t.endDate
+        """)
+    Optional<CustomerTerm> findCurrentByCustomerId(@Param("customerId") UUID customerId, @Param("today") LocalDate today);
 }

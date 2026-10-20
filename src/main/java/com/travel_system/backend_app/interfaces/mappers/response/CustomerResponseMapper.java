@@ -19,6 +19,7 @@ public interface CustomerResponseMapper {
     @Mapping(target = "logoUrl", source = "logoUrl", qualifiedByName = "toPublicUrl")
     CustomerOperationDataResponseDTO toDTO(Customer customer);
 
+    @Mapping(target = "optionalFunctionalities", source = "customer")
     @Mapping(target = "customerOperationDataResponse", source = "customer")
     CustomerSettingsResponseDTO toSettingsDTO(Customer customer);
 

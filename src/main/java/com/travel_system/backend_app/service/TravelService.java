@@ -3,6 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.events.TravelStartedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
+import com.travel_system.backend_app.interfaces.StudentEmergencyContactView;
 import com.travel_system.backend_app.interfaces.mappers.response.RouteStopResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StandardRouteResponseMapper;
 import com.travel_system.backend_app.model.*;
@@ -11,10 +12,7 @@ import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.cache.StudentTravelRouteStopTrackingCacheDTO;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
-import com.travel_system.backend_app.model.dtos.request.CancelTravelDTO;
-import com.travel_system.backend_app.model.dtos.request.CancelTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.TravelScheduleRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.*;
@@ -27,12 +25,15 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.travel_system.backend_app.config.constants.GlobalAppConstants.MONITORING_THRESHOLD;
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
@@ -49,9 +50,14 @@ public class TravelService {
     private final TravelLocationHistoryRepository travelLocationHistoryRepository;
     private final StandardRouteRepository standardRouteRepository;
     private final VehicleRepository vehicleRepository;
+    private final HealthConditionRepository healthConditionRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final ResponsibleAdultRepository responsibleAdultRepository;
 
+    private final HealthDeclarationRepository healthDeclarationRepository;
     private final MapboxAPIService mapboxAPIService;
     private final RedisTrackingService redisTrackingService;
+    private final UserProfileResolverService userProfileResolverService;
     private final PolylineService polylineService;
     private final TravelCacheService travelCacheService;
     private final TravelStudentStateCacheService travelStudentStateCacheService;
@@ -59,6 +65,7 @@ public class TravelService {
     private final StudentTravelRouteStopService studentTravelRouteStopService;
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
     private final StudentTravelCooldownService studentTravelCooldownService;
+    private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
 
     private final CollectTravelReportsMetrics collectTravelReportsMetrics;
 
@@ -69,7 +76,7 @@ public class TravelService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, HealthConditionRepository healthConditionRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, HealthDeclarationRepository healthDeclarationRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, UserProfileResolverService userProfileResolverService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -78,8 +85,13 @@ public class TravelService {
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.standardRouteRepository = standardRouteRepository;
         this.vehicleRepository = vehicleRepository;
+        this.healthConditionRepository = healthConditionRepository;
+        this.userAccountRepository = userAccountRepository;
+        this.responsibleAdultRepository = responsibleAdultRepository;
+        this.healthDeclarationRepository = healthDeclarationRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.redisTrackingService = redisTrackingService;
+        this.userProfileResolverService = userProfileResolverService;
         this.polylineService = polylineService;
         this.travelCacheService = travelCacheService;
         this.travelStudentStateCacheService = travelStudentStateCacheService;
@@ -87,6 +99,7 @@ public class TravelService {
         this.studentTravelRouteStopService = studentTravelRouteStopService;
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
         this.studentTravelCooldownService = studentTravelCooldownService;
+        this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
         this.collectTravelReportsMetrics = collectTravelReportsMetrics;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
@@ -652,6 +665,96 @@ public class TravelService {
         return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
     }
 
+    /*
+     * Resumo de saúde dos alunos da viagem em andamento do motorista autenticado
+     * Regras básicas
+     *  - somente viagem TRAVELLING (acesso só após o início)
+     *  - somente alunos com condições declaradas
+     *  - aluno menor: contatos de emergência vêm dos responsáveis
+     *  - cada declaração exibida gera um registro de acesso a dado sensível
+     */
+    @Transactional(readOnly = true)
+    public List<StudentHealthSummaryDTO> getCurrentSummary() {
+        UUID actorAccountId = getAuthenticatedUserAccountId();
+
+        Driver driver = driverRepository.findByUserAccountId(actorAccountId)
+                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado"));
+
+        Travel travel = travelRepository.findFirstByDriverIdAndTravelStatus(driver.getId(), TravelStatus.TRAVELLING)
+                .orElseThrow(() -> new EntityNotFoundException("Nenhuma viagem em andamento"));
+
+        List<UUID> studentIds = travel.getStudentTravels().stream().map(StudentTravel::getStudent).map(Student::getId).toList();
+        if (studentIds.isEmpty()) {
+            return List.of();
+        }
+
+        // uma consulta para todas as declarações com condições
+        List<HealthDeclaration> declarations = healthDeclarationRepository.findWithConditionsByStudentIdIn(studentIds);
+        if (declarations.isEmpty()) {
+            return List.of();
+        }
+
+        // alunos que aparecem no resumo (nome + menoridade)
+        Map<UUID, Student> students = studentRepository.findAllById(declarations.stream().map(HealthDeclaration::getStudentId).toList())
+                .stream()
+                .collect(Collectors.toMap(Student::getId, Function.identity()));
+
+        // contatos dos responsáveis, só para os menores, em lote
+        List<UUID> minorIds = students.values().stream()
+                .filter(s -> userProfileResolverService.isMinor(s.getBirthdate()))
+                .map(Student::getId)
+                .toList();
+
+        Map<UUID, List<EmergencyContactDTO>> responsibleContacts = minorIds.isEmpty() ? Map.of() : responsibleAdultRepository.findEmergencyContactsByStudentIdIn(minorIds).stream()
+                .collect(Collectors.groupingBy(
+                        StudentEmergencyContactView::getStudentId,
+                        Collectors.mapping(c -> new EmergencyContactDTO(c.getName(), c.getTelephone()),
+                                Collectors.toList())
+                ));
+
+        List<StudentHealthSummaryDTO> summaries = new ArrayList<>();
+
+        for (HealthDeclaration declaration : declarations) {
+            Student student = students.get(declaration.getStudentId());
+            if (student == null) {
+                continue;
+            }
+
+            List<HealthConditionSummaryDTO> conditions = declaration.getConditions().stream()
+                    .map(c -> new HealthConditionSummaryDTO(
+                            c.getType(),
+                            c.getSeverity(),
+                            c.getDescription(),
+                            c.getEmergencyInstructions(),
+                            c.getMedication(),
+                            c.getWhereIsMedication()
+                    ))
+                    .toList();
+
+            // menor -> responsáveis; maior -> contatos informados nas próprias condições
+            List<EmergencyContactDTO> contacts = userProfileResolverService.isMinor(student.getBirthdate())
+                    ? responsibleContacts.getOrDefault(student.getId(), List.of())
+                    : declaration.getConditions().stream()
+                    .filter(c -> c.getEmergencyContactTelephone() != null)
+                    .map(c -> new EmergencyContactDTO(c.getEmergencyContactName(), c.getEmergencyContactTelephone()))
+                    .distinct()
+                    .toList();
+
+            summaries.add(new StudentHealthSummaryDTO(
+                    student.getId(),
+                    student.getName(),
+                    declaration.getHealthDeclarationStatus() == HealthDeclarationStatus.OUTDATED,
+                    conditions,
+                    contacts
+            ));
+
+            // ator = conta do motorista; recurso = declaração exibida (REQUIRES_NEW, sobrevive ao readOnly)
+            sensitiveDataAccessLogService.record(actorAccountId, new HealthOwner(OwnerType.DRIVER, driver.getId()), ResourceType.HEALTH_DECLARATION, declaration.getId(), Action.VIEW, travel.getId());
+        }
+
+        return summaries;
+    }
+
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
     // MÉTODOS AUXILIARES
@@ -965,5 +1068,17 @@ public class TravelService {
 
             studentTravelRepository.disconnectedStudentFromTrip(travelId, studentTravelIds, StudentTravelStatus.LEFT, disconnectedHour, false);
         }
+    }
+
+    private UUID getAuthenticatedUserAccountId() {
+        String email = getAuthenticatedUserEmail();
+
+        UserAccount user = userAccountRepository.findUserByEmail(email);
+
+        if (user == null) {
+            throw new AccessDeniedException("Acesso negado, user não existe.");
+        }
+
+        return user.getId();
     }
 }

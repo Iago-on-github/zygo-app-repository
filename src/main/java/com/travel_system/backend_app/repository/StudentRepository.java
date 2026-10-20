@@ -152,5 +152,19 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     @Query(value = "SELECT EXISTS (SELECT 1 FROM student_table WHERE cpf = :cpf)", nativeQuery = true)
     boolean existsByCpfIgnoringTenant(String cpf);
 
+    @Query("SELECT s FROM Student s WHERE s.id = :studentId AND s.responsibleAdult.userAccount.id = :id")
     Optional<Student> findLinkedToResponsible(UUID studentId, UUID id);
+
+    @Query("SELECT s.id FROM Student s WHERE s.status = ACTIVE")
+    List<UUID> findActiveIds();
+
+    @Query("""
+    SELECT ra.userAccount.id
+      FROM ResponsibleAdult ra
+      JOIN ra.students s
+     WHERE s.id = :studentId
+       AND ra.userAccount IS NOT NULL
+    """)
+    List<UUID> findResponsibleUserAccountIds(@Param("studentId") UUID studentId);
+
 }

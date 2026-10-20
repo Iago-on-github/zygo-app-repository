@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.interfaces.StudentEmergencyContactView;
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
@@ -86,4 +87,13 @@ public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdu
 
     @Query("SELECT COUNT (ra) > 0 FROM ResponsibleAdult ra WHERE ra.userAccount.email = :email")
     boolean existsByEmail(@Param("email") String email);
+
+    @Query("""
+        SELECT s.id AS studentId, r.name AS name, r.telephone AS telephone
+        FROM ResponsibleAdult r
+        JOIN r.students s
+        WHERE s.id IN :studentIds
+        """)
+    List<StudentEmergencyContactView> findEmergencyContactsByStudentIdIn(@Param("studentIds") Collection<UUID> studentIds);
+
 }

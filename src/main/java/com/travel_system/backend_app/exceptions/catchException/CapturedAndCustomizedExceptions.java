@@ -87,6 +87,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(DocumentNotFoundException.class)
+    public final ResponseEntity<StandardError> DocumentNotFoundException(DocumentNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(CnhNotFoundException.class)
     public final ResponseEntity<StandardError> CnhNotFoundException(CnhNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -104,6 +109,16 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(OutdatedConsentTermException.class)
+    public final ResponseEntity<StandardError> OutdatedConsentTermException(OutdatedConsentTermException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(HealthDeclarationAlreadyExistsException.class)
+    public final ResponseEntity<StandardError> HealthDeclarationAlreadyExistsException(HealthDeclarationAlreadyExistsException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
@@ -328,6 +343,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(ConditionsNotFoundException.class)
+    public final ResponseEntity<StandardError> ConditionsNotFoundException (ConditionsNotFoundException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(CustomerNotFoundException.class)
     public final ResponseEntity<StandardError> CustomerNotFoundException (CustomerNotFoundException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -355,6 +375,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(DuplicateResourceException.class)
     public final ResponseEntity<StandardError> DuplicateResourceException (DuplicateResourceException  ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HealthConsentRequiredException.class)
+    public final ResponseEntity<StandardError> HealthConsentRequiredException (HealthConsentRequiredException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 

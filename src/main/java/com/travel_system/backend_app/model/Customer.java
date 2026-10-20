@@ -1,9 +1,6 @@
 package com.travel_system.backend_app.model;
 
-import com.travel_system.backend_app.model.enums.ClientSector;
-import com.travel_system.backend_app.model.enums.CustomerPlan;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.Shift;
+import com.travel_system.backend_app.model.enums.*;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -42,6 +39,18 @@ public class Customer {
     @JoinColumn(name = "address_id")
     private Address address;
 
+    /*
+    * dados de configurações para requerimento/exibição/visualização de determinadas funcionalidades
+    * */
+
+    // dados de document (health)
+    private boolean healthDeclarationRequestEnabled = false;
+
+    // dados de document (student)
+    private boolean studentEnrollmentRequestEnabled = false;
+    private Set<DocumentType> enrollmentRequiredTypes = new HashSet<>();
+
+
     @Enumerated(EnumType.STRING)
     private CustomerPlan plan = CustomerPlan.LITE;
 
@@ -66,23 +75,25 @@ public class Customer {
     public Customer() {
     }
 
-    public Customer(Instant updatedAt, Instant createdAt, String timeZone, CustomerPlan plan, Address address, String logoUrl, ClientSector clientSector, City city, GeneralStatus status, String contactTelephone, String contactEmail, String cnpj, String legalName, String slug, String name, UUID id) {
-        this.updatedAt = updatedAt;
-        this.createdAt = createdAt;
-        this.timeZone = timeZone;
-        this.plan = plan;
-        this.address = address;
-        this.logoUrl = logoUrl;
-        this.clientSector = clientSector;
-        this.city = city;
-        this.status = status;
-        this.contactTelephone = contactTelephone;
-        this.contactEmail = contactEmail;
-        this.cnpj = cnpj;
-        this.legalName = legalName;
-        this.slug = slug;
-        this.name = name;
+    public Customer(UUID id, String name, String slug, String legalName, String cnpj, String contactEmail, String contactTelephone, GeneralStatus status, City city, ClientSector clientSector, String logoUrl, Address address, boolean healthDeclarationRequestEnabled, boolean studentEnrollmentRequestEnabled, CustomerPlan plan, String timeZone, Instant createdAt, Instant updatedAt) {
         this.id = id;
+        this.name = name;
+        this.slug = slug;
+        this.legalName = legalName;
+        this.cnpj = cnpj;
+        this.contactEmail = contactEmail;
+        this.contactTelephone = contactTelephone;
+        this.status = status;
+        this.city = city;
+        this.clientSector = clientSector;
+        this.logoUrl = logoUrl;
+        this.address = address;
+        this.healthDeclarationRequestEnabled = healthDeclarationRequestEnabled;
+        this.studentEnrollmentRequestEnabled = studentEnrollmentRequestEnabled;
+        this.plan = plan;
+        this.timeZone = timeZone;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() {
@@ -180,6 +191,30 @@ public class Customer {
 
     public void setAddress(Address address) {
         this.address = address;
+    }
+
+    public boolean isHealthDeclarationRequestEnabled() {
+        return healthDeclarationRequestEnabled;
+    }
+
+    public void setHealthDeclarationRequestEnabled(boolean healthDeclarationRequestEnabled) {
+        this.healthDeclarationRequestEnabled = healthDeclarationRequestEnabled;
+    }
+
+    public Set<DocumentType> getEnrollmentRequiredTypes() {
+        return enrollmentRequiredTypes;
+    }
+
+    public void setEnrollmentRequiredTypes(Set<DocumentType> enrollmentRequiredTypes) {
+        this.enrollmentRequiredTypes = enrollmentRequiredTypes;
+    }
+
+    public boolean isStudentEnrollmentRequestEnabled() {
+        return studentEnrollmentRequestEnabled;
+    }
+
+    public void setStudentEnrollmentRequestEnabled(boolean studentEnrollmentRequestEnabled) {
+        this.studentEnrollmentRequestEnabled = studentEnrollmentRequestEnabled;
     }
 
     public CustomerPlan getPlan() {

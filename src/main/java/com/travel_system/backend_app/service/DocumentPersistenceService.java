@@ -128,7 +128,7 @@ public class DocumentPersistenceService {
         Document document = new Document();
         document.assignCustomer(customerId);
 
-        if (owner.owner() == OwnerType.STUDENT) {
+        if (owner.type() == OwnerType.STUDENT) {
             document.setStudentId(owner.id());
         } else {
             document.setDriverId(owner.id());
@@ -193,7 +193,7 @@ public class DocumentPersistenceService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new EntityNotFoundException("Customer não encontrado"));
 
-        long activeDocuments = owner.owner() == OwnerType.STUDENT
+        long activeDocuments = owner.type() == OwnerType.STUDENT
                 ? documentRepository.countByStudentIdAndDocumentStatusIn(owner.id(), ACTIVE_STATUSES)
                 : documentRepository.countByDriverIdAndDocumentStatusIn(owner.id(), ACTIVE_STATUSES);
 
@@ -204,14 +204,14 @@ public class DocumentPersistenceService {
 
     // confere se a declaração pertence ao dono informado
     private boolean belongsTo(HealthDeclaration declaration, HealthOwner owner) {
-        return owner.owner() == OwnerType.STUDENT
+        return owner.type() == OwnerType.STUDENT
                 ? owner.id().equals(declaration.getStudentId())
                 : owner.id().equals(declaration.getDriverId());
     }
 
     // chave única por arquivo: nunca sobrescreve um documento existente
     private String generateKey(UUID customerId, HealthOwner owner) {
-        String ownerFolder = owner.owner() == OwnerType.STUDENT ? "students" : "drivers";
+        String ownerFolder = owner.type() == OwnerType.STUDENT ? "students" : "drivers";
 
         return "customers/" + customerId
                 + "/documents/" + ownerFolder

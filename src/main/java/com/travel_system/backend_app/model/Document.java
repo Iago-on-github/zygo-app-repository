@@ -32,8 +32,11 @@ public class Document extends BaseTenantEntity {
     @Enumerated(EnumType.STRING)
     private DocumentStatus documentStatus;
 
-    @Column(nullable = false)
     private UUID healthConditionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DocumentCategory documentCategory;
 
     @Column(nullable = false, length = 512)
     private String storageKey;
@@ -65,26 +68,27 @@ public class Document extends BaseTenantEntity {
     public Document() {
     }
 
-    public Document(Instant updatedAt, Instant createdAt, Integer lastReminderStage, LocalDate validUntil, Instant reviewedAt, UUID reviewedBy, UUID uploadedBy, String rejectionReason, String sha256, long sizeBytes, String contentType, String originalFilename, String storageKey, UUID healthConditionId, DocumentStatus documentStatus, DocumentType documentType, UUID driverId, UUID studentId, UUID id) {
-        this.updatedAt = updatedAt;
-        this.createdAt = createdAt;
-        this.lastReminderStage = lastReminderStage;
-        this.validUntil = validUntil;
-        this.reviewedAt = reviewedAt;
-        this.reviewedBy = reviewedBy;
-        this.uploadedBy = uploadedBy;
-        this.rejectionReason = rejectionReason;
-        this.sha256 = sha256;
-        this.sizeBytes = sizeBytes;
-        this.contentType = contentType;
-        this.originalFilename = originalFilename;
-        this.storageKey = storageKey;
-        this.healthConditionId = healthConditionId;
-        this.documentStatus = documentStatus;
-        this.documentType = documentType;
-        this.driverId = driverId;
-        this.studentId = studentId;
+    public Document(UUID id, UUID studentId, UUID driverId, DocumentType documentType, DocumentStatus documentStatus, UUID healthConditionId, DocumentCategory documentCategory, String storageKey, String originalFilename, String contentType, long sizeBytes, String sha256, String rejectionReason, UUID uploadedBy, UUID reviewedBy, Instant reviewedAt, LocalDate validUntil, Integer lastReminderStage, Instant createdAt, Instant updatedAt) {
         this.id = id;
+        this.studentId = studentId;
+        this.driverId = driverId;
+        this.documentType = documentType;
+        this.documentStatus = documentStatus;
+        this.healthConditionId = healthConditionId;
+        this.documentCategory = documentCategory;
+        this.storageKey = storageKey;
+        this.originalFilename = originalFilename;
+        this.contentType = contentType;
+        this.sizeBytes = sizeBytes;
+        this.sha256 = sha256;
+        this.rejectionReason = rejectionReason;
+        this.uploadedBy = uploadedBy;
+        this.reviewedBy = reviewedBy;
+        this.reviewedAt = reviewedAt;
+        this.validUntil = validUntil;
+        this.lastReminderStage = lastReminderStage;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() {
@@ -133,6 +137,14 @@ public class Document extends BaseTenantEntity {
 
     public void setHealthConditionId(UUID healthConditionId) {
         this.healthConditionId = healthConditionId;
+    }
+
+    public DocumentCategory getDocumentCategory() {
+        return documentCategory;
+    }
+
+    public void setDocumentCategory(DocumentCategory documentCategory) {
+        this.documentCategory = documentCategory;
     }
 
     public String getStorageKey() {

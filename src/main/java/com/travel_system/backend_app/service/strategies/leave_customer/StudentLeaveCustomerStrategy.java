@@ -4,12 +4,15 @@ import com.travel_system.backend_app.exceptions.ResourceInUseException;
 import com.travel_system.backend_app.interfaces.LeaveCustomerStrategy;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.dtos.request.HealthOwner;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.TravelStatus;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentRouteStopAssignmentRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.TravelService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -27,12 +30,15 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final TravelRepository travelRepository;
     private final StudentRouteStopAssignmentRepository routeStopAssignmentRepository;
 
+    private final HealthDataCleanupService healthDataCleanupService;
+
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository) {
+    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository, HealthDataCleanupService healthDataCleanupService) {
         this.studentRepository = studentRepository;
         this.travelRepository = travelRepository;
         this.routeStopAssignmentRepository = routeStopAssignmentRepository;
+        this.healthDataCleanupService = healthDataCleanupService;
     }
 
     @Override
@@ -53,6 +59,9 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
     @Override
     public void unlinkFromCustomer(UserAccount account) {
         Student student = findStudent();
+
+        // apaga os docs
+        healthDataCleanupService.deleteAllByOwner(new HealthOwner(OwnerType.STUDENT, student.getId()));
 
         student.setUserAccount(null);
         student.setStatus(GeneralStatus.INACTIVE);

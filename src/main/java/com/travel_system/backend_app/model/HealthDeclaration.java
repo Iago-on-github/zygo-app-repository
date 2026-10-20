@@ -49,6 +49,12 @@ public class HealthDeclaration extends BaseTenantEntity {
         this.declaredAt = declaredAt;
     }
 
+    // mantém os dois lados do relacionamento sincronizados (sem isso a FK da condição fica nula)
+    public void addCondition(HealthCondition condition) {
+        condition.setDeclaration(this);
+        this.conditions.add(condition);
+    }
+
     public UUID getId() {
         return id;
     }

@@ -2,14 +2,13 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.City;
 import com.travel_system.backend_app.model.Customer;
-import com.travel_system.backend_app.model.enums.ClientSector;
-import com.travel_system.backend_app.model.enums.CustomerPlan;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Repository;
 
 import javax.validation.constraints.Email;
@@ -18,6 +17,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -59,4 +59,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     @Query(value = "SELECT EXISTS (SELECT 1 FROM customer_table WHERE contact_telephone = :telephone)", nativeQuery = true)
     boolean existsByContactTelephoneIgnoringTenant(@Param("telephone") String telephone);
+
+    Set<DocumentType> findAllRequestedTypes();
+
+    List<Customer> findAllByHealthDeclarationRequestEnabledTrue();
 }

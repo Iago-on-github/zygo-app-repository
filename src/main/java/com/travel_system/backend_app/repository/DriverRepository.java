@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.travel_system.backend_app.interfaces.mappers.response.CustomerResponseMapper;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.dtos.response.DriverCnhExpirationDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
@@ -114,4 +115,10 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
 
     @Query(value = "SELECT EXISTS (SELECT 1 FROM driver_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
     boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
+
+    @Query("SELECT d.id FROM Driver d WHERE d.status = ACTIVE")
+    List<UUID> findActiveIds();
+
+    @Query("SELECT d.userAccount.id FROM Driver d WHERE d.id = :driverId AND d.userAccount IS NOT NULL")
+    Optional<UUID> findUserAccountIdById(@Param("driverId") UUID driverId);
 }

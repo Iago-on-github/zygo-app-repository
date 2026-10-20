@@ -21,10 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
@@ -153,11 +150,19 @@ public class CustomerSettingsService {
 
         log.info("[1]settings recebidos: shifts={}, operatingDays={}", dto.shifts(), dto.operatingDays());
 
+        if (dto.customerOptionalFunctionalities() != null) {
+            if (dto.customerOptionalFunctionalities().enrollmentRequiredTypes().isEmpty()) {
+                customer.setEnrollmentRequiredTypes(Set.of());
+            }
+        }
+
         customerRequestMapper.updateSettingsFromDTO(dto, customer);
+
+        Customer savedCustomer = customerRepository.save(customer);
 
         log.info("[2]settings recebidos: shifts={}, operatingDays={}", dto.shifts(), dto.operatingDays());
 
-        return customerResponseMapper.toSettingsDTO(customer);
+        return customerResponseMapper.toSettingsDTO(savedCustomer);
     }
 
     private Customer findCustomer() {

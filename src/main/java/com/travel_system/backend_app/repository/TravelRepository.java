@@ -51,4 +51,9 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
 
     @Query("SELECT COUNT(t) > 0 FROM Travel t JOIN t.studentTravels st WHERE st.student.id = :studentId AND t.travelStatus IN :blockingStatuses")
     boolean existsByStudentIdAndStatusIn(@Param("studentId") UUID studentId, @Param("blockingStatuses") List<TravelStatus> blockingStatuses);
+
+    @Query("SELECT t FROM Travel t WHERE t.driver.id = :driverId AND t.travelStatus IN statuses")
+    Optional<Travel> findCurrentTravelByDriverId(@Param("driverId") UUID driverId, List<String> statuses);
+
+    Optional<Travel> findFirstByDriverIdAndTravelStatus(UUID id, TravelStatus travelStatus);
 }

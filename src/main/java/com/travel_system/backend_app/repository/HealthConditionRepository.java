@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,4 +23,7 @@ public interface HealthConditionRepository extends JpaRepository<HealthCondition
     """)
     Optional<HealthCondition> findByIdInDeclarationWithStatus(@Param("conditionId") UUID conditionId,
                                                               @Param("status") HealthDeclarationStatus status);
+
+    @Query("SELECT hc FROM HealthCondition hc WHERE hc.declaration.hasCondition = :hasCondition AND hc.declaration.studentId")
+    Optional<HealthCondition> findByStudentIdAndHasCondition(UUID studentId, boolean hasCondition);
 }

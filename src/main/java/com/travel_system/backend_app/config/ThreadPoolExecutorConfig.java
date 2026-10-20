@@ -301,6 +301,32 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
+    @Bean(name = "DocumentNotificationTaskExecutor")
+    public ThreadPoolTaskExecutor documentNotificationExecutor() {
+        /*
+         * notificações estáticas não tem observabilidade no SystemMetrics
+         * */
+
+        int MAXIMUM_QUEUE_CAPACITY = 8;
+        int KEEP_ALIVE_TIME_SECONDS = 30;
+        int CORE_POOL_SIZE = 2;
+        int MAXIMUM_POOL_SIZE = 6;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+
+        executor.setThreadNamePrefix("FCM-Static-Docs-Notification");
+
+        executor.setCorePoolSize(CORE_POOL_SIZE);
+        executor.setMaxPoolSize(MAXIMUM_POOL_SIZE);
+        executor.setQueueCapacity(MAXIMUM_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_TIME_SECONDS);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+
+        return executor;
+    }
+
     /*
      *  executor dedicado ao scan:
      * - permite aplicar timeout (a biblioteca não expõe configuração de timeout)

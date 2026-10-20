@@ -1,5 +1,8 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.exceptions.CustomerMismatchException;
+import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
+import com.travel_system.backend_app.exceptions.DocumentNotFoundException;
 import com.travel_system.backend_app.exceptions.MinorStudentNotAllowedException;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
@@ -16,6 +19,7 @@ import java.time.Period;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 /*
@@ -31,12 +35,15 @@ public class UserProfileResolverService {
     private final AdministratorRepository administratorRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
 
-    public UserProfileResolverService(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository) {
+    private final DocumentRepository documentRepository;
+
+    public UserProfileResolverService(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository, DocumentRepository documentRepository) {
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
         this.administratorRepository = administratorRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
+        this.documentRepository = documentRepository;
     }
 
     public UUID resolveCustomerId(UserAccount userAccount) {
@@ -70,6 +77,27 @@ public class UserProfileResolverService {
             // caso o usuário global seja "unassigned", retorna null
             case UNASSIGNED -> null;
         };
+    }
+
+    // verifica se a conta é admin e se os customers batem
+    public UUID resolveAdminForDocuments(UUID documentId) {
+        UUID customerId = getCurrentTenant();
+
+        if (customerId == null) {
+            throw new CustomerNotFoundException("Customer não encontrado");
+        }
+
+        Administrator administrator = administratorRepository.findByEmail(getAuthenticatedUserEmail())
+                .orElseThrow(() -> new AccessDeniedException("Usuário não é um Adminstrator"));
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));
+
+        if (document.getCustomerId().equals(administrator.getCustomerId())) {
+            throw new CustomerMismatchException("O documento não pertence ao mesmo espaço do Administrador");
+        }
+
+        return administrator.getId();
     }
 
     // aluno maior ou motorista agindo sobre os próprios dados
@@ -119,7 +147,7 @@ public class UserProfileResolverService {
         return new HealthOwner(OwnerType.STUDENT, student.getId());
     }
 
-    private boolean isMinor(LocalDate d1) {
+    protected boolean isMinor(LocalDate d1) {
         return Period.between(d1, LocalDate.now()).getYears() <= 17;
     }
 

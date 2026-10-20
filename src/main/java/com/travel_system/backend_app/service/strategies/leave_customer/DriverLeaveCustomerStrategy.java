@@ -5,13 +5,12 @@ import com.travel_system.backend_app.interfaces.LeaveCustomerStrategy;
 import com.travel_system.backend_app.model.Cnh;
 import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.UserAccount;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.SensitiveOperationType;
-import com.travel_system.backend_app.model.enums.TravelStatus;
-import com.travel_system.backend_app.model.enums.UserAccountType;
+import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.CnhRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.SetupAuthenticationService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -28,12 +27,15 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final TravelRepository travelRepository;
     private final CnhRepository cnhRepository;
 
+    private final HealthDataCleanupService healthDataCleanupService;
+
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository) {
+    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository, HealthDataCleanupService healthDataCleanupService) {
         this.driverRepository = driverRepository;
         this.travelRepository = travelRepository;
         this.cnhRepository = cnhRepository;
+        this.healthDataCleanupService = healthDataCleanupService;
     }
 
     @Override
@@ -54,6 +56,8 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
     public void unlinkFromCustomer(UserAccount account) {
         Driver driver = findDriver(account);
         Cnh cnh = driver.getCnh();
+
+        healthDataCleanupService.deleteAllByOwner(new HealthOwner(OwnerType.DRIVER, driver.getId()));
 
         driver.setUserAccount(null);
         driver.setStatus(GeneralStatus.INACTIVE);

@@ -1,0 +1,1 @@
+ALTER TABLE customer_table ADD COLUMN IF NOT EXISTS health_declaration_request_enabled BOOLEAN NOT NULL DEFAULT false;
