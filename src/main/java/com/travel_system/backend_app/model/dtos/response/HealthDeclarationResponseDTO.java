@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model.dtos.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travel_system.backend_app.model.HealthCondition;
 import com.travel_system.backend_app.model.dtos.request.CustomerTermResponseDTO;
 import com.travel_system.backend_app.model.enums.HealthDeclarationStatus;

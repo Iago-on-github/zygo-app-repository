@@ -9,7 +9,6 @@ import javax.validation.constraints.Size;
 import java.util.UUID;
 
 public record HealthConditionUpdateDTO(
-        @NotNull UUID id,
         @NotNull HealthConditionType type,
         @NotNull HealthConditionSeverity severity,
         @NotBlank @Size(max = 300) String description,

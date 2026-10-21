@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model.dtos.request;
 
+import com.travel_system.backend_app.model.enums.DocumentCategory;
 import com.travel_system.backend_app.model.enums.DocumentType;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;

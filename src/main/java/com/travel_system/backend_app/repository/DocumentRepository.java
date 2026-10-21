@@ -37,21 +37,22 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     long countByStudentIdAndDocumentStatusIn(UUID id, List<DocumentStatus> activeStatuses);
 
-    List<Document> findByStudentIdAndDocumentStatusInOrderByCreatedAtDesc(UUID id, List<String> visibleStatuses);
+    List<Document> findByStudentIdAndDocumentStatusInOrderByCreatedAtDesc(UUID id, List<DocumentStatus> visibleStatuses);
 
-    List<Document> findByDriverIdAndDocumentStatusInOrderByCreatedAtDesc(UUID id, List<String> visibleStatuses);
+    List<Document> findByDriverIdAndDocumentStatusInOrderByCreatedAtDesc(UUID id, List<DocumentStatus> visibleStatuses);
 
     Optional<Document> findByIdAndDriverId(UUID documentId, UUID id);
 
     Optional<Document> findByIdAndStudentId(UUID documentId, UUID id);
 
-    @Query("SELECT d FROM Documents d WHERE d.documentStatus = :status ORDER BY d.createdAt ASC")
+    @Query("SELECT d FROM Document d WHERE d.documentStatus = :status ORDER BY d.createdAt ASC")
     Page<Document> findPendingDocsByUploadDateAsc(@Param("status") DocumentStatus status, Pageable pageable);
 
-    @Query("SELECT d FROM Documents d WHERE d.studentId = :ownerId OR d.driverId = :ownerId")
+    @Query("SELECT d FROM Document d WHERE d.studentId = :ownerId OR d.driverId = :ownerId")
     List<Document> findByOwner(@Param("ownerId") UUID ownerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM Document d WHERE d.id = :documentId")
     Optional<Document> findByIdForUpdate(UUID documentId);
 
     List<Document> findByHealthConditionIdIn(List<UUID> healthConditionIds);
@@ -71,10 +72,10 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
                                            @Param("today") LocalDate today,
                                            @Param("limit") LocalDate limit);
 
-    @Query("SELECT d FROM Documents d WHERE d.documentStatus IN statuses AND d.validUntil IS NOT NULL AND d.validUntil > :today")
+    @Query("SELECT d FROM Document d WHERE d.documentStatus IN :statuses AND d.validUntil IS NOT NULL AND d.validUntil > :today")
     List<Document> findExpireForReminder(@Param("statuses") Collection<DocumentStatus> statuses, @Param("today") LocalDate today);
 
-    @Query("SELECT d FROM Documents d WHERE d.documentStatus = :status AND d.validUntil IS NOT NULL AND d.validUntil > :today")
+    @Query("SELECT d FROM Document d WHERE d.documentStatus = :status AND d.validUntil IS NOT NULL AND d.validUntil > :today")
     List<Document> findHealthValidDocuments(@Param("status") DocumentStatus status, @Param("today") LocalDate today);
 
 

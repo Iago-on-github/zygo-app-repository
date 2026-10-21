@@ -9,9 +9,14 @@ import com.travel_system.backend_app.model.dtos.response.HealthPendingItemDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthPendingItemsResponseDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.*;
 import java.util.*;
@@ -28,6 +33,7 @@ import static com.travel_system.backend_app.infrastructure.TenantContext.getCurr
 
 @Service
 public class HealthPendingItemsService {
+    private final Logger log = LoggerFactory.getLogger(HealthPendingItemsService.class);
 
     private final CustomerRepository customerRepository;
     private final CustomerTermRepository customerTermRepository;
@@ -42,12 +48,14 @@ public class HealthPendingItemsService {
 
     private final ApplicationEventPublisher eventPublisher;
 
+    private final TransactionTemplate readOnlyTransactionTemplate;
+
     // status em que um documento ainda pode comprovar a condição
     private static final Set<DocumentStatus> ACTIVE_STATUSES = EnumSet.of(DocumentStatus.PENDING_REVIEW, DocumentStatus.APPROVED);
 
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Brasilia");
+    private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Sao_Paulo");
 
-    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher) {
+    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, PlatformTransactionManager transactionManager, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher, TransactionTemplate readOnlyTransactionTemplate) {
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
@@ -58,16 +66,36 @@ public class HealthPendingItemsService {
         this.healthConsentService = healthConsentService;
         this.userProfileResolverService = userProfileResolverService;
         this.eventPublisher = eventPublisher;
+        this.readOnlyTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.readOnlyTransactionTemplate.setReadOnly(true);
     }
 
     @Transactional(readOnly = true)
-    public List<HealthPendingItemsResponseDTO> getMyPendingItems() {
+    public HealthPendingItemsResponseDTO getMyPendingItems() {
         HealthOwner healthOwner = userProfileResolverService.resolveSelf();
 
-        return List.of(calculate(healthOwner, getCurrentCustomer()));
+        return calculate(healthOwner, getCurrentCustomer());
     }
 
+    // usado pelo responsável p/ ver pendências de um aluno menor vinculado
     @Transactional(readOnly = true)
+    public HealthPendingItemsResponseDTO getStudentPendingItems(UUID studentId) {
+        HealthOwner owner = userProfileResolverService.resolveForResponsible(studentId);
+        return calculate(owner, getCurrentCustomer());
+    }
+
+    // usado pelo admin p/ ver pendências de qualquer dono do próprio Customer
+    @Transactional(readOnly = true)
+    public HealthPendingItemsResponseDTO getOwnerPendingItems(OwnerType ownerType, UUID ownerId) {
+        boolean exists = ownerType == OwnerType.STUDENT ? studentRepository.existsById(ownerId) : driverRepository.existsById(ownerId);
+
+        if (!exists) {
+            throw new EntityNotFoundException("Dono não encontrado");
+        }
+
+        return calculate(new HealthOwner(ownerType, ownerId), getCurrentCustomer());
+    }
+
     public void sendPendingItemsReminders() {
         List<Customer> customers = customerRepository.findAllByHealthDeclarationRequestEnabledTrue();
 
@@ -75,17 +103,24 @@ public class HealthPendingItemsService {
             try {
                 TenantContext.setCurrentTenant(customer.getId());
 
-                List<HealthOwner> owners = new ArrayList<>();
-                studentRepository.findActiveIds().forEach(id -> owners.add(new HealthOwner(OwnerType.STUDENT, id)));
-                driverRepository.findActiveIds().forEach(id -> owners.add(new HealthOwner(OwnerType.DRIVER, id)));
+                // faz com que o job rode em apenas uma transição de leitura
+                readOnlyTransactionTemplate.executeWithoutResult(status -> {
+                    List<HealthOwner> owners = new ArrayList<>();
 
-                for (HealthOwner owner : owners) {
-                    HealthPendingItemsResponseDTO pending = calculate(owner, customer);
+                    studentRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new HealthOwner(OwnerType.STUDENT, id)));
+                    driverRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new HealthOwner(OwnerType.DRIVER, id)));
 
-                    if (pending.hasPendingItems()) {
-                        eventPublisher.publishEvent(new HealthPendingItemsReminderEvent(owner, pending.items().size(), customer.getId()));
+                    for (HealthOwner owner : owners) {
+                        HealthPendingItemsResponseDTO pending = calculate(owner, customer);
+
+                        if (pending.hasPendingItems()) {
+                            eventPublisher.publishEvent(new HealthPendingItemsReminderEvent(owner, pending.items().size(), customer.getId()));
+                        }
                     }
-                }
+                });
+
+            } catch(Exception e) {
+                log.error("[sendPendingItemsReminders] Falha ao processar o Customer {}", customer.getId(), e);
             } finally {
                 // limpa o customerId para não vazar para o próximo Customer
                 TenantContext.removeCurrentTenant();
@@ -107,7 +142,7 @@ public class HealthPendingItemsService {
         }
 
         // sem consentimento ativo nada mais pode ser feito
-        if (healthConsentService.hasActiveConsent(owner.id())) {
+        if (!healthConsentService.hasActiveConsent(owner.id())) {
             return response(owner, List.of(item(HealthPendingItemType.CONSENT_MISSING, null, null, "Aceite o termo de consentimento para continuar")));
         }
 
@@ -176,7 +211,6 @@ public class HealthPendingItemsService {
 
         return response(owner, items);
     }
-
 
     // documento ativo e dentro da validade (sem validade = não vence)
     private boolean isValid(Document document, LocalDate today) {

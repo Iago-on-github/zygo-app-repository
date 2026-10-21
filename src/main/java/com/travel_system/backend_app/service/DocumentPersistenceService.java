@@ -93,6 +93,7 @@ public class DocumentPersistenceService {
             return documentResponseMapper.toDTO(saved);
 
         } catch (DataIntegrityViolationException e) {
+            log.error("Violação de integridade no upload: {}", e.getMostSpecificCause().getMessage());
             // upload simultâneo para a mesma condição e tipo (índice único)
             removeUploadedFile(storageKey);
             throw new DocumentConflictException("Já existe um documento ativo desse tipo para essa condição", e);
@@ -136,6 +137,7 @@ public class DocumentPersistenceService {
 
         document.setHealthConditionId(condition.getId());
         document.setDocumentType(request.documentType());
+        document.setDocumentCategory(document.getDocumentType().getCategory());
         document.setDocumentStatus(DocumentStatus.PENDING_REVIEW);
         document.setStorageKey(storageKey);
         document.setOriginalFilename(sanitizeFilename(originalFilename));

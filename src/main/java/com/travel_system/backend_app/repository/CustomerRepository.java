@@ -59,8 +59,6 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     @Query(value = "SELECT EXISTS (SELECT 1 FROM customer_table WHERE contact_telephone = :telephone)", nativeQuery = true)
     boolean existsByContactTelephoneIgnoringTenant(@Param("telephone") String telephone);
-
-    Set<DocumentType> findAllRequestedTypes();
-
+    
     List<Customer> findAllByHealthDeclarationRequestEnabledTrue();
 }

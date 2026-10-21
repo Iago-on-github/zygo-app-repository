@@ -116,8 +116,8 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
     @Query(value = "SELECT EXISTS (SELECT 1 FROM driver_table WHERE user_account_id = :userAccountId)", nativeQuery = true)
     boolean existsByUserAccountIdIgnoringTenant(@Param("userAccountId") UUID userAccountId);
 
-    @Query("SELECT d.id FROM Driver d WHERE d.status = ACTIVE")
-    List<UUID> findActiveIds();
+    @Query("SELECT d.id FROM Driver d WHERE d.status = ACTIVE AND d.customerId = :customerId")
+    List<UUID> findActiveIds(UUID customerId);
 
     @Query("SELECT d.userAccount.id FROM Driver d WHERE d.id = :driverId AND d.userAccount IS NOT NULL")
     Optional<UUID> findUserAccountIdById(@Param("driverId") UUID driverId);

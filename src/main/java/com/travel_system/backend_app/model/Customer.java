@@ -44,12 +44,24 @@ public class Customer {
     * */
 
     // dados de document (health)
+    @Column(name = "health_declaration_request_enabled", nullable = false)
     private boolean healthDeclarationRequestEnabled = false;
 
     // dados de document (student)
+    @Column(name = "student_enrollment_request_enabled", nullable = false)
     private boolean studentEnrollmentRequestEnabled = false;
+    /*
+     * tipos de documento de matrícula exigidos pelo Customer.
+     * fica em tabela própria (uma linha por tipo).
+     * */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "customer_enrollment_required_type",
+            joinColumns = @JoinColumn(name = "customer_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @Column(name = "document_type", length = 50, nullable = false)
     private Set<DocumentType> enrollmentRequiredTypes = new HashSet<>();
-
 
     @Enumerated(EnumType.STRING)
     private CustomerPlan plan = CustomerPlan.LITE;

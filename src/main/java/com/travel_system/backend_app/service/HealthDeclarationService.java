@@ -3,6 +3,8 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
 import com.travel_system.backend_app.events.documents.HealthConditionChangedEvent;
 import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.interfaces.mappers.HealthConditionRequestMapper;
+import com.travel_system.backend_app.interfaces.mappers.HealthDeclarationRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.HealthDeclarationResponseMapper;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.*;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
@@ -44,11 +47,15 @@ public class HealthDeclarationService {
     private final HealthDeclarationRepository healthDeclarationRepository;
     private final DocumentRepository documentRepository;
 
+    private final HealthDeclarationRequestMapper healthDeclarationRequestMapper;
+    private final HealthConditionRequestMapper healthConditionRequestMapper;
+
     private final HealthDeclarationResponseMapper healthDeclarationResponseMapper;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public HealthDeclarationService(UserProfileResolverService userProfileResolverService, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
+
+    public HealthDeclarationService(UserProfileResolverService userProfileResolverService, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationRequestMapper healthDeclarationRequestMapper, HealthConditionRequestMapper healthConditionRequestMapper, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.userProfileResolverService = userProfileResolverService;
         this.healthConsentService = healthConsentService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
@@ -56,6 +63,8 @@ public class HealthDeclarationService {
         this.customerTermRepository = customerTermRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
         this.documentRepository = documentRepository;
+        this.healthDeclarationRequestMapper = healthDeclarationRequestMapper;
+        this.healthConditionRequestMapper = healthConditionRequestMapper;
         this.healthDeclarationResponseMapper = healthDeclarationResponseMapper;
         this.eventPublisher = eventPublisher;
     }
@@ -108,14 +117,18 @@ public class HealthDeclarationService {
             declaration.setDriverId(owner.id());
         }
 
+        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(today())
+                .or(() -> customerTermRepository.findFirstByStartTermGreaterThanEqualOrderByStartTermAsc(today()))
+                .orElse(null);
+
         declaration.setHasCondition(dto.hasCondition());
         declaration.setHealthDeclarationStatus(HealthDeclarationStatus.CURRENT);
-        declaration.setCustomerTerm(getCurrentOrClosestTerm(LocalDate.now()));
+        declaration.setCustomerTerm(currentTerm);
         declaration.setDeclaredBy(context.actorAccountId());
         declaration.setDeclaredAt(Instant.now());
 
         // converte e vincula cada condição à declaração
-        conditions.forEach(conditionDTO -> declaration.addCondition(toCondition(conditionDTO, customerId)));
+        conditions.forEach(conditionDTO -> declaration.addCondition(healthConditionRequestMapper.toEntity(conditionDTO)));
 
         HealthDeclaration saved;
         try {
@@ -167,102 +180,130 @@ public class HealthDeclarationService {
     }
 
     @Transactional
-    public HealthDeclarationResponseDTO updateMyDeclaration(HealthDeclarationUpdateDTO dto) {
-        return update(selfContext(), dto);
+    public HealthDeclarationResponseDTO updateMyDeclaration(UUID conditionId, HealthConditionUpdateDTO dto) {
+        return update(selfContext(), conditionId, dto);
     }
 
     @Transactional
-    public HealthDeclarationResponseDTO updateMinorStudentDeclaration(UUID studentId, HealthDeclarationUpdateDTO dto) {
-        return update(responsibleContext(studentId), dto);
+    public HealthDeclarationResponseDTO updateMinorStudentDeclaration(UUID studentId, UUID conditionId, HealthConditionUpdateDTO dto) {
+        return update(responsibleContext(studentId), conditionId, dto);
+    }
+
+    @Transactional
+    public HealthDeclarationResponseDTO addCondition(HealthConditionRequestDTO dto) {
+        return addCondition(selfContext(), dto);
+    }
+
+    @Transactional
+    public HealthDeclarationResponseDTO minorStudentAddCondition(UUID studentId, HealthConditionRequestDTO dto) {
+        return addCondition(responsibleContext(studentId), dto);
+    }
+
+    @Transactional
+    public HealthDeclarationResponseDTO removeCondition(UUID conditionId) {
+        return removeCondition(selfContext(), conditionId);
+    }
+
+    @Transactional
+    public HealthDeclarationResponseDTO minorStudentRemoveCondition(UUID studentId, UUID conditionId) {
+        return removeCondition(responsibleContext(studentId), conditionId);
     }
 
     /*
-     * atualiza a declaração existente:
-     * - remove, edita e adiciona condições (nessa ordem)
-     * - documentos das condições removidas são apagados do banco agora e do storage após o commit
-     * - recalcula a flag hasCondition e registra quem alterou
-     * - notifica o administrador quando há condições adicionadas ou editadas
+     * atualiza a declaração existente
      * */
-    private HealthDeclarationResponseDTO update(HealthAccessContext context, HealthDeclarationUpdateDTO dto) {
+    private HealthDeclarationResponseDTO update(HealthAccessContext context, UUID conditionId, HealthConditionUpdateDTO dto) {
         HealthOwner owner = context.dtoOwner();
 
-        requireActiveConsent(owner);
+        HealthDeclaration declaration = loadForChange(owner);
 
-        // busca com lock e evita alterações concorrentes na mesma declaração
-        HealthDeclaration declaration = healthDeclarationRepository.findByOwnerIdForUpdate(owner.id())
-                .orElseThrow(() -> new EntityNotFoundException("Declaração não encontrada"));
+        // pega as condições
+        HealthCondition condition = declaration.getConditions().stream()
+                .filter(cond -> cond.getId().equals(conditionId))
+                .findFirst()
+                .orElseThrow(() -> new ConditionsNotFoundException("Condição não encontrada"));
 
-        List<UUID> idsToRemove = dto.conditionsIdsToRemove() == null ? List.of() : dto.conditionsIdsToRemove();
-        List<HealthConditionUpdateDTO> toUpdate = dto.conditionsToUpdate() == null ? List.of() : dto.conditionsToUpdate();
-        List<HealthConditionRequestDTO> toAdd = dto.conditionsToAdd() == null ? List.of() : dto.conditionsToAdd();
+        healthConditionRequestMapper.updateFromDTO(dto, condition);
 
-        // indexa as condições atuais da declaração por id
-        Map<UUID, HealthCondition> currentConditions = new HashMap<>();
-        declaration.getConditions().forEach(condition -> currentConditions.put(condition.getId(), condition));
-
-        // remoção
-        if (!idsToRemove.isEmpty()) {
-            // todos os ids precisam pertencer a ESTA declaração
-            List<HealthCondition> removedConditions = idsToRemove.stream()
-                    .map(id -> Optional.ofNullable(currentConditions.get(id))
-                            .orElseThrow(() -> new EntityNotFoundException("Condição não encontrada")))
-                    .toList();
-
-            /*
-             * apaga primeiro os documentos vinculados às condições removidas:
-             * - a FK health_condition_id impediria a exclusão das condições
-             * - o flush garante que os documentos sejam removidos antes das condições
-             * - os arquivos são removidos do storage somente após o commit (evento)
-             * */
-            List<Document> documents = documentRepository.findByHealthConditionIdIn(idsToRemove);
-
-            if (!documents.isEmpty()) {
-                List<String> storageKeysToRemove = documents.stream().map(Document::getStorageKey).toList();
-
-                documentRepository.deleteAll(documents);
-                documentRepository.flush();
-
-                eventPublisher.publishEvent(new DocumentFilesDeletionRequestedEvent(storageKeysToRemove));
-            }
-
-            // as condições removidas da lista são apagadas no commit via ophanRemoval
-            declaration.getConditions().removeAll(removedConditions);
-        }
-
-        // edição
-        for (HealthConditionUpdateDTO conditionDTO : toUpdate) {
-            HealthCondition condition = currentConditions.get(conditionDTO.id());
-
-            if (condition == null || idsToRemove.contains(conditionDTO.id())) {
-                throw new EntityNotFoundException("Condição não encontrada");
-            }
-
-            condition.setType(conditionDTO.type());
-            condition.setSeverity(conditionDTO.severity());
-            condition.setDescription(conditionDTO.description());
-            condition.setEmergencyInstructions(conditionDTO.emergencyInstructions());
-            condition.setMedication(conditionDTO.medication());
-            condition.setWhereIsMedication(conditionDTO.whereIsMedication());
-            condition.setEmergencyContactName(conditionDTO.emergencyContactName());
-            condition.setEmergencyContactTelephone(conditionDTO.emergencyContactTelephone());
-        }
-
-        // adição
-        toAdd.forEach(conditionDTO -> declaration.addCondition(toCondition(conditionDTO, declaration.getCustomerId())));
-
-        // recalcula a flag e registra quem alterou
         declaration.setHasCondition(!declaration.getConditions().isEmpty());
         declaration.setDeclaredBy(context.actorAccountId());
         declaration.setDeclaredAt(Instant.now());
 
-        // notifica o administrador quando houve condição adicionada ou editada
-        if (!toAdd.isEmpty() || !toUpdate.isEmpty()) {
-            publishConditionChanged(declaration, owner);
-        }
+        // notifica o adm
+        eventPublisher.publishEvent(new HealthConditionChangedEvent(declaration.getId(), owner.id(), declaration.isHasCondition(), declaration.getDeclaredBy(), declaration.getCustomerId()));
 
-        return healthDeclarationResponseMapper.toDTO(declaration);
+        HealthDeclaration savedDeclarations = healthDeclarationRepository.save(declaration);
+
+        return healthDeclarationResponseMapper.toDTO(savedDeclarations);
     }
 
+    /*
+    * adiciona mais condições na declaração
+    * */
+    private HealthDeclarationResponseDTO addCondition(HealthAccessContext context, HealthConditionRequestDTO dto) {
+        HealthOwner owner = context.dtoOwner();
+
+        HealthDeclaration healthDeclaration = loadForChange(owner);
+
+        HealthCondition condition = healthConditionRequestMapper.toEntity(dto);
+
+        // faz a adição
+        healthDeclaration.addCondition(condition);
+
+        // recalcula a flag e registra quem alterou
+        healthDeclaration.setHasCondition(!healthDeclaration.getConditions().isEmpty());
+        healthDeclaration.setDeclaredBy(context.actorAccountId());
+        healthDeclaration.setDeclaredAt(Instant.now());
+
+        // notifica o administrador quando houve condição adicionada ou editada
+        publishConditionChanged(healthDeclaration, owner);
+
+        return healthDeclarationResponseMapper.toDTO(healthDeclaration);
+    }
+
+    /*
+    * remove uma condição da declaração
+    * */
+    private HealthDeclarationResponseDTO removeCondition(HealthAccessContext context, UUID conditionId) {
+        HealthOwner owner = context.dtoOwner();
+
+        HealthDeclaration declaration = loadForChange(owner);
+
+        // pega as condições
+        HealthCondition condition = declaration.getConditions().stream()
+                .filter(cond -> cond.getId().equals(conditionId))
+                .findFirst()
+                .orElseThrow(() -> new ConditionsNotFoundException("Condição não encontrada"));
+
+        List<Document> documents = documentRepository.findByHealthConditionIdIn(List.of(conditionId));
+        if (!documents.isEmpty()) {
+            List<String> storageKeys = documents.stream().map(Document::getStorageKey).toList();
+            documentRepository.deleteAll(documents);
+            documentRepository.flush();
+
+            // publica evento para remoção
+            eventPublisher.publishEvent(new DocumentFilesDeletionRequestedEvent(storageKeys));
+        }
+
+        // apagada no commit via orphanRemoval
+        declaration.getConditions().remove(condition);
+
+        declaration.setHasCondition(!declaration.getConditions().isEmpty());
+        declaration.setDeclaredBy(context.actorAccountId());
+        declaration.setDeclaredAt(Instant.now());
+
+        HealthDeclaration savedDeclaration = healthDeclarationRepository.save(declaration);
+
+        return healthDeclarationResponseMapper.toDTO(savedDeclaration);
+    }
+
+    private HealthDeclaration loadForChange(HealthOwner owner) {
+        requireActiveConsent(owner);
+
+        // busca com lock e evita alterações concorrentes na mesma declaração
+        return healthDeclarationRepository.findByOwnerIdForUpdate(owner.id())
+                .orElseThrow(() -> new EntityNotFoundException("Declaração não encontrada"));
+    }
 
     // aluno maior ou motorista confirmando a própria declaração
     @Transactional
@@ -294,11 +335,10 @@ public class HealthDeclarationService {
                 .orElseThrow(() -> new EntityNotFoundException("Nenhuma declaração de saúde encontrada para revalidar"));
 
         // período letivo vigente (que pode não existir)
-        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(LocalDate.now()).orElse(null);
+        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(today()).orElse(null);
 
         // se já está vigente no período atual
-        if (declaration.getHealthDeclarationStatus() == HealthDeclarationStatus.CURRENT
-                && Objects.equals(termId(declaration.getCustomerTerm()), termId(currentTerm))) {
+        if (declaration.getHealthDeclarationStatus() == HealthDeclarationStatus.CURRENT && Objects.equals(termId(declaration.getCustomerTerm()), termId(currentTerm))) {
             return healthDeclarationResponseMapper.toDTO(declaration);
         }
 
@@ -322,24 +362,13 @@ public class HealthDeclarationService {
 
     // sem consentimento ativo nenhum dado de saúde pode ser criado ou alterado
     private void requireActiveConsent(HealthOwner owner) {
-        if (healthConsentService.hasActiveConsent(owner.id())) {
+        if (!healthConsentService.hasActiveConsent(owner.id())) {
             throw new HealthConsentRequiredException("É necessário aceitar o termo de consentimento antes de continuar");
         }
     }
 
-    // converte o DTO em entidade (o vínculo com a declaração é feito pelo addCondition)
-    private HealthCondition toCondition(HealthConditionRequestDTO dto, UUID customerId) {
-        HealthCondition condition = new HealthCondition();
-        condition.assignCustomer(customerId);
-        condition.setType(dto.type());
-        condition.setSeverity(dto.severity());
-        condition.setDescription(dto.description());
-        condition.setEmergencyInstructions(dto.emergencyInstructions());
-        condition.setMedication(dto.medication());
-        condition.setWhereIsMedication(dto.whereIsMedication());
-        condition.setEmergencyContactName(dto.emergencyContactName());
-        condition.setEmergencyContactTelephone(dto.emergencyContactTelephone());
-        return condition;
+    private LocalDate today() {
+        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
     }
 
     // publica o evento para notificar o administrador sobre condições novas ou alteradas
@@ -356,21 +385,20 @@ public class HealthDeclarationService {
                 : new HealthOwner(OwnerType.DRIVER, declaration.getDriverId());
     }
 
-    /*
-     * período em que a declaração começa a valer:
-     * - o período vigente na data informada
-     * - caso não haja, o período futuro mais próximo
-     * - caso não haja nenhum, a declaração fica sem período (null)
-     * */
-    private CustomerTerm getCurrentOrClosestTerm(LocalDate now) {
-        return customerTermRepository.findByCurrentDate(now)
-                .or(() -> customerTermRepository.findFirstByStartTermGreaterThanEqualOrderByStartTermAsc(now))
-                .orElse(null);
-    }
-
     // compara períodos pelo id
     private UUID termId(CustomerTerm term) {
         return term == null ? null : term.getId();
     }
 
+    private UUID getAuthenticatedUserAccountId() {
+        String email = getAuthenticatedUserEmail();
+
+        UserAccount user = userAccountRepository.findUserByEmail(email);
+
+        if (user == null) {
+            throw new AccessDeniedException("Acesso negado, user não existe.");
+        }
+
+        return user.getId();
+    }
 }

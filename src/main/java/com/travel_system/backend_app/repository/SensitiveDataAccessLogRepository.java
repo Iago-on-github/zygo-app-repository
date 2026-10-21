@@ -21,8 +21,8 @@ public interface SensitiveDataAccessLogRepository extends JpaRepository<Sensitiv
         SELECT l FROM SensitiveDataAccessLog l
         WHERE (:ownerId IS NULL OR l.ownerId = :ownerId)
           AND (:actorAccountId IS NULL OR l.actorAccountId = :actorAccountId)
-          AND (:from IS NULL OR l.accessAt >= :from)
-          AND (:to IS NULL OR l.accessAt < :to)
+          AND (cast(:from AS DATE) IS NULL OR l.accessAt >= :from)
+          AND (cast(:to AS DATE) IS NULL OR l.accessAt < :to)
         """)
     Page<SensitiveDataAccessLog> search(@Param("ownerId") UUID ownerId,
                                         @Param("actorAccountId") UUID actorAccountId,

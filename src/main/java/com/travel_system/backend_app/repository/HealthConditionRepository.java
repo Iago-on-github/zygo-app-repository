@@ -24,6 +24,6 @@ public interface HealthConditionRepository extends JpaRepository<HealthCondition
     Optional<HealthCondition> findByIdInDeclarationWithStatus(@Param("conditionId") UUID conditionId,
                                                               @Param("status") HealthDeclarationStatus status);
 
-    @Query("SELECT hc FROM HealthCondition hc WHERE hc.declaration.hasCondition = :hasCondition AND hc.declaration.studentId")
-    Optional<HealthCondition> findByStudentIdAndHasCondition(UUID studentId, boolean hasCondition);
+/*    @Query("SELECT hc FROM HealthCondition hc WHERE hc.declaration.hasCondition = :hasCondition AND hc.declaration.studentId")
+    Optional<HealthCondition> findByStudentIdAndHasCondition(UUID studentId, boolean hasCondition);*/
 }

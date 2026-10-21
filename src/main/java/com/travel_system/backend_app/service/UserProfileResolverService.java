@@ -93,7 +93,7 @@ public class UserProfileResolverService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));
 
-        if (document.getCustomerId().equals(administrator.getCustomerId())) {
+        if (!document.getCustomerId().equals(administrator.getCustomerId())) {
             throw new CustomerMismatchException("O documento não pertence ao mesmo espaço do Administrador");
         }
 
@@ -141,14 +141,14 @@ public class UserProfileResolverService {
                 .orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado"));
 
         if (!isMinor(student.getBirthdate())) {
-            throw new EntityNotFoundException("Estudante não encontrado");
+            throw new EntityNotFoundException("Estudante menor de idade não encontrado");
         }
 
         return new HealthOwner(OwnerType.STUDENT, student.getId());
     }
 
     protected boolean isMinor(LocalDate d1) {
-        return Period.between(d1, LocalDate.now()).getYears() <= 17;
+        return Period.between(d1, LocalDate.now()).getYears() < 18;
     }
 
 }

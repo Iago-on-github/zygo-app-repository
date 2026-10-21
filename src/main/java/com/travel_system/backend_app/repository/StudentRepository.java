@@ -155,8 +155,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     @Query("SELECT s FROM Student s WHERE s.id = :studentId AND s.responsibleAdult.userAccount.id = :id")
     Optional<Student> findLinkedToResponsible(UUID studentId, UUID id);
 
-    @Query("SELECT s.id FROM Student s WHERE s.status = ACTIVE")
-    List<UUID> findActiveIds();
+    @Query("SELECT s.id FROM Student s WHERE s.status = ACTIVE AND s.customerId = :customerId")
+    List<UUID> findActiveIds(UUID customerId);
 
     @Query("""
     SELECT ra.userAccount.id

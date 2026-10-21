@@ -43,8 +43,8 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
     @Query("SELECT COUNT (t) > 0 FROM Travel t WHERE t.driver.id = :driverId and t.travelStatus = TravelStatus.SCHEDULED")
     boolean existsByDriverIdAndScheduledTrip(@Param("driverId") UUID driverId);
 
-    @Query("SELECT t.id FROM Travel t WHERE t.travelStatus = TravelStatus.SCHEDULED AND t.scheduledStartAt <= :now")
-    List<UUID> findDueTravels(@Param("now") Instant now);
+    @Query("SELECT t.id FROM Travel t WHERE t.travelStatus = :status AND t.scheduledStartAt <= :now")
+    List<UUID> findDueTravels(@Param("status") TravelStatus status, @Param("now") Instant now);
 
     @Query("SELECT t.id, t.scheduledStartAt FROM Travel t WHERE t.travelStatus = :status AND t.scheduledStartAt >= :now AND t.scheduledStartAt <= :nowPlusThreshold")
     List<UUID> findScheduledTravelsWithinTimeWindow(@Param("status") TravelStatus status, @Param("now") Instant now, @Param("nowPlusThreshold") Instant nowPlusThreshold);
@@ -52,8 +52,11 @@ public interface TravelRepository extends JpaRepository<Travel, UUID> {
     @Query("SELECT COUNT(t) > 0 FROM Travel t JOIN t.studentTravels st WHERE st.student.id = :studentId AND t.travelStatus IN :blockingStatuses")
     boolean existsByStudentIdAndStatusIn(@Param("studentId") UUID studentId, @Param("blockingStatuses") List<TravelStatus> blockingStatuses);
 
-    @Query("SELECT t FROM Travel t WHERE t.driver.id = :driverId AND t.travelStatus IN statuses")
+    @Query("SELECT t FROM Travel t WHERE t.driver.id = :driverId AND t.travelStatus IN :statuses")
     Optional<Travel> findCurrentTravelByDriverId(@Param("driverId") UUID driverId, List<String> statuses);
 
     Optional<Travel> findFirstByDriverIdAndTravelStatus(UUID id, TravelStatus travelStatus);
+
+    @Query("SELECT t FROM Travel t WHERE t.driver.id = :driverId AND t.travelStatus = :travelStatus")
+    Optional<Travel> findByDriverIdAndTravelStatus(@Param("driverId") UUID driverId, @Param("travelStatus") TravelStatus travelStatus);
 }

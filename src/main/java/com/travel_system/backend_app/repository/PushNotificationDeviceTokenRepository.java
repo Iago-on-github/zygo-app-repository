@@ -206,7 +206,7 @@ public interface PushNotificationDeviceTokenRepository extends JpaRepository<Pus
 
     void deleteAllByUserAccountId(UUID userAccountId);
 
-    @Query("SELECT DISTINCT dt.token FROM PushNotificationDeviceToken dt WHERE dt.active = TRUE AND EXISTS (SELECT 1 FROM Adminstrator adm WHERE adm.customerId = :customerId AND adm.status = ACTIVE)")
+    @Query("SELECT DISTINCT dt.token FROM PushNotificationDeviceToken dt WHERE dt.active = TRUE AND EXISTS (SELECT 1 FROM Administrator adm WHERE adm.customerId = :customerId AND adm.status = ACTIVE)")
     Set<String> findActiveTokensByCustomerIdAdministrators(UUID customerId);
 }
 

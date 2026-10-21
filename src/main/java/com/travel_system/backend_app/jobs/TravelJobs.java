@@ -44,7 +44,7 @@ public class TravelJobs {
 
         for (UUID dueTravelId : scheduledTravels) {
             try {
-                travelService.startTravel(dueTravelId);
+                travelService.startScheduledTravel(dueTravelId);
             } catch (ObjectOptimisticLockingFailureException e) {
                 log.warn("[scheduledTripJob] Conflito de concorrência na viagem {}", dueTravelId, e);
             } catch (Exception e) {

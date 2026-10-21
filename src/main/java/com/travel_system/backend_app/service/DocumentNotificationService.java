@@ -56,7 +56,7 @@ public class DocumentNotificationService {
 
         data.put("eventType", "DOCUMENT_APPROVED");
         data.put("documentId", dto.documentId().toString());
-        data.put("userAccountId", dto.userAccountId().toString());
+        data.put("ownerId", dto.owner().id().toString());
 
         if (dto.validUntil() != null) {
             message = "Um Administrador aprovou o seu documento às " + timeFormats.formatInstantDate(dto.reviewedAt()) + ", e é válido até " + dto.validUntil();
@@ -68,9 +68,12 @@ public class DocumentNotificationService {
 
         }
 
-        SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, dto.userAccountId(), title, message, link, Priority.NORMAL, data);
+        for (UUID userAccountId : healthNotificationRecipientResolver.resolve(dto.owner())) {
+            SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, userAccountId, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendSystemNotification(command);
+            firebaseNotificationSender.sendSystemNotification(command);
+        }
+
     }
 
     public void sendNotifyOwnerOnDocumentRejected(DocumentRejectedEvent dto) {
@@ -83,12 +86,15 @@ public class DocumentNotificationService {
         Map<String, String> data = Map.of(
                 "eventType", "DOCUMENT_REJECTED",
                 "documentId", dto.documentId().toString(),
-                "userAccountId", dto.userAccountId().toString()
+                "ownerId", dto.owner().id().toString()
         );
 
-        SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, dto.userAccountId(), title, message, link, Priority.NORMAL, data);
+        for (UUID userAccountId : healthNotificationRecipientResolver.resolve(dto.owner())) {
+            SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, userAccountId, title, message, link, Priority.NORMAL, data);
 
-        firebaseNotificationSender.sendSystemNotification(command);
+            firebaseNotificationSender.sendSystemNotification(command);
+        }
+
     }
 
     public void sendNotifyAdminsOnHealthConditionChanged(HealthConditionChangedEvent dto) {

@@ -1,10 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
-import com.travel_system.backend_app.model.dtos.request.CancelTravelDTO;
-import com.travel_system.backend_app.model.dtos.request.CancelTravelResponseDTO;
-import com.travel_system.backend_app.model.dtos.request.TravelRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.TravelScheduleRequestDTO;
+import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
@@ -45,15 +42,15 @@ public class TravelController {
         return ResponseEntity.created(uri).body(responseDTO);
     }
 
-    @PostMapping("/{travelId}/start")
-    public ResponseEntity<Void> startTravel(@PathVariable UUID travelId) {
-        travelService.startTravel(travelId);
+    @PostMapping("/start")
+    public ResponseEntity<Void> startMyTravel() {
+        travelService.startMyTravel();
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/schedule")
-    public ResponseEntity<TravelScheduleResponseDTO> scheduledTrip(@Valid @RequestBody TravelScheduleRequestDTO scheduledTripRequestDTO, @Valid @RequestBody TravelRequestDTO travelRequestDTO, UriComponentsBuilder componentsBuilder) {
-        TravelScheduleResponseDTO responseDTO = travelService.scheduledTrip(scheduledTripRequestDTO, travelRequestDTO);
+    public ResponseEntity<TravelScheduleResponseDTO> scheduledTrip(@Valid @RequestBody ScheduledTravelRequestDTO dto, UriComponentsBuilder componentsBuilder) {
+        TravelScheduleResponseDTO responseDTO = travelService.scheduledTrip(dto);
 
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(responseDTO.id()).toUri();
 

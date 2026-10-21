@@ -17,17 +17,14 @@ import java.util.UUID;
 @Repository
 public interface HealthDeclarationRepository extends JpaRepository<HealthDeclaration, UUID> {
 
-
-    @Query("SELECT hd FROM HealthDeclaration hd WHERE hd.studentId = :ownerId OR hd.driverId = ownerId")
-    Optional<HealthDeclaration> findByOwner(@Param("ownerId") UUID ownerId);
-
+/*
     // declaração mais recente do aluno (CURRENT ou OUTDATED), com lock para evitar confirmação dupla
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<HealthDeclaration> findFirstByStudentIdAndHealthDeclarationStatusInOrderByDeclaredAtDesc(UUID studentId, Collection<HealthDeclarationStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<HealthDeclaration> findFirstByDriverIdAndHealthDeclarationStatusInOrderByDeclaredAtDesc(UUID driverId, Collection<HealthDeclarationStatus> statuses);
-
+*/
     @Query("SELECT COUNT(d) > 0 FROM HealthDeclaration d WHERE d.studentId = :ownerId OR d.driverId = :ownerId")
     boolean existsByOwnerId(@Param("ownerId") UUID ownerId);
 
@@ -46,7 +43,7 @@ public interface HealthDeclarationRepository extends JpaRepository<HealthDeclara
     @Query("""
         SELECT d FROM HealthDeclaration d
         LEFT JOIN d.customerTerm t
-        WHERE d.customer.id = :customerId
+        WHERE d.customerId = :customerId
           AND d.healthDeclarationStatus = :status
           AND (t IS NULL OR t.id <> :currentTermId)
         """)

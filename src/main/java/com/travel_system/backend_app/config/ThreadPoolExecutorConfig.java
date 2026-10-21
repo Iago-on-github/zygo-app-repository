@@ -301,7 +301,7 @@ public class ThreadPoolExecutorConfig {
         return executor;
     }
 
-    @Bean(name = "DocumentNotificationTaskExecutor")
+    @Bean(name = "documentNotificationTaskExecutor")
     public ThreadPoolTaskExecutor documentNotificationExecutor() {
         /*
          * notificações estáticas não tem observabilidade no SystemMetrics

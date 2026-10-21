@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.enums.HealthConditionSeverity;
 import com.travel_system.backend_app.model.enums.HealthConditionType;
@@ -56,6 +57,7 @@ public class HealthCondition extends BaseTenantEntity {
         this.id = id;
     }
 
+    @JsonIgnore
     public HealthDeclaration getDeclaration() {
         return declaration;
     }

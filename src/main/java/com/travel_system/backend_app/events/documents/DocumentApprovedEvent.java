@@ -10,7 +10,7 @@ import java.util.UUID;
 public record DocumentApprovedEvent(
         UUID documentId,
         UUID customerId,
-        UUID userAccountId,
+        HealthOwner owner,
         UUID reviewedBy,
         Instant reviewedAt,
         LocalDate validUntil

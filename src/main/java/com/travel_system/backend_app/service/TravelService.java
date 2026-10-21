@@ -140,6 +140,8 @@ public class TravelService {
             throw new InactiveVehicleException("Esse veículo está cadastrado como inativo no sistema");
         }
 
+        travel.setVehicle(vehicle);
+
         travel.setOriginLongitude(travelRequestDTO.originLongitude());
         travel.setOriginLatitude(travelRequestDTO.originLatitude());
         travel.setFinalLongitude(travelRequestDTO.finalLongitude());
@@ -205,7 +207,7 @@ public class TravelService {
     }
 
     @Transactional
-    public TravelScheduleResponseDTO scheduledTrip(TravelScheduleRequestDTO scheduledTripRequestDTO, TravelRequestDTO travelRequestDTO) {
+    public TravelScheduleResponseDTO scheduledTrip(ScheduledTravelRequestDTO dto) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
         Driver driver = driverRepository.findByEmail(authenticatedUserEmail)
@@ -235,32 +237,32 @@ public class TravelService {
         }
 
         // validação do veículo
-        Vehicle vehicle = vehicleRepository.findById(travelRequestDTO.vehicleId())
+        Vehicle vehicle = vehicleRepository.findById(dto.travel().vehicleId())
                 .orElseThrow(() -> new EntityNotFoundException("Vehicle não encontrado"));
 
         if (vehicle.getStatus() == GeneralStatus.INACTIVE) {
             throw new InactiveVehicleException("Esse veículo está cadastrado como inativo no sistema");
         }
 
-        travel.setOriginLongitude(travelRequestDTO.originLongitude());
-        travel.setOriginLatitude(travelRequestDTO.originLatitude());
-        travel.setFinalLongitude(travelRequestDTO.finalLongitude());
-        travel.setFinalLatitude(travelRequestDTO.finalLatitude());
+        travel.setOriginLongitude(dto.travel().originLongitude());
+        travel.setOriginLatitude(dto.travel().originLatitude());
+        travel.setFinalLongitude(dto.travel().finalLongitude());
+        travel.setFinalLatitude(dto.travel().finalLatitude());
 
-        if (travelRequestDTO.travelPeriod() == null) {
+        if (dto.travel().travelPeriod() == null) {
             throw new TravelException("O período da viagem precisa ser selecionado.");
         }
 
-        travel.setTravelPeriod(travelRequestDTO.travelPeriod());
+        travel.setTravelPeriod(dto.travel().travelPeriod());
 
-        if (travelRequestDTO.travelDirection() == null) {
+        if (dto.travel().travelDirection() == null) {
             throw new TravelException("A direção da viage precisa ser selecionada");
         }
 
-        travel.setTravelDirection(travelRequestDTO.travelDirection());
+        travel.setTravelDirection(dto.travel().travelDirection());
 
         travel.setCreatedAt(Instant.now());
-        travel.setScheduledStartAt(scheduledTripRequestDTO.scheduledStartAt());
+        travel.setScheduledStartAt(dto.schedule().scheduledStartAt());
         travel.setTravelStatus(TravelStatus.SCHEDULED);
         travel.setDriver(driver);
         travel.setTravelScheduleCreatedBy(driver.getName());
@@ -269,7 +271,7 @@ public class TravelService {
          * verificação da rota padrão da viagem
          * */
 
-        StandardRoute standardRoute = standardRouteRepository.findById(travelRequestDTO.standardRouteId())
+        StandardRoute standardRoute = standardRouteRepository.findById(dto.travel().standardRouteId())
                 .orElseThrow(() -> new EntityNotFoundException("Rota Padrão não encontrada"));
 
         if (standardRoute.getStatus() == GeneralStatus.INACTIVE) {
@@ -285,10 +287,10 @@ public class TravelService {
 
         // obtém preview da viagem
         TravelPreviewDTO tripPreview = mapboxAPIService.getTripPreview(
-                travelRequestDTO.originLongitude(),
-                travelRequestDTO.originLatitude(),
-                travelRequestDTO.finalLongitude(),
-                travelRequestDTO.finalLatitude());
+                dto.travel().originLongitude(),
+                dto.travel().originLatitude(),
+                dto.travel().finalLongitude(),
+                dto.travel().finalLatitude());
 
         if (tripPreview == null || tripPreview.distance() == null || tripPreview.duration() == null) {
             throw new RecalculateEtaException("Falha ao buscar dados de Preview da API");
@@ -298,55 +300,42 @@ public class TravelService {
         travel.setDistance(tripPreview.distance());
         travel.setDuration(tripPreview.duration());
 
-        travel.setDestinationCity(travelRequestDTO.destinationCity());
+        travel.setDestinationCity(dto.travel().destinationCity());
 
         travelRepository.save(travel);
 
         // envia notificação para o firebase comunicando o agendamento da viagem
         travelNotificationService.sendTravelScheduleNotification(travel);
 
-        return new TravelScheduleResponseDTO(travel.getId(), driver.getName(), scheduledTripRequestDTO.scheduledStartAt());
+        return new TravelScheduleResponseDTO(travel.getId(), driver.getName(), dto.schedule().scheduledStartAt());
+    }
+
+    /*
+    * motorista inicia a viagem pendente de forma manual
+    * */
+    @Transactional
+    public void startMyTravel() {
+        Driver driver = driverRepository.findByEmail(getAuthenticatedUserEmail())
+                .orElseThrow(() -> new AccessDeniedException("Motorista não encontrado"));
+
+        // busca a viagem pelo motorista logado
+        Travel travel = travelRepository.findByDriverIdAndTravelStatus(driver.getId(), TravelStatus.PENDING)
+                .orElseThrow(() -> new TripNotFoundException("Viagem pendente não encontrada para esse motorista"));
+
+        start(travel, driver);
     }
 
     @Transactional
-    public void startTravel(UUID travelId) {
-        Travel actualTrip = travelRepository.findById(travelId)
-                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada: " + travelId));
+    public void startScheduledTravel(UUID travelId) {
+        Travel travel = travelRepository.findById(travelId)
+                .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada"));
 
-        if (!(actualTrip.getTravelStatus() == TravelStatus.PENDING || actualTrip.getTravelStatus() == TravelStatus.SCHEDULED)) {
-            throwTravelException("Não é possível iniciar a viagem " + travelId + " por conta do status: " + actualTrip.getTravelStatus());
+        // verifica se já nao foi iniciada pelo job
+        if (travel.getTravelStatus() != TravelStatus.SCHEDULED) {
+            return;
         }
 
-        // chama o mapboxservice para calcular a rota
-        RouteDetailsDTO routeDetailsDTO = mapboxAPIService.calculateRoute(
-                actualTrip.getOriginLongitude(),
-                actualTrip.getOriginLatitude(),
-                actualTrip.getFinalLongitude(),
-                actualTrip.getFinalLatitude(),
-                List.of());
-
-        if (routeDetailsDTO == null ||
-                routeDetailsDTO.duration() == null ||
-                routeDetailsDTO.distance() == null ||
-                routeDetailsDTO.geometry() == null) {
-            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos para a viagem: " + travelId);
-        }
-
-        // preenche os dados estáticos com o routesDetailsDto
-        actualTrip.setDuration(routeDetailsDTO.duration());
-        actualTrip.setDistance(routeDetailsDTO.distance());
-        actualTrip.setPolylineRoute(routeDetailsDTO.geometry());
-        actualTrip.setStartHourTravelAt(Instant.now());
-
-        actualTrip.setTravelStatus(TravelStatus.TRAVELLING);
-
-        // força sincronização
-        travelRepository.saveAndFlush(actualTrip);
-
-        // publica evento que cuida, após o commit, da notificação + o redis
-        eventPublisher.publishEvent(new TravelStartedEvent(travelId));
-
-        log.info("viagem {} iniciada com sucesso. ", travelId);
+        start(travel, travel.getDriver());
     }
 
     @Transactional
@@ -638,7 +627,7 @@ public class TravelService {
     // pega as viagens agendadas (usado no job)
     @Transactional(readOnly = true)
     public List<UUID> getDueTravels() {
-        return travelRepository.findDueTravels(Instant.now());
+        return travelRepository.findDueTravels(TravelStatus.SCHEDULED, Instant.now());
     }
 
     // recupera as viagens agendadas nas quais estão com 1h30 ou menos de começar (usado no job)
@@ -665,99 +654,61 @@ public class TravelService {
         return new TravelPreviewDTO(travel.getDistance(), travel.getDuration(), travel.getDestinationCity(), arrivalTime);
     }
 
+    // MÉTODOS AUXILIARES
+    // MÉTODOS AUXILIARES
+    // MÉTODOS AUXILIARES
+
+
     /*
-     * Resumo de saúde dos alunos da viagem em andamento do motorista autenticado
-     * Regras básicas
-     *  - somente viagem TRAVELLING (acesso só após o início)
-     *  - somente alunos com condições declaradas
-     *  - aluno menor: contatos de emergência vêm dos responsáveis
-     *  - cada declaração exibida gera um registro de acesso a dado sensível
-     */
-    @Transactional(readOnly = true)
-    public List<StudentHealthSummaryDTO> getCurrentSummary() {
-        UUID actorAccountId = getAuthenticatedUserAccountId();
-
-        Driver driver = driverRepository.findByUserAccountId(actorAccountId)
-                .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado"));
-
-        Travel travel = travelRepository.findFirstByDriverIdAndTravelStatus(driver.getId(), TravelStatus.TRAVELLING)
-                .orElseThrow(() -> new EntityNotFoundException("Nenhuma viagem em andamento"));
-
-        List<UUID> studentIds = travel.getStudentTravels().stream().map(StudentTravel::getStudent).map(Student::getId).toList();
-        if (studentIds.isEmpty()) {
-            return List.of();
+    * modula o start da viagem em dois direntes cenários
+    * - manual: motorista cria uma viagem (fica como pendente) e ele mesmo a inicia
+    * - scheduled: motorista agenda uma viagem e ela inicia de forma automática via job
+    *  -- OBS.: lembrete que no job nao considera user logado, por isso é necessário essa distinção e ele roda a partir de ids do banco
+    * */
+    private void start(Travel travelToStart, Driver driver) {
+        if (driver.getStatus() == GeneralStatus.INACTIVE) {
+            throw new InactiveDriverException("Motorista inativo, não é possível prosseguir");
         }
 
-        // uma consulta para todas as declarações com condições
-        List<HealthDeclaration> declarations = healthDeclarationRepository.findWithConditionsByStudentIdIn(studentIds);
-        if (declarations.isEmpty()) {
-            return List.of();
+        if (travelRepository.existsByDriverIdAndTravelStatusIn(driver.getId(), List.of(TravelStatus.TRAVELLING))) {
+            throw new TravelException("Motorista já possui uma viagem em andamento, não é possível prosseguir");
         }
 
-        // alunos que aparecem no resumo (nome + menoridade)
-        Map<UUID, Student> students = studentRepository.findAllById(declarations.stream().map(HealthDeclaration::getStudentId).toList())
-                .stream()
-                .collect(Collectors.toMap(Student::getId, Function.identity()));
-
-        // contatos dos responsáveis, só para os menores, em lote
-        List<UUID> minorIds = students.values().stream()
-                .filter(s -> userProfileResolverService.isMinor(s.getBirthdate()))
-                .map(Student::getId)
-                .toList();
-
-        Map<UUID, List<EmergencyContactDTO>> responsibleContacts = minorIds.isEmpty() ? Map.of() : responsibleAdultRepository.findEmergencyContactsByStudentIdIn(minorIds).stream()
-                .collect(Collectors.groupingBy(
-                        StudentEmergencyContactView::getStudentId,
-                        Collectors.mapping(c -> new EmergencyContactDTO(c.getName(), c.getTelephone()),
-                                Collectors.toList())
-                ));
-
-        List<StudentHealthSummaryDTO> summaries = new ArrayList<>();
-
-        for (HealthDeclaration declaration : declarations) {
-            Student student = students.get(declaration.getStudentId());
-            if (student == null) {
-                continue;
-            }
-
-            List<HealthConditionSummaryDTO> conditions = declaration.getConditions().stream()
-                    .map(c -> new HealthConditionSummaryDTO(
-                            c.getType(),
-                            c.getSeverity(),
-                            c.getDescription(),
-                            c.getEmergencyInstructions(),
-                            c.getMedication(),
-                            c.getWhereIsMedication()
-                    ))
-                    .toList();
-
-            // menor -> responsáveis; maior -> contatos informados nas próprias condições
-            List<EmergencyContactDTO> contacts = userProfileResolverService.isMinor(student.getBirthdate())
-                    ? responsibleContacts.getOrDefault(student.getId(), List.of())
-                    : declaration.getConditions().stream()
-                    .filter(c -> c.getEmergencyContactTelephone() != null)
-                    .map(c -> new EmergencyContactDTO(c.getEmergencyContactName(), c.getEmergencyContactTelephone()))
-                    .distinct()
-                    .toList();
-
-            summaries.add(new StudentHealthSummaryDTO(
-                    student.getId(),
-                    student.getName(),
-                    declaration.getHealthDeclarationStatus() == HealthDeclarationStatus.OUTDATED,
-                    conditions,
-                    contacts
-            ));
-
-            // ator = conta do motorista; recurso = declaração exibida (REQUIRES_NEW, sobrevive ao readOnly)
-            sensitiveDataAccessLogService.record(actorAccountId, new HealthOwner(OwnerType.DRIVER, driver.getId()), ResourceType.HEALTH_DECLARATION, declaration.getId(), Action.VIEW, travel.getId());
+        if (!(travelToStart.getTravelStatus() == TravelStatus.PENDING || travelToStart.getTravelStatus() == TravelStatus.SCHEDULED)) {
+            throwTravelException("Não é possível iniciar a viagem por conta do status: " + travelToStart.getTravelStatus());
         }
 
-        return summaries;
+        // chama o mapboxservice para calcular a rota
+        RouteDetailsDTO routeDetailsDTO = mapboxAPIService.calculateRoute(
+                travelToStart.getOriginLongitude(),
+                travelToStart.getOriginLatitude(),
+                travelToStart.getFinalLongitude(),
+                travelToStart.getFinalLatitude(),
+                List.of());
+
+        if (routeDetailsDTO == null ||
+                routeDetailsDTO.duration() == null ||
+                routeDetailsDTO.distance() == null ||
+                routeDetailsDTO.geometry() == null) {
+            throw new RecalculateEtaException("Falha ao calcular rota: API não retornou dados válidos para a viagem");
+        }
+
+        // preenche os dados estáticos com o routesDetailsDto
+        travelToStart.setDuration(routeDetailsDTO.duration());
+        travelToStart.setDistance(routeDetailsDTO.distance());
+        travelToStart.setPolylineRoute(routeDetailsDTO.geometry());
+        travelToStart.setStartHourTravelAt(Instant.now());
+
+        travelToStart.setTravelStatus(TravelStatus.TRAVELLING);
+
+        // força sincronização
+        travelRepository.saveAndFlush(travelToStart);
+
+        // publica evento que cuida, após o commit, da notificação + o redis
+        eventPublisher.publishEvent(new TravelStartedEvent(travelToStart.getId()));
+
+        log.info("viagem {} iniciada com sucesso. ", travelToStart.getId());
     }
-
-    // MÉTODOS AUXILIARES
-    // MÉTODOS AUXILIARES
-    // MÉTODOS AUXILIARES
 
     private boolean isSameCustomer(UUID baseCustomerId, UUID customerId) {
         return baseCustomerId.equals(customerId);
@@ -932,14 +883,16 @@ public class TravelService {
     }
 
     private VehicleResponseDTO vehicleResponseDTO(Vehicle vehicle) {
+        int totalTrips = vehicle.getTotalTrips() == null ? 0 : vehicle.getTotalTrips();
+
         return new VehicleResponseDTO(
                 vehicle.getId(),
                 vehicle.getVehicleNumber(),
                 vehicle.getVehicleType(),
                 vehicle.getColor(),
-                vehicle.getVehicleImage(),
                 vehicle.getNumberPlate(),
-                vehicle.getTotalTrips(),
+                vehicle.getVehicleImage(),
+                totalTrips,
                 vehicle.getStatus(),
                 vehicle.getCreatedAt(),
                 vehicle.getUpdatedAt()
@@ -1068,17 +1021,5 @@ public class TravelService {
 
             studentTravelRepository.disconnectedStudentFromTrip(travelId, studentTravelIds, StudentTravelStatus.LEFT, disconnectedHour, false);
         }
-    }
-
-    private UUID getAuthenticatedUserAccountId() {
-        String email = getAuthenticatedUserEmail();
-
-        UserAccount user = userAccountRepository.findUserByEmail(email);
-
-        if (user == null) {
-            throw new AccessDeniedException("Acesso negado, user não existe.");
-        }
-
-        return user.getId();
     }
 }

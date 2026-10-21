@@ -98,7 +98,7 @@ public class DocumentService {
                 : documentRepository.findByIdAndDriverId(documentId, context.dtoOwner().id()))
                 .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));
 
-        if (document.getDocumentStatus() == DocumentStatus.REPLACED) {
+        if (document.getDocumentStatus() == DocumentStatus.REPLACED || document.getDocumentStatus() == DocumentStatus.REJECTED) {
             throw new DocumentNotFoundException("Documento não encontrado");
         }
 
@@ -128,11 +128,13 @@ public class DocumentService {
      * - REPLACED e EXPIRED ficam fora da listagem padrão
      * */
     private List<DocumentResponseDTO> listByOwner(HealthOwner owner, List<DocumentStatus> statuses) {
-        List<String> strStatuses = statuses.stream().map(Enum::toString).toList();
+
+        List<DocumentStatus> filter = (statuses == null || statuses.isEmpty()) ?
+                List.of(DocumentStatus.PENDING_REVIEW, DocumentStatus.APPROVED, DocumentStatus.REJECTED) : statuses;
 
         List<Document> documents = owner.type() == OwnerType.STUDENT
-                ? documentRepository.findByStudentIdAndDocumentStatusInOrderByCreatedAtDesc(owner.id(), strStatuses)
-                : documentRepository.findByDriverIdAndDocumentStatusInOrderByCreatedAtDesc(owner.id(), strStatuses);
+                ? documentRepository.findByStudentIdAndDocumentStatusInOrderByCreatedAtDesc(owner.id(), filter)
+                : documentRepository.findByDriverIdAndDocumentStatusInOrderByCreatedAtDesc(owner.id(), filter);
 
         return documents.stream().map(documentResponseMapper::toDTO).toList();
     }

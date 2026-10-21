@@ -9,6 +9,7 @@ import com.travel_system.backend_app.interfaces.PrivateStorageService;
 import com.travel_system.backend_app.interfaces.mappers.response.DocumentResponseMapper;
 import com.travel_system.backend_app.model.Document;
 import com.travel_system.backend_app.model.Driver;
+import com.travel_system.backend_app.model.HealthDeclaration;
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.request.DocumentRejectDTO;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
@@ -23,7 +24,6 @@ import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.TransactionScoped;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -117,7 +118,7 @@ public class DocumentReviewService {
 
         // se documento já passou a validade
         LocalDate validUntil = document.getValidUntil();
-        if (validUntil != null && !validUntil.isAfter(LocalDate.now())) {
+        if (validUntil != null && !validUntil.isBefore(today())) {
             throw new DocumentConflictException("A validade do documento está expirada");
         }
 
@@ -131,9 +132,9 @@ public class DocumentReviewService {
         documentRepository.save(document);
 
         // publica evento para notificações
-        UUID userAccountId = getUserAccountId(document.getStudentId(), document.getDriverId());
+        HealthOwner owner = toOwner(document);
 
-        DocumentApprovedEvent documentApprovedEvent = new DocumentApprovedEvent(document.getId(), document.getCustomerId(), userAccountId, adminId, reviewedAt, document.getValidUntil());
+        DocumentApprovedEvent documentApprovedEvent = new DocumentApprovedEvent(document.getId(), document.getCustomerId(), owner, adminId, reviewedAt, document.getValidUntil());
 
         eventPublisher.publishEvent(documentApprovedEvent);
     }
@@ -163,9 +164,9 @@ public class DocumentReviewService {
         documentRepository.save(document);
 
         // publica evento para notificações
-        UUID userAccountId = getUserAccountId(document.getStudentId(), document.getDriverId());
+        HealthOwner owner = toOwner(document);
 
-        DocumentRejectedEvent documentRejectedEvent = new DocumentRejectedEvent(documentId, document.getCustomerId(), userAccountId, adminId, reviewedAt);
+        DocumentRejectedEvent documentRejectedEvent = new DocumentRejectedEvent(documentId, document.getCustomerId(), owner, adminId, reviewedAt);
 
         eventPublisher.publishEvent(documentRejectedEvent);
 
@@ -177,16 +178,14 @@ public class DocumentReviewService {
         eventPublisher.publishEvent(documentFilesDeletionRequestedEvent);
     }
 
-    private UUID getUserAccountId(UUID studentId, UUID driverId) {
-        if (studentId != null) {
-            Student student = studentRepository.findById(studentId).orElseThrow(() -> new EntityNotFoundException("Estudante não encontrado"));
+    private HealthOwner toOwner(Document document) {
+        return document.getStudentId() != null
+                ? new HealthOwner(OwnerType.STUDENT, document.getStudentId())
+                : new HealthOwner(OwnerType.DRIVER, document.getDriverId());
+    }
 
-            return student.getUserAccount().getId();
-        }
-
-        Driver driver = driverRepository.findById(driverId).orElseThrow(() -> new EntityNotFoundException("Driver não encontrado"));
-
-        return driver.getUserAccount().getId();
+    private LocalDate today() {
+        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
     }
 }
 

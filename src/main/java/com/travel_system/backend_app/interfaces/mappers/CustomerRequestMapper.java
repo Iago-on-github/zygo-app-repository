@@ -27,8 +27,11 @@ public interface CustomerRequestMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE, ignoreByDefault = true)
     void updateMyContactFromDTO(CustomerContactUpdateDTO customerContactUpdateDTO, @MappingTarget Customer customer);
 
-    @Mapping(target = "shifts", source = "shifts")
-    @Mapping(target = "operatingDays", source = "operatingDays")
+    @Mapping(target = "shifts", source = "dto.shifts")
+    @Mapping(target = "operatingDays", source = "dto.operatingDays")
+    @Mapping(target = "healthDeclarationRequestEnabled", source = "dto.customerOptionalFunctionalities.healthDeclarationRequestEnabled")
+    @Mapping(target = "studentEnrollmentRequestEnabled", source = "dto.customerOptionalFunctionalities.studentEnrollmentRequestEnabled")
+    @Mapping(target = "enrollmentRequiredTypes", source = "dto.customerOptionalFunctionalities.enrollmentRequiredTypes")
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE, ignoreByDefault = true)
     void updateSettingsFromDTO(CustomerSettingsUpdateDTO dto, @MappingTarget Customer customer);
 

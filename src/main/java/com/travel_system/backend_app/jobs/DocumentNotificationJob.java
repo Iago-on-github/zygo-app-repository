@@ -33,7 +33,7 @@ public class DocumentNotificationJob {
 
     @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
     public void sendDocumentNotificationWhenOutdatedTermComingSoon() {
-        documentReminderService.sendOutdatedReminderWhenTermComingSoon();
+        documentReminderService.markOutdatedDeclarations();
     }
 
     // lembretes de pendências de saúde de semana em semana, na segunda, as 09h

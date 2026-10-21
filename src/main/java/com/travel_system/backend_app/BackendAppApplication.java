@@ -2,6 +2,7 @@ package com.travel_system.backend_app;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -16,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableRetry
 @EnableAspectJAutoProxy
 @EnableScheduling
+@ConfigurationPropertiesScan
 public class BackendAppApplication {
 
 	public static void main(String[] args) {

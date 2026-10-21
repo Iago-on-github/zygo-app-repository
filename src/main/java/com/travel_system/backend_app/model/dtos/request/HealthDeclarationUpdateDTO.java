@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 public record HealthDeclarationUpdateDTO(
-        @Valid List<HealthConditionRequestDTO> conditionsToAdd,
-        @Valid List<HealthConditionUpdateDTO> conditionsToUpdate,
-        List<UUID> conditionsIdsToRemove
+        @Valid HealthConditionUpdateDTO conditionToUpdate
 ) {
 }

@@ -9,7 +9,7 @@ import java.util.UUID;
 public record DocumentRejectedEvent(
         UUID documentId,
         UUID customerId,
-        UUID userAccountId,
+        HealthOwner owner,
         UUID reviewedBy,
         Instant reviewedAt
 ) {

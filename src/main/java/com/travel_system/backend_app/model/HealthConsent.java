@@ -22,7 +22,6 @@ public class HealthConsent extends BaseTenantEntity {
     @Column(nullable = false)
     private String termVersion;
     private String purpose;
-    @Column(nullable = false)
     private Instant revokedAt;
 
     public HealthConsent() {

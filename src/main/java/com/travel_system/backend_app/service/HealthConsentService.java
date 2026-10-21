@@ -77,6 +77,7 @@ public class HealthConsentService {
 
     @Transactional
     public HealthConsentResponseDTO registerMyConsent(HealthConsentRequestDTO request) {
+        System.out.println("consent: " + userProfileResolverService.resolveSelf().id() );
         return register(userProfileResolverService.resolveSelf(), request);
     }
 
@@ -84,6 +85,7 @@ public class HealthConsentService {
     public HealthConsentResponseDTO registerMinorStudentConsent(UUID studentId, HealthConsentRequestDTO request) {
         return register(userProfileResolverService.resolveForResponsible(studentId), request);
     }
+
     @Transactional(readOnly = true)
     public HealthConsentResponseDTO getMyConsent() {
         HealthOwner healthOwner = userProfileResolverService.resolveSelf();
@@ -117,6 +119,7 @@ public class HealthConsentService {
     public void revokeMinorStudentConsent(UUID studentId) {
         revoke(userProfileResolverService.resolveForResponsible(studentId));
     }
+
     /*
      * Revogar o consentimento apaga todos os dados de saúde do dono:
      * documentos (linhas + arquivos), declaração e condições.
@@ -187,7 +190,7 @@ public class HealthConsentService {
     }
 
     public boolean hasActiveConsent(UUID ownerId) {
-        return healthConsentRepository.findActiveByOwnerId(ownerId).isEmpty();
+        return healthConsentRepository.findActiveByOwnerId(ownerId).isPresent();
     }
 
     private UUID getAuthenticatedUserAccountId() {
