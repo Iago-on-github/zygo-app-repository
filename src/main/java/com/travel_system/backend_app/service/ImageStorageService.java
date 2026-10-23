@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.FileTooLargeException;
 import com.travel_system.backend_app.interfaces.ProfilePictureStrategy;
 import com.travel_system.backend_app.interfaces.StorageInterfaceService;
 import com.travel_system.backend_app.model.UserAccount;
+import com.travel_system.backend_app.model.enums.ImageUploadPolicy;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.UserAccountRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -33,10 +34,6 @@ public class ImageStorageService {
     // formato gravado no storage via conversão sempre gera JPEG
     private static final String OUTPUT_CONTENT_TYPE = "image/jpeg";
 
-    // formatos aceitos no envio
-    private static final Set<String> ACCEPTED_INPUT_CONTENT_TYPES = Set.of("image/jpeg", "image/jpg", "image/png", "image/webp");
-    private static final long MAX_UPLOAD_SIZE_BYTES = 150 * 1024;
-
     public ImageStorageService(UserAccountRepository userAccountRepository, UserProfileResolverService userProfileResolverService, ImageProcessingService imageProcessingService, S3StorageService s3StorageService, StorageInterfaceService storageService, List<ProfilePictureStrategy> profileStrategies) {
         this.userAccountRepository = userAccountRepository;
         this.userProfileResolverService = userProfileResolverService;
@@ -45,10 +42,15 @@ public class ImageStorageService {
         this.profileStrategies = profileStrategies;
     }
 
-    public String store(MultipartFile file, String key) throws IOException {
-        validate(file);
+    public String storeProfilePicture(MultipartFile file, String key) throws IOException {
+        byte[] bytes = imageProcessingService.convertImageToJPEG(file, ImageUploadPolicy.PROFILE_PICTURE);
+        storageService.upload(bytes, key, OUTPUT_CONTENT_TYPE);
 
-        byte[] bytes = imageProcessingService.convertImageToJPEG(file);
+        return key;
+    }
+
+    public String storeRegistrationPhotos(MultipartFile file, String key, ImageUploadPolicy imageUploadPolicy) {
+        byte[] bytes = imageProcessingService.convertImageToJPEG(file, imageUploadPolicy);
         storageService.upload(bytes, key, OUTPUT_CONTENT_TYPE);
 
         return key;
@@ -61,18 +63,5 @@ public class ImageStorageService {
         storageService.delete(key);
     }
 
-    private void validate(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo vazio");
-        }
-        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
-            throw new FileTooLargeException("O arquivo é muito grande. Uploads aceitos são de até 150 KB");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !ACCEPTED_INPUT_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
-            throw new IllegalArgumentException("Formato de imagem não suportado. Envie JPEG, PNG ou WebP");
-        }
-    }
 
 }

@@ -38,7 +38,7 @@ public class UserProfilePictureService {
     public void updateMyProfilePicture(MultipartFile file) throws IOException {
         UserAccount userAccount = getAuthenticatedUserAccount();
 
-        String pictureKey = imageStorageService.store(file, generateProfilePictureKey(userAccount));
+        String pictureKey = imageStorageService.storeProfilePicture(file, generateProfilePictureKey(userAccount));
 
         findHandler(userAccount.getUserAccountType()).updatePicture(userAccount, pictureKey);
     }

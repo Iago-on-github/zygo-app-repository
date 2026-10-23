@@ -28,7 +28,7 @@ public class VehicleProfilePictureService {
         Vehicle vehicle = findVehicle(vehicleId);
 
         String key = "customers/" + vehicle.getCustomerId() + "/vehicles/" + vehicle.getId() + "/picture.jpeg";
-        vehicle.setVehicleImage(imageStorageService.store(file, key));
+        vehicle.setVehicleImage(imageStorageService.storeProfilePicture(file, key));
     }
 
     @Transactional
