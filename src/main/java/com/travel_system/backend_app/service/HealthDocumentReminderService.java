@@ -1,16 +1,13 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.events.documents.DocumentExpiredEvent;
-import com.travel_system.backend_app.events.documents.DocumentExpiringEvent;
+import com.travel_system.backend_app.events.documents.HealthDocumentExpiredEvent;
+import com.travel_system.backend_app.events.documents.HealthDocumentExpiringEvent;
 import com.travel_system.backend_app.events.documents.HealthDeclarationOutdatedEvent;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
-import com.travel_system.backend_app.model.enums.DocumentStatus;
-import com.travel_system.backend_app.model.enums.HealthDeclarationStatus;
-import com.travel_system.backend_app.model.enums.OwnerType;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
-import org.flywaydb.core.internal.jdbc.TransactionalExecutionTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -33,8 +30,8 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 * */
 
 @Service
-public class DocumentReminderService {
-    private final Logger log = LoggerFactory.getLogger(DocumentReminderService.class);
+public class HealthDocumentReminderService {
+    private final Logger log = LoggerFactory.getLogger(HealthDocumentReminderService.class);
 
     private final UserAccountRepository userAccountRepository;
     private final DocumentRepository documentRepository;
@@ -52,7 +49,7 @@ public class DocumentReminderService {
     private final TransactionTemplate transactionTemplate;
     private final ApplicationEventPublisher eventPublisher;
 
-    public DocumentReminderService(UserAccountRepository userAccountRepository, DocumentRepository documentRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, TransactionTemplate transactionTemplate, ApplicationEventPublisher eventPublisher) {
+    public HealthDocumentReminderService(UserAccountRepository userAccountRepository, DocumentRepository documentRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, TransactionTemplate transactionTemplate, ApplicationEventPublisher eventPublisher) {
         this.userAccountRepository = userAccountRepository;
         this.documentRepository = documentRepository;
         this.customerRepository = customerRepository;
@@ -69,7 +66,7 @@ public class DocumentReminderService {
     public void sendExpiringReminders() {
         LocalDate today = LocalDate.now(ZoneId.of(ZONE));
 
-        List<Document> documents = documentRepository.findExpiringForReminder(ACTIVE_STATUSES, today, today.plusDays(MAX_REMINDER_DAYS));
+        List<Document> documents = documentRepository.findExpiringForReminder(ACTIVE_STATUSES, today, today.plusDays(MAX_REMINDER_DAYS), DocumentCategory.HEALTH);
 
         for (Document document : documents) {
             long daysLeft = ChronoUnit.DAYS.between(today, document.getValidUntil());
@@ -96,7 +93,7 @@ public class DocumentReminderService {
             }
 
             // publica evento que só envia após o commit
-            eventPublisher.publishEvent(new DocumentExpiringEvent(document.getId(), document.getCustomerId(), user.getId(), document.getValidUntil(), daysLeft));
+            eventPublisher.publishEvent(new HealthDocumentExpiringEvent(document.getId(), document.getCustomerId(), user.getId(), document.getValidUntil(), daysLeft));
         }
     }
 
@@ -107,14 +104,14 @@ public class DocumentReminderService {
     public void sendExpireReminders() {
         LocalDate today = LocalDate.now(ZoneId.of(ZONE));
 
-        List<Document> expireForReminder = documentRepository.findExpireForReminder(ACTIVE_STATUSES, today);
+        List<Document> expireForReminder = documentRepository.findExpireForReminder(ACTIVE_STATUSES, today, DocumentCategory.HEALTH);
 
         for (Document expireDoc : expireForReminder) {
 
             expireDoc.setDocumentStatus(DocumentStatus.EXPIRED);
 
             // publica evento p/ notificação
-            eventPublisher.publishEvent(new DocumentExpiredEvent(expireDoc.getId(), expireDoc.getCustomerId(), ownerOf(expireDoc)));
+            eventPublisher.publishEvent(new HealthDocumentExpiredEvent(expireDoc.getId(), expireDoc.getCustomerId(), ownerOf(expireDoc)));
         }
     }
 

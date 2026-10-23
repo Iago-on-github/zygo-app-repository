@@ -47,21 +47,12 @@ public class Customer {
     @Column(name = "health_declaration_request_enabled", nullable = false)
     private boolean healthDeclarationRequestEnabled = false;
 
-    // dados de document (student)
-    @Column(name = "student_enrollment_request_enabled", nullable = false)
-    private boolean studentEnrollmentRequestEnabled = false;
-    /*
-     * tipos de documento de matrícula exigidos pelo Customer.
-     * fica em tabela própria (uma linha por tipo).
-     * */
-    @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(
-            name = "customer_enrollment_required_type",
-            joinColumns = @JoinColumn(name = "customer_id")
-    )
-    @Enumerated(EnumType.STRING)
-    @Column(name = "document_type", length = 50, nullable = false)
-    private Set<DocumentType> enrollmentRequiredTypes = new HashSet<>();
+    // dados de document (matricula do transporte)
+
+    // controle dos avisos p/ notificação quando a matricula do user está vencendo
+    private int registrationGracePeriodDays = 30;
+    private int registrationRenewalWindowDays = 30;
+    private int registrationBlockWarningDays = 7;
 
     @Enumerated(EnumType.STRING)
     private CustomerPlan plan = CustomerPlan.LITE;
@@ -87,7 +78,7 @@ public class Customer {
     public Customer() {
     }
 
-    public Customer(UUID id, String name, String slug, String legalName, String cnpj, String contactEmail, String contactTelephone, GeneralStatus status, City city, ClientSector clientSector, String logoUrl, Address address, boolean healthDeclarationRequestEnabled, boolean studentEnrollmentRequestEnabled, CustomerPlan plan, String timeZone, Instant createdAt, Instant updatedAt) {
+    public Customer(UUID id, String name, String slug, String legalName, String cnpj, String contactEmail, String contactTelephone, GeneralStatus status, City city, ClientSector clientSector, String logoUrl, Address address, boolean healthDeclarationRequestEnabled, int registrationGracePeriodDays, int registrationRenewalWindowDays, int registrationBlockWarningDays, CustomerPlan plan, Set<Shift> shifts, Set<DayOfWeek> operatingDays, String timeZone, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.slug = slug;
@@ -101,8 +92,12 @@ public class Customer {
         this.logoUrl = logoUrl;
         this.address = address;
         this.healthDeclarationRequestEnabled = healthDeclarationRequestEnabled;
-        this.studentEnrollmentRequestEnabled = studentEnrollmentRequestEnabled;
+        this.registrationGracePeriodDays = registrationGracePeriodDays;
+        this.registrationRenewalWindowDays = registrationRenewalWindowDays;
+        this.registrationBlockWarningDays = registrationBlockWarningDays;
         this.plan = plan;
+        this.shifts = shifts;
+        this.operatingDays = operatingDays;
         this.timeZone = timeZone;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -188,7 +183,6 @@ public class Customer {
         this.clientSector = clientSector;
     }
 
-
     public String getLogoUrl() {
         return logoUrl;
     }
@@ -213,20 +207,28 @@ public class Customer {
         this.healthDeclarationRequestEnabled = healthDeclarationRequestEnabled;
     }
 
-    public Set<DocumentType> getEnrollmentRequiredTypes() {
-        return enrollmentRequiredTypes;
+    public int getRegistrationGracePeriodDays() {
+        return registrationGracePeriodDays;
     }
 
-    public void setEnrollmentRequiredTypes(Set<DocumentType> enrollmentRequiredTypes) {
-        this.enrollmentRequiredTypes = enrollmentRequiredTypes;
+    public void setRegistrationGracePeriodDays(int registrationGracePeriodDays) {
+        this.registrationGracePeriodDays = registrationGracePeriodDays;
     }
 
-    public boolean isStudentEnrollmentRequestEnabled() {
-        return studentEnrollmentRequestEnabled;
+    public int getRegistrationRenewalWindowDays() {
+        return registrationRenewalWindowDays;
     }
 
-    public void setStudentEnrollmentRequestEnabled(boolean studentEnrollmentRequestEnabled) {
-        this.studentEnrollmentRequestEnabled = studentEnrollmentRequestEnabled;
+    public void setRegistrationRenewalWindowDays(int registrationRenewalWindowDays) {
+        this.registrationRenewalWindowDays = registrationRenewalWindowDays;
+    }
+
+    public int getRegistrationBlockWarningDays() {
+        return registrationBlockWarningDays;
+    }
+
+    public void setRegistrationBlockWarningDays(int registrationBlockWarningDays) {
+        this.registrationBlockWarningDays = registrationBlockWarningDays;
     }
 
     public CustomerPlan getPlan() {

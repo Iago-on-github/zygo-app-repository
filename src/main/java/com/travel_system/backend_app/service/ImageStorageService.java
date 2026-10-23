@@ -2,6 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.DomainValidationException;
 import com.travel_system.backend_app.exceptions.FileTooLargeException;
+import com.travel_system.backend_app.interfaces.PrivateStorageService;
 import com.travel_system.backend_app.interfaces.ProfilePictureStrategy;
 import com.travel_system.backend_app.interfaces.StorageInterfaceService;
 import com.travel_system.backend_app.model.UserAccount;
@@ -28,29 +29,24 @@ public class ImageStorageService {
 
     private final UserProfileResolverService userProfileResolverService;
     private final ImageProcessingService imageProcessingService;
+    private final PrivateStorageService privateStorageService;
     private final StorageInterfaceService storageService;
     private final List<ProfilePictureStrategy> profileStrategies;
 
     // formato gravado no storage via conversão sempre gera JPEG
     private static final String OUTPUT_CONTENT_TYPE = "image/jpeg";
 
-    public ImageStorageService(UserAccountRepository userAccountRepository, UserProfileResolverService userProfileResolverService, ImageProcessingService imageProcessingService, S3StorageService s3StorageService, StorageInterfaceService storageService, List<ProfilePictureStrategy> profileStrategies) {
+    public ImageStorageService(UserAccountRepository userAccountRepository, UserProfileResolverService userProfileResolverService, ImageProcessingService imageProcessingService, S3StorageService s3StorageService, PrivateStorageService privateStorageService, StorageInterfaceService storageService, List<ProfilePictureStrategy> profileStrategies) {
         this.userAccountRepository = userAccountRepository;
         this.userProfileResolverService = userProfileResolverService;
         this.imageProcessingService = imageProcessingService;
+        this.privateStorageService = privateStorageService;
         this.storageService = storageService;
         this.profileStrategies = profileStrategies;
     }
 
     public String storeProfilePicture(MultipartFile file, String key) throws IOException {
         byte[] bytes = imageProcessingService.convertImageToJPEG(file, ImageUploadPolicy.PROFILE_PICTURE);
-        storageService.upload(bytes, key, OUTPUT_CONTENT_TYPE);
-
-        return key;
-    }
-
-    public String storeRegistrationPhotos(MultipartFile file, String key, ImageUploadPolicy imageUploadPolicy) {
-        byte[] bytes = imageProcessingService.convertImageToJPEG(file, imageUploadPolicy);
         storageService.upload(bytes, key, OUTPUT_CONTENT_TYPE);
 
         return key;

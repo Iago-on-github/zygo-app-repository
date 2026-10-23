@@ -1,0 +1,41 @@
+DOCUMENTOS DE MATRÍCULA (STUDENT/MOTORISTA):
+
+3.6 Outros pontos
+
+- Saída do Customer (aluno e motorista): apaga a matrícula (inclusive as encerradas), as solicitações, as auditorias,
+os documentos e a foto, com os arquivos apagados pelo evento. Siga o mesmo padrão do deleteAllByOwner da saúde, em um RegistrationDataCleanupService. ()
+
+- CustomerTerm: com o ON DELETE RESTRICT, apagar um período que tem matrículas passa a falhar. Trate esse caso com uma mensagem clara para o admin. ()
+---------
+4. Criação pelo convite
+
+----------
+5. TransportRegistrationService (titular e responsável, no padrão Mine/ForStudent)
+- Consultar (X)
+
+- Salvar o rascunho: os dados de identificação e de filiação, só em DRAFT.
+
+- Upload de documento: pré-validação (solicitação em DRAFT, categoria ENROLLMENT e tipo exigido) → processamento → chave → storeAndPersist. No callback: lock na solicitação, nova verificação do DRAFT, discardPreviousOfType e o save.
+
+- Upload da foto 3x4: conversão com REGISTRATION_PHOTO → chave → storeAndPersist. No callback: lock, nova verificação, gravação do pendingPhotoStorageKey e exclusão da foto pendente anterior após o commit.
+
+- Enviar para análise: valida os campos obrigatórios e os documentos exigidos pela tabela. A foto é obrigatória na INITIAL e opcional na RENEWAL (mantém a atual). Muda para UNDER_REVIEW e preenche submittedBy e submittedAt.
+
+- Cancelar a solicitação: só em DRAFT. Chama o discardRequestDocuments, apaga a foto pendente e muda para CANCELLED. A INITIAL não pode ser cancelada, porque a matrícula não existiria sem ela.
+
+- Iniciar a renovação: só com a matrícula ACTIVE, dentro da janela (registrationRenewalWindowDays antes do fim do período) e com o próximo período cadastrado. Cria a RENEWAL já preenchida com os dados aprovados.
+
+- Iniciar uma alteração: só com a matrícula ACTIVE e sem outra solicitação aberta. Cria o UPDATE preenchido.
+
+- Nova matrícula após o encerramento: com a matrícula CLOSED, cria uma nova TransportRegistration (PENDING) com uma INITIAL. O número novo é gerado na aprovação.
+
+-------------------------------
+9.Testes:
+antivírus (EICAR, ClamAV fora do ar);
+upload (tipo inválido, substituição, falha no banco);
+permissões (responsável de outro aluno, aluno menor no /me, motorista fora da viagem);
+jobs (vencimento, pendências, sem tenant vazando entre Customers);
+saída do Customer (nada pode sobrar no banco nem no storage).
+Produção: revisão jurídica, bucket privado no R2 e ClamAV (memória, healthcheck e atualização das assinaturas).
+Fica para depois
+Documentos de matrícula (ENROLLMENT): a configuração enrollmentRequiredTypes, as pendências próprias e o fluxo de upload, que já está preparado pela categoria.

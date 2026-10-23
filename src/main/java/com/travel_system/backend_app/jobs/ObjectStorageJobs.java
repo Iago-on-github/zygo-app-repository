@@ -1,7 +1,5 @@
 package com.travel_system.backend_app.jobs;
 
-import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
-import com.travel_system.backend_app.listeners.documents.DocumentFilesDeletionListener;
 import com.travel_system.backend_app.model.PendingDocsExclusions;
 import com.travel_system.backend_app.repository.PendingDocsExclusionsRepository;
 import com.travel_system.backend_app.service.S3PrivateStorageService;
@@ -10,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Component

@@ -1,16 +1,13 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.DocumentStorageProperties;
-import com.travel_system.backend_app.events.documents.DocumentApprovedEvent;
+import com.travel_system.backend_app.events.documents.HealthDocumentApprovedEvent;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
-import com.travel_system.backend_app.events.documents.DocumentRejectedEvent;
+import com.travel_system.backend_app.events.documents.HealthDocumentRejectedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.PrivateStorageService;
 import com.travel_system.backend_app.interfaces.mappers.response.DocumentResponseMapper;
 import com.travel_system.backend_app.model.Document;
-import com.travel_system.backend_app.model.Driver;
-import com.travel_system.backend_app.model.HealthDeclaration;
-import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.request.DocumentRejectDTO;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
 import com.travel_system.backend_app.model.dtos.response.DocumentDownloadResponseDTO;
@@ -22,8 +19,6 @@ import com.travel_system.backend_app.model.enums.ResourceType;
 import com.travel_system.backend_app.repository.DocumentRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
-import com.travel_system.backend_app.repository.UserAccountRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,10 +31,8 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
-import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-
 @Service
-public class DocumentReviewService {
+public class HealthDocumentReviewService {
 
     private final DocumentRepository documentRepository;
     private final StudentRepository studentRepository;
@@ -55,7 +48,7 @@ public class DocumentReviewService {
 
     private final DocumentResponseMapper documentResponseMapper;
 
-    public DocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolverService userProfileResolverService, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
+    public HealthDocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolverService userProfileResolverService, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
         this.documentRepository = documentRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
@@ -134,9 +127,9 @@ public class DocumentReviewService {
         // publica evento para notificações
         HealthOwner owner = toOwner(document);
 
-        DocumentApprovedEvent documentApprovedEvent = new DocumentApprovedEvent(document.getId(), document.getCustomerId(), owner, adminId, reviewedAt, document.getValidUntil());
+        HealthDocumentApprovedEvent healthDocumentApprovedEvent = new HealthDocumentApprovedEvent(document.getId(), document.getCustomerId(), owner, adminId, reviewedAt, document.getValidUntil());
 
-        eventPublisher.publishEvent(documentApprovedEvent);
+        eventPublisher.publishEvent(healthDocumentApprovedEvent);
     }
 
     @Transactional
@@ -166,9 +159,9 @@ public class DocumentReviewService {
         // publica evento para notificações
         HealthOwner owner = toOwner(document);
 
-        DocumentRejectedEvent documentRejectedEvent = new DocumentRejectedEvent(documentId, document.getCustomerId(), owner, adminId, reviewedAt);
+        HealthDocumentRejectedEvent healthDocumentRejectedEvent = new HealthDocumentRejectedEvent(documentId, document.getCustomerId(), owner, adminId, reviewedAt);
 
-        eventPublisher.publishEvent(documentRejectedEvent);
+        eventPublisher.publishEvent(healthDocumentRejectedEvent);
 
         /*
         * publica evento p/  documentos rejeitados q serão apagados via job com retry

@@ -2,7 +2,6 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
 import com.travel_system.backend_app.model.Document;
-import com.travel_system.backend_app.model.HealthDeclaration;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
 import com.travel_system.backend_app.repository.DocumentRepository;
 import com.travel_system.backend_app.repository.HealthConsentRepository;

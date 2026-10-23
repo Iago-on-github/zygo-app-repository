@@ -3,7 +3,6 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.config.HealthConsentProperties;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
-import com.travel_system.backend_app.exceptions.DocumentNotFoundException;
 import com.travel_system.backend_app.exceptions.OutdatedConsentTermException;
 import com.travel_system.backend_app.exceptions.StudentNotAssociatedWithResponsibleAdultException;
 import com.travel_system.backend_app.interfaces.mappers.response.HealthConsentResponseMapper;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

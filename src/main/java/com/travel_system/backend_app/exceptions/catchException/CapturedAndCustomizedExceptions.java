@@ -52,6 +52,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ImageProcessingException.class)
+    public final ResponseEntity<StandardError> ImageProcessingException(ImageProcessingException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(MinorStudentNotAllowedException.class)
     public final ResponseEntity<StandardError> MinorStudentNotAllowedException(MinorStudentNotAllowedException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
@@ -87,6 +92,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(TransportRegistrationNotFoundException.class)
+    public final ResponseEntity<StandardError> TransportRegistrationNotFoundException(TransportRegistrationNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(DocumentNotFoundException.class)
     public final ResponseEntity<StandardError> DocumentNotFoundException(DocumentNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -109,6 +119,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(HasTransportRegistrationException.class)
+    public final ResponseEntity<StandardError> HasTransportRegistrationException(HasTransportRegistrationException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 

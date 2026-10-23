@@ -6,7 +6,7 @@ import com.travel_system.backend_app.model.dtos.response.DocumentDownloadRespons
 import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
 import com.travel_system.backend_app.model.enums.DocumentStatus;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
-import com.travel_system.backend_app.service.DocumentService;
+import com.travel_system.backend_app.service.HealthDocumentService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +20,12 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/documents")
-public class DocumentController {
+public class HealthDocumentController {
 
-    private final DocumentService documentService;
+    private final HealthDocumentService healthDocumentService;
 
-    public DocumentController(DocumentService documentService) {
-        this.documentService = documentService;
+    public HealthDocumentController(HealthDocumentService healthDocumentService) {
+        this.healthDocumentService = healthDocumentService;
     }
 
     /*
@@ -34,13 +34,13 @@ public class DocumentController {
 
     @GetMapping("/me")
     public ResponseEntity<List<DocumentResponseDTO>> myDocuments(@RequestParam List<DocumentStatus> statuses) {
-        return ResponseEntity.ok().body(documentService.myDocuments(statuses));
+        return ResponseEntity.ok().body(healthDocumentService.myDocuments(statuses));
     }
 
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @PostMapping(value = "/me/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentResponseDTO> uploadMine(@Valid @ModelAttribute DocumentUploadRequest dto, @RequestParam("file") MultipartFile file, UriComponentsBuilder componentsBuilder) {
-        DocumentResponseDTO documentResponseDTO = documentService.uploadMine(dto, file);
+        DocumentResponseDTO documentResponseDTO = healthDocumentService.uploadMine(dto, file);
 
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(documentResponseDTO.id()).toUri();
 
@@ -50,7 +50,7 @@ public class DocumentController {
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @GetMapping("/me/{documentId}/download")
     public ResponseEntity<DocumentDownloadResponseDTO> downloadMine(@PathVariable UUID documentId) {
-        return ResponseEntity.ok().body(documentService.downloadMine(documentId));
+        return ResponseEntity.ok().body(healthDocumentService.downloadMine(documentId));
     }
 
     /*
@@ -59,13 +59,13 @@ public class DocumentController {
 
     @GetMapping("/students/{studentId}")
     public ResponseEntity<List<DocumentResponseDTO>> studentDocuments(@PathVariable UUID studentId, @RequestParam List<DocumentStatus> statuses) {
-        return ResponseEntity.ok().body(documentService.studentDocuments(studentId, statuses));
+        return ResponseEntity.ok().body(healthDocumentService.studentDocuments(studentId, statuses));
     }
 
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @PostMapping(value = "/students/{studentId}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentResponseDTO> uploadForStudent(@PathVariable UUID studentId, @Valid @ModelAttribute DocumentUploadRequest dto, @RequestParam("file") MultipartFile file, UriComponentsBuilder componentsBuilder) {
-        DocumentResponseDTO documentResponseDTO = documentService.uploadForStudent(studentId, dto, file);
+        DocumentResponseDTO documentResponseDTO = healthDocumentService.uploadForStudent(studentId, dto, file);
 
         URI uri = componentsBuilder.path("/{id}").buildAndExpand(documentResponseDTO.id()).toUri();
 
@@ -75,6 +75,6 @@ public class DocumentController {
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @GetMapping("/students/{studentId}/{documentId}/download")
     public ResponseEntity<DocumentDownloadResponseDTO> downloadForStudent(@PathVariable UUID studentId, @PathVariable UUID documentId) {
-        return ResponseEntity.ok().body(documentService.downloadForStudent(studentId, documentId));
+        return ResponseEntity.ok().body(healthDocumentService.downloadForStudent(studentId, documentId));
     }
 }

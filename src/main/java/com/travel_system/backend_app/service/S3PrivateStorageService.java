@@ -13,7 +13,6 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 @Service
 public class S3PrivateStorageService implements PrivateStorageService {
-
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
     private final DocumentStorageProperties properties;
@@ -50,6 +49,15 @@ public class S3PrivateStorageService implements PrivateStorageService {
                 .build());
     }
 
+
+    @Override
+    public String generatePresignPhotoUrl(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+
+        return properties.getPresignEndpoint() + "/" + key;
+    }
 
     /*
      *  gera uma URL temporária para download, steps:

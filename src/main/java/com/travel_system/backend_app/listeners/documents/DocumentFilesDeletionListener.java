@@ -1,9 +1,6 @@
 package com.travel_system.backend_app.listeners.documents;
 
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
-import com.travel_system.backend_app.model.PendingDocsExclusions;
-import com.travel_system.backend_app.repository.DocumentRepository;
-import com.travel_system.backend_app.repository.PendingDocsExclusionsRepository;
 import com.travel_system.backend_app.service.PendingDocsExclusionsService;
 import com.travel_system.backend_app.service.S3PrivateStorageService;
 import org.slf4j.Logger;
@@ -11,8 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.util.List;
 
 @Component
 public class DocumentFilesDeletionListener {

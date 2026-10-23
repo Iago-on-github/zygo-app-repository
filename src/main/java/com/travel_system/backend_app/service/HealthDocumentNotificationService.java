@@ -14,21 +14,21 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
-public class DocumentNotificationService {
+public class HealthDocumentNotificationService {
 
-    private final HealthNotificationRecipientResolver healthNotificationRecipientResolver;
+    private final OwnerNotificationRecipientResolver ownerNotificationRecipientResolver;
 
     private final FirebaseNotificationSender firebaseNotificationSender;
     private final DateTimeFormats timeFormats;
 
-    public DocumentNotificationService(HealthNotificationRecipientResolver healthNotificationRecipientResolver, FirebaseNotificationSender firebaseNotificationSender, DateTimeFormats timeFormats) {
-        this.healthNotificationRecipientResolver = healthNotificationRecipientResolver;
+    public HealthDocumentNotificationService(OwnerNotificationRecipientResolver ownerNotificationRecipientResolver, FirebaseNotificationSender firebaseNotificationSender, DateTimeFormats timeFormats) {
+        this.ownerNotificationRecipientResolver = ownerNotificationRecipientResolver;
         this.firebaseNotificationSender = firebaseNotificationSender;
         this.timeFormats = timeFormats;
     }
 
 
-    public void sendNotifyAdminsOnDocumentUploaded(DocumentUploadedEvent dto) {
+    public void sendNotifyAdminsOnDocumentUploaded(HealthDocumentUploadedEvent dto) {
         SystemNotificationAudience allCustomerAdmins = SystemNotificationAudience.ALL_CUSTOMER_ADMINS;
 
         String title = "Upload de novo documento";
@@ -45,7 +45,7 @@ public class DocumentNotificationService {
         firebaseNotificationSender.sendSystemNotification(command);
     }
 
-    public void sendNotifyOwnerOnDocumentApproved(DocumentApprovedEvent dto) {
+    public void sendNotifyOwnerOnDocumentApproved(HealthDocumentApprovedEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String title = "Documento aprovado";
@@ -68,7 +68,7 @@ public class DocumentNotificationService {
 
         }
 
-        for (UUID userAccountId : healthNotificationRecipientResolver.resolve(dto.owner())) {
+        for (UUID userAccountId : ownerNotificationRecipientResolver.resolve(dto.owner())) {
             SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, userAccountId, title, message, link, Priority.NORMAL, data);
 
             firebaseNotificationSender.sendSystemNotification(command);
@@ -76,7 +76,7 @@ public class DocumentNotificationService {
 
     }
 
-    public void sendNotifyOwnerOnDocumentRejected(DocumentRejectedEvent dto) {
+    public void sendNotifyOwnerOnDocumentRejected(HealthDocumentRejectedEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String title = "Documento rejeitado";
@@ -89,7 +89,7 @@ public class DocumentNotificationService {
                 "ownerId", dto.owner().id().toString()
         );
 
-        for (UUID userAccountId : healthNotificationRecipientResolver.resolve(dto.owner())) {
+        for (UUID userAccountId : ownerNotificationRecipientResolver.resolve(dto.owner())) {
             SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, userAccountId, title, message, link, Priority.NORMAL, data);
 
             firebaseNotificationSender.sendSystemNotification(command);
@@ -114,7 +114,7 @@ public class DocumentNotificationService {
         firebaseNotificationSender.sendSystemNotification(command);
     }
 
-    public void sendNotifyOwnerOnDocumentExpiring(DocumentExpiringEvent dto) {
+    public void sendNotifyOwnerOnDocumentExpiring(HealthDocumentExpiringEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String title = "Documento prestes a expirar";
@@ -134,7 +134,7 @@ public class DocumentNotificationService {
     }
 
     public void sendPendingItemsReminder(HealthPendingItemsReminderEvent dto) {
-        List<UUID> recipients = healthNotificationRecipientResolver.resolve(dto.owner());
+        List<UUID> recipients = ownerNotificationRecipientResolver.resolve(dto.owner());
 
         String title = "Pendências de saúde";
         String message = dto.pendingCount() == 1 ? "Existe 1 pendência na ficha de saúde. Toque para ver." : "Existem " + dto.pendingCount() + " pendências na ficha de saúde. Toque para ver.";
@@ -154,8 +154,8 @@ public class DocumentNotificationService {
         }
     }
 
-    public void sendNotifyOwnerOnDocumentExpire(DocumentExpiredEvent dto) {
-        List<UUID> resolve = healthNotificationRecipientResolver.resolve(dto.owner());
+    public void sendNotifyOwnerOnDocumentExpire(HealthDocumentExpiredEvent dto) {
+        List<UUID> resolve = ownerNotificationRecipientResolver.resolve(dto.owner());
 
         String title = "Lembrete de documento expirado";
         String message = "Existe ao menos um documento expirado na sua conta. Verifique o seu espaço de Documentos";
@@ -186,7 +186,7 @@ public class DocumentNotificationService {
                 "declarationId", dto.declarationId().toString()
         );
 
-        List<UUID> resolve = healthNotificationRecipientResolver.resolve(dto.owner());
+        List<UUID> resolve = ownerNotificationRecipientResolver.resolve(dto.owner());
 
         for (UUID userAccountId : resolve) {
             SystemPushNotificationCommandDTO command = new SystemPushNotificationCommandDTO(specificUserAccount, dto.customerId(), null, null, null, userAccountId, title, message, link, Priority.NORMAL, data);

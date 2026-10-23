@@ -6,7 +6,9 @@ public enum DocumentType {
     PRESCRIPTION(DocumentCategory.HEALTH),
     OTHER(DocumentCategory.HEALTH),
 
-    ENROLLMENT_PROOF(DocumentCategory.ENROLLMENT);
+    // matrícula de transporte (apagados após a revisão)
+    IDENTITY_DOCUMENT(DocumentCategory.ENROLLMENT),
+    INSTITUTION_ENROLLMENT_PROOF(DocumentCategory.ENROLLMENT);
 
     private final DocumentCategory category;
 
@@ -26,7 +28,7 @@ public enum DocumentType {
 * - PRESCRIPTION: receita médica para medicações contínuas ou em emergências que o aluno carrega
 * - OTHER: outros tipos de casos nos quais não se encaixam nas categorias atuais de saude
 *
-* - ENROLLMENT_PROOF: matrícula do estudante no ônibus
+* - INSTITUTION_ENROLLMENT_PROOF: matrícula no ônibus
 *
 * */
 

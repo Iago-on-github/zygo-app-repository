@@ -6,6 +6,7 @@ import com.travel_system.backend_app.exceptions.DocumentNotFoundException;
 import com.travel_system.backend_app.exceptions.MinorStudentNotAllowedException;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.*;
@@ -101,7 +102,7 @@ public class UserProfileResolverService {
     }
 
     // aluno maior ou motorista agindo sobre os próprios dados
-    public HealthOwner resolveSelf() {
+    public OwnerBuilt resolveSelf() {
         UserAccount account = userAccountRepository.findUserByEmail(getAuthenticatedUserEmail());
 
         if (account == null) {
@@ -116,17 +117,17 @@ public class UserProfileResolverService {
                 if (isMinor(student.getBirthdate())) {
                     throw new MinorStudentNotAllowedException("Estudantes menores de idade não podem realizar essa ação, apenas seus responsáveis");
                 }
-                yield new HealthOwner(OwnerType.STUDENT, student.getId());
+                yield new OwnerBuilt(OwnerType.STUDENT, student.getId());
             }
             case DRIVER -> driverRepository.findByUserAccountId(account.getId())
-                    .map(d -> new HealthOwner(OwnerType.DRIVER, d.getId()))
+                    .map(d -> new OwnerBuilt(OwnerType.DRIVER, d.getId()))
                     .orElseThrow(() -> new EntityNotFoundException("Driver não encontrado"));
             default -> throw new AccessDeniedException("Tipo de conta não permitido para essa ação");
         };
     }
 
     // responsável agindo por um aluno menor vinculado a ele
-    public HealthOwner resolveForResponsible(UUID studentId) {
+    public OwnerBuilt resolveForResponsible(UUID studentId) {
         UserAccount account = userAccountRepository.findUserByEmail(getAuthenticatedUserEmail());
 
         if (account == null) {
@@ -144,7 +145,7 @@ public class UserProfileResolverService {
             throw new EntityNotFoundException("Estudante menor de idade não encontrado");
         }
 
-        return new HealthOwner(OwnerType.STUDENT, student.getId());
+        return new OwnerBuilt(OwnerType.STUDENT, student.getId());
     }
 
     protected boolean isMinor(LocalDate d1) {

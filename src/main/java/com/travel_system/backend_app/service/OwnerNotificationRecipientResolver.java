@@ -1,8 +1,7 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.model.Driver;
 import com.travel_system.backend_app.model.Student;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
@@ -17,14 +16,14 @@ import java.util.UUID;
 * */
 
 @Component
-public class HealthNotificationRecipientResolver {
+public class OwnerNotificationRecipientResolver {
 
     private final DriverRepository driverRepository;
     private final StudentRepository studentRepository;
 
     private final UserProfileResolverService userProfileResolverService;
 
-    public HealthNotificationRecipientResolver(DriverRepository driverRepository, StudentRepository studentRepository, UserProfileResolverService userProfileResolverService) {
+    public OwnerNotificationRecipientResolver(DriverRepository driverRepository, StudentRepository studentRepository, UserProfileResolverService userProfileResolverService) {
         this.driverRepository = driverRepository;
         this.studentRepository = studentRepository;
         this.userProfileResolverService = userProfileResolverService;
@@ -32,7 +31,7 @@ public class HealthNotificationRecipientResolver {
 
     // usados nas notificações para mandar aos users corretos
     @Transactional(readOnly = true)
-    public List<UUID> resolve(HealthOwner owner) {
+    public List<UUID> resolve(OwnerBuilt owner) {
         if (owner.type() == OwnerType.DRIVER) {
             return driverRepository.findUserAccountIdById(owner.id())
                     .map(List::of)

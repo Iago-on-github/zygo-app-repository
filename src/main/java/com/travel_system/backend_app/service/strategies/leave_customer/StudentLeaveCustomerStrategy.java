@@ -13,6 +13,7 @@ import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentRouteStopAssignmentRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.service.HealthDataCleanupService;
+import com.travel_system.backend_app.service.RegistrationDocumentLifecycleService;
 import com.travel_system.backend_app.service.TravelService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;

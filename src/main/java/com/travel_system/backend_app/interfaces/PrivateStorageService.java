@@ -6,5 +6,7 @@ public interface PrivateStorageService {
 
     void delete(String key);
 
+    String generatePresignPhotoUrl(String key);
+
     String generateDownloadUrl(String key, String downloadFileName);
 }

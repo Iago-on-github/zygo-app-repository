@@ -36,7 +36,7 @@ public class CustomerProfilePictureService {
         Customer customer = findCustomer();
 
         String key = "customers/" + customer.getId() + "/picture.jpeg";
-        customer.setLogoUrl(imageStorageService.store(file, key));
+        customer.setLogoUrl(imageStorageService.storeProfilePicture(file, key));
     }
 
     @Transactional

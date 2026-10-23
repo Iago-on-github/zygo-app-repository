@@ -85,7 +85,7 @@ public class DocumentProcessingService {
         return new ProcessedDocument(bytes, PDF, bytes.length, sha256(bytes));
     }
 
-    private String sha256(byte[] bytes) {
+    protected String sha256(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(bytes));

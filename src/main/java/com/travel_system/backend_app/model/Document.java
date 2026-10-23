@@ -33,6 +33,8 @@ public class Document extends BaseTenantEntity {
     private DocumentStatus documentStatus;
 
     private UUID healthConditionId;
+    @Column(name = "registration_request_id")
+    private UUID registrationRequestId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -68,13 +70,14 @@ public class Document extends BaseTenantEntity {
     public Document() {
     }
 
-    public Document(UUID id, UUID studentId, UUID driverId, DocumentType documentType, DocumentStatus documentStatus, UUID healthConditionId, DocumentCategory documentCategory, String storageKey, String originalFilename, String contentType, long sizeBytes, String sha256, String rejectionReason, UUID uploadedBy, UUID reviewedBy, Instant reviewedAt, LocalDate validUntil, Integer lastReminderStage, Instant createdAt, Instant updatedAt) {
+    public Document(UUID id, UUID studentId, UUID driverId, DocumentType documentType, DocumentStatus documentStatus, UUID healthConditionId, UUID registrationRequestId, DocumentCategory documentCategory, String storageKey, String originalFilename, String contentType, long sizeBytes, String sha256, String rejectionReason, UUID uploadedBy, UUID reviewedBy, Instant reviewedAt, LocalDate validUntil, Integer lastReminderStage, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.studentId = studentId;
         this.driverId = driverId;
         this.documentType = documentType;
         this.documentStatus = documentStatus;
         this.healthConditionId = healthConditionId;
+        this.registrationRequestId = registrationRequestId;
         this.documentCategory = documentCategory;
         this.storageKey = storageKey;
         this.originalFilename = originalFilename;
@@ -137,6 +140,14 @@ public class Document extends BaseTenantEntity {
 
     public void setHealthConditionId(UUID healthConditionId) {
         this.healthConditionId = healthConditionId;
+    }
+
+    public UUID getRegistrationRequestId() {
+        return registrationRequestId;
+    }
+
+    public void setRegistrationRequestId(UUID registrationRequestId) {
+        this.registrationRequestId = registrationRequestId;
     }
 
     public DocumentCategory getDocumentCategory() {
