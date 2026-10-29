@@ -4,6 +4,6 @@ import java.util.UUID;
 
 public record HealthAccessContext(
         UUID actorAccountId,
-        HealthOwner dtoOwner
+        OwnerBuilt dtoOwner
 ) {
 }

@@ -117,5 +117,8 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     List<Document> findAllByRegistrationRequestId(UUID registrationRequestId);
 
-    Optional<Document> findActiveByRegistrationRequestIdAndType(UUID registrationRequestId, DocumentType documentType, Set<DocumentStatus> activeStatuses);
+    Optional<Document> findActiveByRegistrationRequestIdAndDocumentTypeAndDocumentStatusIn(UUID registrationRequestId, DocumentType documentType, Set<DocumentStatus> activeStatuses);
+
+    @Query("SELECT d FROM Document d WHERE d.studentId = :ownerId OR d.driverId = :ownerId AND d.documentCategory = :documentCategory")
+    List<Document> findAllByCategoryAndOwnerId(@Param("ownerId") UUID ownerId, @Param("documentCategory") DocumentCategory documentCategory);
 }

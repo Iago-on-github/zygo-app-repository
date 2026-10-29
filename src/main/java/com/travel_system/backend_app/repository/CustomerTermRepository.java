@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.repository;
 
+import com.fasterxml.jackson.databind.introspect.AnnotationCollector;
 import com.travel_system.backend_app.model.CustomerTerm;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -37,4 +38,8 @@ public interface CustomerTermRepository extends JpaRepository<CustomerTerm, UUID
           AND :today BETWEEN t.startTerm AND t.endTerm
         """)
     Optional<CustomerTerm> findCurrentByCustomerId(@Param("customerId") UUID customerId, @Param("today") LocalDate today);
+
+    Optional<CustomerTerm> findFirstByStartTermAfterOrderByStartTermAsc(LocalDate date);
+
+    boolean existsByCustomerIdAndStartTermAfter(UUID customerId, LocalDate date);
 }

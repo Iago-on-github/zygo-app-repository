@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.utils;
 
+import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -15,7 +16,7 @@ public class DateTimeFormats {
         return formatter.format(date);
     }
 
-    public LocalDate formatStrToLocalDate(String date) {
-        return formatter.parse(date, LocalDate::from);
+    public String localDateFormat(LocalDate date) {
+        return formatter.format(date);
     }
 }

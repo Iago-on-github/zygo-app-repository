@@ -3,7 +3,7 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.SensitiveDataAccessLog;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.SensitiveDataAccessLogResponseDTO;
 import com.travel_system.backend_app.model.enums.Action;
 import com.travel_system.backend_app.model.enums.ResourceType;
@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -44,7 +43,7 @@ public class SensitiveDataAccessLogService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(UUID actorAccountId, HealthOwner owner, ResourceType resourceType, UUID resourceId, Action action, UUID contextId) {
+    public void record(UUID actorAccountId, OwnerBuilt owner, ResourceType resourceType, UUID resourceId, Action action, UUID contextId) {
         SensitiveDataAccessLog log = new SensitiveDataAccessLog();
 
         if (TenantContext.getCurrentTenant() == null) {

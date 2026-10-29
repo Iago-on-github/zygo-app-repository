@@ -59,6 +59,8 @@ public class CustomerMembershipService {
         userAccount.setUserAccountType(UserAccountType.UNASSIGNED);
         userAccount.getPermissions().clear();
 
+        // VALIADR REMOVER O CUSTOMER AQUI TBM
+
         // gera novamente os tokens com base nas novas permissões (sem customerId)
         return tokenConfig.generateBothTokens(userAccount, null);
     }

@@ -4,7 +4,7 @@ import com.travel_system.backend_app.events.documents.HealthPendingItemsReminder
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.HealthPendingItemDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthPendingItemsResponseDTO;
 import com.travel_system.backend_app.model.enums.*;
@@ -72,7 +72,7 @@ public class HealthPendingItemsService {
 
     @Transactional(readOnly = true)
     public HealthPendingItemsResponseDTO getMyPendingItems() {
-        HealthOwner healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
 
         return calculate(healthOwner, getCurrentCustomer());
     }
@@ -80,7 +80,7 @@ public class HealthPendingItemsService {
     // usado pelo responsável p/ ver pendências de um aluno menor vinculado
     @Transactional(readOnly = true)
     public HealthPendingItemsResponseDTO getStudentPendingItems(UUID studentId) {
-        HealthOwner owner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt owner = userProfileResolverService.resolveForResponsible(studentId);
         return calculate(owner, getCurrentCustomer());
     }
 
@@ -93,7 +93,7 @@ public class HealthPendingItemsService {
             throw new EntityNotFoundException("Dono não encontrado");
         }
 
-        return calculate(new HealthOwner(ownerType, ownerId), getCurrentCustomer());
+        return calculate(new OwnerBuilt(ownerType, ownerId), getCurrentCustomer());
     }
 
     public void sendPendingItemsReminders() {
@@ -105,12 +105,12 @@ public class HealthPendingItemsService {
 
                 // faz com que o job rode em apenas uma transição de leitura
                 readOnlyTransactionTemplate.executeWithoutResult(status -> {
-                    List<HealthOwner> owners = new ArrayList<>();
+                    List<OwnerBuilt> owners = new ArrayList<>();
 
-                    studentRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new HealthOwner(OwnerType.STUDENT, id)));
-                    driverRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new HealthOwner(OwnerType.DRIVER, id)));
+                    studentRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new OwnerBuilt(OwnerType.STUDENT, id)));
+                    driverRepository.findActiveIds(customer.getId()).forEach(id -> owners.add(new OwnerBuilt(OwnerType.DRIVER, id)));
 
-                    for (HealthOwner owner : owners) {
+                    for (OwnerBuilt owner : owners) {
                         HealthPendingItemsResponseDTO pending = calculate(owner, customer);
 
                         if (pending.hasPendingItems()) {
@@ -135,7 +135,7 @@ public class HealthPendingItemsService {
      * - declaração desatualizada é registrada e o cálculo continua para os documentos
      * - cada condição que exige comprovação precisa de ao menos um documento válido
      * */
-    private HealthPendingItemsResponseDTO calculate(HealthOwner owner, Customer customer) {
+    private HealthPendingItemsResponseDTO calculate(OwnerBuilt owner, Customer customer) {
         // caso não seja obrigatório considera sem pendências
         if (!customer.isHealthDeclarationRequestEnabled()) {
             return response(owner, List.of());
@@ -237,7 +237,7 @@ public class HealthPendingItemsService {
         return new HealthPendingItemDTO(type, conditionId, documentId, message);
     }
 
-    private HealthPendingItemsResponseDTO response(HealthOwner owner, List<HealthPendingItemDTO> items) {
+    private HealthPendingItemsResponseDTO response(OwnerBuilt owner, List<HealthPendingItemDTO> items) {
         return new HealthPendingItemsResponseDTO(owner.type(), owner.id(), !items.isEmpty(), items);
     }
 }

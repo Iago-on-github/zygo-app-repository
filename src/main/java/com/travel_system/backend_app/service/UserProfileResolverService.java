@@ -5,19 +5,16 @@ import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.exceptions.DocumentNotFoundException;
 import com.travel_system.backend_app.exceptions.MinorStudentNotAllowedException;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.cglib.core.Local;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;

@@ -8,7 +8,7 @@ import com.travel_system.backend_app.exceptions.StudentNotAssociatedWithResponsi
 import com.travel_system.backend_app.interfaces.mappers.response.HealthConsentResponseMapper;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.HealthConsentRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.HealthConsentResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthConsentTermDTO;
 import com.travel_system.backend_app.model.enums.DocumentCategory;
@@ -86,14 +86,14 @@ public class HealthConsentService {
 
     @Transactional(readOnly = true)
     public HealthConsentResponseDTO getMyConsent() {
-        HealthOwner healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
 
         return healthConsentResponseMapper.toDTO(healthConsentRepository.findByOwnerId(healthOwner.id()).orElseThrow(() -> new EntityNotFoundException("Entidade não encontrada")));
     }
 
     @Transactional(readOnly = true)
     public HealthConsentResponseDTO getMinorStudentConsent(UUID studentId) {
-        HealthOwner healthOwner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt healthOwner = userProfileResolverService.resolveForResponsible(studentId);
 
         ResponsibleAdult responsibleAdult = responsibleAdultRepository.findByEmail(getAuthenticatedUserEmail())
                 .orElseThrow(() -> new AccessDeniedException("Responsável não encontrado"));
@@ -123,7 +123,7 @@ public class HealthConsentService {
      * documentos (linhas + arquivos), declaração e condições.
      * O consentimento em si é mantido com revokedAt, como prova do histórico.
      */
-    private void revoke(HealthOwner owner) {
+    private void revoke(OwnerBuilt owner) {
         HealthConsent consent = healthConsentRepository.findActiveByOwnerId(owner.id())
                 .orElseThrow(() -> new EntityNotFoundException("Nenhum consentimento ativo encontrado"));
 
@@ -146,7 +146,7 @@ public class HealthConsentService {
         }
     }
 
-    private HealthConsentResponseDTO register(HealthOwner owner, HealthConsentRequestDTO request) {
+    private HealthConsentResponseDTO register(OwnerBuilt owner, HealthConsentRequestDTO request) {
         // o app precisa ter exibido exatamente a versão vigente
         if (!consentProperties.getTermVersion().equals(request.termVersion())) {
             throw new OutdatedConsentTermException();

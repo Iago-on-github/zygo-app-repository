@@ -1,12 +1,14 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
+import com.travel_system.backend_app.exceptions.CustomerNotificationLogicException;
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.interfaces.mappers.CustomerRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerHolidayResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerResponseMapper;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.CustomerContactUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.CustomerRegistrationNotificationSettingsDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerSettingsUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.CustomerPlan;
@@ -148,11 +150,19 @@ public class CustomerSettingsService {
     public CustomerSettingsResponseDTO updateMySettings(CustomerSettingsUpdateDTO dto) {
         Customer customer = findCustomer();
 
-        log.info("[1]settings recebidos: shifts={}, operatingDays={}", dto.shifts(), dto.operatingDays());
-
         if (dto.customerOptionalFunctionalities() != null) {
-            if (dto.customerOptionalFunctionalities().enrollmentRequiredTypes().isEmpty()) {
-                customer.setEnrollmentRequiredTypes(Set.of());
+            customer.setHealthDeclarationRequestEnabled(dto.customerOptionalFunctionalities().healthDeclarationRequestEnabled());
+
+            if (dto.customerOptionalFunctionalities().registrationNotificationSettings() != null) {
+                // aqui é apenas setar o valor que chega, nunca pode ser nulo por ser int e tem um valor padrão de caso não inserido
+                CustomerRegistrationNotificationSettingsDTO registrationNotification = dto.customerOptionalFunctionalities().registrationNotificationSettings();
+
+                // valida se o período das notificaçoes faz sentido
+                validateRegistrationDaysValues(registrationNotification.registrationBlockWarningDays(), registrationNotification.registrationGracePeriodDays());
+
+                customer.setRegistrationBlockWarningDays(registrationNotification.registrationBlockWarningDays());
+                customer.setRegistrationRenewalWindowDays(registrationNotification.registrationRenewalWindowDays());
+                customer.setRegistrationGracePeriodDays(registrationNotification.registrationGracePeriodDays());
             }
         }
 
@@ -160,9 +170,17 @@ public class CustomerSettingsService {
 
         Customer savedCustomer = customerRepository.save(customer);
 
-        log.info("[2]settings recebidos: shifts={}, operatingDays={}", dto.shifts(), dto.operatingDays());
-
         return customerResponseMapper.toSettingsDTO(savedCustomer);
+    }
+
+    /*
+    * valida de forma lógica se os perídos não são anulados entre si
+    * */
+    private void validateRegistrationDaysValues(int blockWarningDays, int gracePeriodDays) {
+        // o aviso de bloqueio precisa ser MENOR do que a carência
+        if (blockWarningDays >= gracePeriodDays) {
+            throw new CustomerNotificationLogicException("O aviso de bloqueio precisa ser menor do que o aviso de carência");
+        }
     }
 
     private Customer findCustomer() {

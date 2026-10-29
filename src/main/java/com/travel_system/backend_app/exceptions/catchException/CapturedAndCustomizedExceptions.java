@@ -92,6 +92,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(RegistrationPhotoNotFoundException.class)
+    public final ResponseEntity<StandardError> RegistrationPhotoNotFoundException(RegistrationPhotoNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(TransportRegistrationNotFoundException.class)
     public final ResponseEntity<StandardError> TransportRegistrationNotFoundException(TransportRegistrationNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -119,6 +124,36 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(TravelException.class)
     public final ResponseEntity<StandardError> travelException(TravelException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(CustomerTermAbsencePeriodException.class)
+    public final ResponseEntity<StandardError> CustomerTermAbsencePeriodException(CustomerTermAbsencePeriodException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationNotUnderReviewException.class)
+    public final ResponseEntity<StandardError> RegistrationNotUnderReviewException(RegistrationNotUnderReviewException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationStatusNotCompatible.class)
+    public final ResponseEntity<StandardError> RegistrationStatusNotCompatible(RegistrationStatusNotCompatible ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationRequestNotCancelableException.class)
+    public final ResponseEntity<StandardError> RegistrationRequestNotCancelableException(RegistrationRequestNotCancelableException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationNotRenewableException.class)
+    public final ResponseEntity<StandardError> RegistrationNotRenewableException(RegistrationNotRenewableException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationNotUpdatableException.class)
+    public final ResponseEntity<StandardError> RegistrationNotUpdatableException(RegistrationNotUpdatableException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
@@ -217,6 +252,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(RegistrationNotFoundException.class)
+    public final ResponseEntity<StandardError> RegistrationNotFoundException(RegistrationNotFoundException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(CustomerHolidayNotFoundException.class)
     public final ResponseEntity<StandardError> CustomerHolidayNotFoundException(CustomerHolidayNotFoundException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.NOT_FOUND);
@@ -252,6 +292,11 @@ public class CapturedAndCustomizedExceptions {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(CustomerNotificationLogicException.class)
+    public final ResponseEntity<StandardError> CustomerNotificationLogicException(CustomerNotificationLogicException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(SensitiveOperationException.class)
     public final ResponseEntity<StandardError> SensitiveOperationException(SensitiveOperationException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
@@ -284,6 +329,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(StudentAlreadyLinkedToTrip.class)
     public final ResponseEntity<StandardError> StudentAlreadyLinkedToTrip(StudentAlreadyLinkedToTrip ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RegistrationRequestNotEditableException.class)
+    public final ResponseEntity<StandardError> RegistrationRequestNotEditableException(RegistrationRequestNotEditableException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.CONFLICT);
     }
 
@@ -350,6 +400,11 @@ public class CapturedAndCustomizedExceptions {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public final ResponseEntity<StandardError> MethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest webRequest) {
+        return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RegistrationIncompleteException.class)
+    public final ResponseEntity<StandardError> RegistrationIncompleteException(RegistrationIncompleteException ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.BAD_REQUEST);
     }
 

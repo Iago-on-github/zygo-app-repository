@@ -2,9 +2,12 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.TransportRegistration;
 import com.travel_system.backend_app.model.enums.TransportRegistrationStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,4 +34,14 @@ public interface TransportRegistrationRepository extends JpaRepository<Transport
         ORDER BY r.closedAt DESC
         """)
     List<TransportRegistration> findLatestByOwnerIdAndStatus(@Param("ownerId") UUID ownerId, @Param("status") TransportRegistrationStatus status);
+
+    @Query("SELECT r FROM TransportRegistration r JOIN FETCH r.customerTerm WHERE r.status = :status AND r.customerId = :customerId")
+    List<TransportRegistration> findActiveWithTermByCustomerId(@Param("customerId") UUID customerId, @Param("status") TransportRegistrationStatus status );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM TransportRegistration r JOIN FETCH r.customerTerm WHERE r.id = :id")
+    Optional<TransportRegistration> findByIdForUpdate(@Param("id") UUID id);
+
+    @Query("SELECT r FROM TransportRegistration r WHERE r.studentId = :ownerId OR r.driverId = :ownerId")
+    List<TransportRegistration> findAllByOwnerId(@Param("ownerId") UUID ownerId);
 }

@@ -61,4 +61,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     boolean existsByContactTelephoneIgnoringTenant(@Param("telephone") String telephone);
     
     List<Customer> findAllByHealthDeclarationRequestEnabledTrue();
+
+    @Query("SELECT c.id FROM Customer c")
+    List<UUID> findAllIds();
 }

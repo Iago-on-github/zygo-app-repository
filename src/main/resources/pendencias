@@ -1,41 +1,78 @@
-DOCUMENTOS DE MATRÍCULA (STUDENT/MOTORISTA):
+Relatórios do admin
 
-3.6 Outros pontos
+Objetivo geral: dar à secretaria a visão antecipada que motivou a matrícula: quantas pessoas vão para onde, em que turno e por qual rota, para dimensionar ônibus e rotas. E também uma visão de quem precisa de atenção (quem está para perder o acesso, quem está esperando análise).
 
-- Saída do Customer (aluno e motorista): apaga a matrícula (inclusive as encerradas), as solicitações, as auditorias,
-os documentos e a foto, com os arquivos apagados pelo evento. Siga o mesmo padrão do deleteAllByOwner da saúde, em um RegistrationDataCleanupService. ()
+Regras comuns:
 
-- CustomerTerm: com o ON DELETE RESTRICT, apagar um período que tem matrículas passa a falhar. Trate esse caso com uma mensagem clara para o admin. ()
----------
-4. Criação pelo convite
+só o admin ativo do próprio Customer;
+consultas JPQL na requisição (o filtro de tenant se aplica); passar o customerId explicitamente é um reforço;
+as contagens não expõem dados sensíveis e não precisam de log de acesso; as listas mostram só nome, número e datas, também sem log;
+os índices que já existem (customer_id, status, customer_term_id e target_term_id, status) atendem essas consultas.
+1. Resumo geral (painel)
 
-----------
-5. TransportRegistrationService (titular e responsável, no padrão Mine/ForStudent)
-- Consultar (X)
+O que faz: devolve os números do topo da tela de matrículas.
 
-- Salvar o rascunho: os dados de identificação e de filiação, só em DRAFT.
+Indicador	Significado	Como calcular
+Ativas	Matrículas em dia	ACTIVE com term.endTerm ≥ hoje
+Em carência	Vencidas, mas ainda com acesso	ACTIVE com term.endTerm < hoje e term.endTerm ≥ hoje − carência
+Pendentes	Começaram a matrícula e ainda não foram aprovadas	PENDING
+Encerradas	Perderam o acesso por não renovar	CLOSED
+Em análise	Tamanho da fila	Solicitações em UNDER_REVIEW
+Renovações pendentes	Podem renovar e ainda não enviaram	ACTIVE com a janela aberta (term.endTerm − janela ≤ hoje) e sem solicitação em UNDER_REVIEW
 
-- Upload de documento: pré-validação (solicitação em DRAFT, categoria ENROLLMENT e tipo exigido) → processamento → chave → storeAndPersist. No callback: lock na solicitação, nova verificação do DRAFT, discardPreviousOfType e o save.
+Por que existe: em uma tela, o admin vê se a renovação está andando e se a fila está acumulando.
 
-- Upload da foto 3x4: conversão com REGISTRATION_PHOTO → chave → storeAndPersist. No callback: lock, nova verificação, gravação do pendingPhotoStorageKey e exclusão da foto pendente anterior após o commit.
+Como fazer:
 
-- Enviar para análise: valida os campos obrigatórios e os documentos exigidos pela tabela. A foto é obrigatória na INITIAL e opcional na RENEWAL (mantém a atual). Muda para UNDER_REVIEW e preenche submittedBy e submittedAt.
+as datas-limite são calculadas no Java e passadas como parâmetros (hoje, hoje − carência, hoje + janela). Assim, as consultas JPQL não precisam de aritmética de datas, que o JPQL lida mal;
+cada indicador é um COUNT. São seis consultas pequenas, ou uma consulta agrupada por status mais duas específicas;
+o resultado é um DTO único, por exemplo RegistrationSummaryDTO.
+2. Distribuição por período (o relatório principal)
 
-- Cancelar a solicitação: só em DRAFT. Chama o discardRequestDocuments, apaga a foto pendente e muda para CANCELLED. A INITIAL não pode ser cancelada, porque a matrícula não existiria sem ela.
+O que faz: mostra para onde vão as pessoas matriculadas em um período.
 
-- Iniciar a renovação: só com a matrícula ACTIVE, dentro da janela (registrationRenewalWindowDays antes do fim do período) e com o próximo período cadastrado. Cria a RENEWAL já preenchida com os dados aprovados.
+Por que existe: é o planejamento do transporte. “15 alunos vão para a instituição X, que fica na rota A: um ônibus resolve. 70 vão para a instituição H, na rota B: é preciso mais de um.”
 
-- Iniciar uma alteração: só com a matrícula ACTIVE e sem outra solicitação aberta. Cria o UPDATE preenchido.
+Entrada: o id do período. O padrão é o vigente.
 
-- Nova matrícula após o encerramento: com a matrícula CLOSED, cria uma nova TransportRegistration (PENDING) com uma INITIAL. O número novo é gerado na aprovação.
+Fonte dos dados: as solicitações aprovadas do tipo INITIAL ou RENEWAL com targetTerm igual ao período. Cada matrícula tem uma dessas por período, e ela guarda a cópia da instituição, do curso e dos turnos de quando foi aprovada. Os UPDATE ficam de fora, para não contar a mesma pessoa duas vezes.
 
--------------------------------
-9.Testes:
-antivírus (EICAR, ClamAV fora do ar);
-upload (tipo inválido, substituição, falha no banco);
-permissões (responsável de outro aluno, aluno menor no /me, motorista fora da viagem);
-jobs (vencimento, pendências, sem tenant vazando entre Customers);
-saída do Customer (nada pode sobrar no banco nem no storage).
-Produção: revisão jurídica, bucket privado no R2 e ClamAV (memória, healthcheck e atualização das assinaturas).
-Fica para depois
-Documentos de matrícula (ENROLLMENT): a configuração enrollmentRequiredTypes, as pendências próprias e o fluxo de upload, que já está preparado pela categoria.
+Agrupamentos (cada um é uma consulta JPQL com GROUP BY que devolve uma projeção com a chave e a quantidade):
+
+Agrupamento	O que mostra	Como
+Instituição e curso	Quantos alunos vão para cada instituição e curso	Junção do institutionCourseId com a tabela de cursos e instituições, para pegar os nomes; agrupar por instituição e curso
+Turno	Quantos alunos por turno	Junção com a tabela de turnos da solicitação. Um aluno com dois turnos conta nos dois, e a tela precisa explicar isso
+Instituição × turno	O cruzamento mais útil (“noturno da instituição X: 45 alunos”)	As duas junções e o GROUP BY pelas duas chaves
+Rota	Quantos alunos por rota	Junção com o StudentRouteStopAssignment atual do aluno (a rota não está na cópia), agrupando pela rota
+Motoristas	Total de motoristas matriculados no período	Contagem simples, porque motorista não tem instituição nem turno
+
+Detalhes:
+
+A rota é a atual, e não a da época da aprovação, porque ela não faz parte da cópia. Para o planejamento do período vigente, isso é o desejado. Para um período antigo, a rota pode estar desatualizada, e a tela deve deixar isso claro.
+Um período antigo continua contando quem foi aprovado para ele, mesmo que depois a matrícula tenha sido encerrada. É o retrato daquele período.
+Resposta: um DTO com uma lista para cada agrupamento, ou um endpoint por agrupamento, se o front preferir carregar cada gráfico separadamente.
+3. Listas para ação
+
+O que faz: listas paginadas de pessoas que precisam de atenção, com nome, tipo (aluno ou motorista), número da matrícula e a data relevante.
+
+Por que existe: o resumo diz quantos, e a lista diz quem, para o admin entrar em contato.
+
+Lista	Quem aparece	Ordenação	Como filtrar
+Em carência	Vencidas e ainda com acesso	Pelo fim da carência (quem perde o acesso primeiro)	ACTIVE com term.endTerm entre hoje − carência e hoje − 1
+Bloqueio próximo	Dentro do prazo do aviso de bloqueio	Pelo fim da carência	ACTIVE com term.endTerm entre hoje − carência e hoje − carência + aviso
+Matrículas paradas	Começaram e não enviaram há mais de X dias	Pela data de início	PENDING cuja INITIAL está em DRAFT, criada antes de hoje − X
+
+Como fazer:
+
+De novo, as datas-limite são calculadas no Java, e a consulta compara só o term.endTerm. Assim, a paginação é feita pelo banco, mesmo para estados calculados, como a carência;
+os nomes vêm das buscas em lote de alunos e motoristas, como na fila de análise;
+as matrículas com uma renovação em UNDER_REVIEW devem aparecer marcadas (“renovação em análise”), porque elas não vão ser bloqueadas. Para isso, busque em lote as solicitações abertas da página (findOpenByRegistrationIds).
+4. Componentes
+RegistrationReportService, com quatro métodos públicos: getSummary(), getDistribution(termId), listInGrace(pageable), listBlockingSoon(pageable) e listStalled(pageable). Todos com @Transactional(readOnly = true).
+Projeções (interfaces ou records) para os agrupamentos: chave (ou chaves) e quantidade.
+Consultas novas no TransportRegistrationRepository e no RegistrationRequestRepository. Todas recebem as datas como parâmetros.
+DTOs: RegistrationSummaryDTO, RegistrationDistributionDTO e um item de lista (nome, tipo, número, data e a marca “renovação em análise”).
+Endpoints, em /v1/admin/registrations/reports:
+GET /summary;
+GET /distribution?termId=;
+GET /grace, GET /blocking-soon e GET /stalled, paginados.

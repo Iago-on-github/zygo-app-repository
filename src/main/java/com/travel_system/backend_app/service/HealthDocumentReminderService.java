@@ -5,7 +5,7 @@ import com.travel_system.backend_app.events.documents.HealthDocumentExpiringEven
 import com.travel_system.backend_app.events.documents.HealthDeclarationOutdatedEvent;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import org.slf4j.Logger;
@@ -156,15 +156,15 @@ public class HealthDocumentReminderService {
         }
     }
 
-    private HealthOwner toOwner(HealthDeclaration declaration) {
+    private OwnerBuilt toOwner(HealthDeclaration declaration) {
         return declaration.getStudentId() != null
-                ? new HealthOwner(OwnerType.STUDENT, declaration.getStudentId())
-                : new HealthOwner(OwnerType.DRIVER, declaration.getDriverId());
+                ? new OwnerBuilt(OwnerType.STUDENT, declaration.getStudentId())
+                : new OwnerBuilt(OwnerType.DRIVER, declaration.getDriverId());
     }
 
     // monta o dono a partir do documento
-    private HealthOwner ownerOf(Document document) {
-        return document.getStudentId() != null ? new HealthOwner(OwnerType.STUDENT, document.getStudentId()) : new HealthOwner(OwnerType.DRIVER, document.getDriverId());
+    private OwnerBuilt ownerOf(Document document) {
+        return document.getStudentId() != null ? new OwnerBuilt(OwnerType.STUDENT, document.getStudentId()) : new OwnerBuilt(OwnerType.DRIVER, document.getDriverId());
     }
 
 

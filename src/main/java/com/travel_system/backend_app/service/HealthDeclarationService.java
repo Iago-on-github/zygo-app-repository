@@ -88,7 +88,7 @@ public class HealthDeclarationService {
      * - "sem condições" exige lista vazia; "com condições" exige ao menos uma
      * */
     private HealthDeclarationResponseDTO declare(HealthAccessContext context, HealthDeclarationRequestDTO dto) {
-        HealthOwner owner = context.dtoOwner();
+        OwnerBuilt owner = context.dtoOwner();
 
         requireActiveConsent(owner);
 
@@ -213,7 +213,7 @@ public class HealthDeclarationService {
      * atualiza a declaração existente
      * */
     private HealthDeclarationResponseDTO update(HealthAccessContext context, UUID conditionId, HealthConditionUpdateDTO dto) {
-        HealthOwner owner = context.dtoOwner();
+        OwnerBuilt owner = context.dtoOwner();
 
         HealthDeclaration declaration = loadForChange(owner);
 
@@ -241,7 +241,7 @@ public class HealthDeclarationService {
     * adiciona mais condições na declaração
     * */
     private HealthDeclarationResponseDTO addCondition(HealthAccessContext context, HealthConditionRequestDTO dto) {
-        HealthOwner owner = context.dtoOwner();
+        OwnerBuilt owner = context.dtoOwner();
 
         HealthDeclaration healthDeclaration = loadForChange(owner);
 
@@ -265,7 +265,7 @@ public class HealthDeclarationService {
     * remove uma condição da declaração
     * */
     private HealthDeclarationResponseDTO removeCondition(HealthAccessContext context, UUID conditionId) {
-        HealthOwner owner = context.dtoOwner();
+        OwnerBuilt owner = context.dtoOwner();
 
         HealthDeclaration declaration = loadForChange(owner);
 
@@ -297,7 +297,7 @@ public class HealthDeclarationService {
         return healthDeclarationResponseMapper.toDTO(savedDeclaration);
     }
 
-    private HealthDeclaration loadForChange(HealthOwner owner) {
+    private HealthDeclaration loadForChange(OwnerBuilt owner) {
         requireActiveConsent(owner);
 
         // busca com lock e evita alterações concorrentes na mesma declaração
@@ -325,7 +325,7 @@ public class HealthDeclarationService {
      * - idempotente: se já estiver vigente no período atual, apenas retorna a declaração
      * */
     private HealthDeclarationResponseDTO confirmUnchanged(HealthAccessContext context) {
-        HealthOwner owner = context.dtoOwner();
+        OwnerBuilt owner = context.dtoOwner();
 
         // sem consentimento ativo nenhum dado de saúde pode ser revalidado
         requireActiveConsent(owner);
@@ -361,7 +361,7 @@ public class HealthDeclarationService {
     }
 
     // sem consentimento ativo nenhum dado de saúde pode ser criado ou alterado
-    private void requireActiveConsent(HealthOwner owner) {
+    private void requireActiveConsent(OwnerBuilt owner) {
         if (!healthConsentService.hasActiveConsent(owner.id())) {
             throw new HealthConsentRequiredException("É necessário aceitar o termo de consentimento antes de continuar");
         }
@@ -372,17 +372,17 @@ public class HealthDeclarationService {
     }
 
     // publica o evento para notificar o administrador sobre condições novas ou alteradas
-    private void publishConditionChanged(HealthDeclaration declaration, HealthOwner owner) {
+    private void publishConditionChanged(HealthDeclaration declaration, OwnerBuilt owner) {
         eventPublisher.publishEvent(new HealthConditionChangedEvent(
                 declaration.getId(), owner.id(), declaration.isHasCondition(),
                 declaration.getDeclaredBy(), declaration.getCustomerId()));
     }
 
     // monta o dono a partir da declaração
-    private HealthOwner ownerOf(HealthDeclaration declaration) {
+    private OwnerBuilt ownerOf(HealthDeclaration declaration) {
         return declaration.getStudentId() != null
-                ? new HealthOwner(OwnerType.STUDENT, declaration.getStudentId())
-                : new HealthOwner(OwnerType.DRIVER, declaration.getDriverId());
+                ? new OwnerBuilt(OwnerType.STUDENT, declaration.getStudentId())
+                : new OwnerBuilt(OwnerType.DRIVER, declaration.getDriverId());
     }
 
     // compara períodos pelo id

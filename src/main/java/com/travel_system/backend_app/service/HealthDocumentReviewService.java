@@ -9,7 +9,7 @@ import com.travel_system.backend_app.interfaces.PrivateStorageService;
 import com.travel_system.backend_app.interfaces.mappers.response.DocumentResponseMapper;
 import com.travel_system.backend_app.model.Document;
 import com.travel_system.backend_app.model.dtos.request.DocumentRejectDTO;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.DocumentDownloadResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
 import com.travel_system.backend_app.model.enums.Action;
@@ -84,11 +84,11 @@ public class HealthDocumentReviewService {
         // gera url
         String url = privateStorageService.generateDownloadUrl(document.getStorageKey(), document.getOriginalFilename());
 
-        HealthOwner owner;
+        OwnerBuilt owner;
         if (document.getStudentId() != null) {
-            owner = new HealthOwner(OwnerType.STUDENT, document.getStudentId());
+            owner = new OwnerBuilt(OwnerType.STUDENT, document.getStudentId());
         } else {
-            owner = new HealthOwner(OwnerType.DRIVER, document.getDriverId());
+            owner = new OwnerBuilt(OwnerType.DRIVER, document.getDriverId());
         }
 
         // registra acesso de dado sensível
@@ -125,7 +125,7 @@ public class HealthDocumentReviewService {
         documentRepository.save(document);
 
         // publica evento para notificações
-        HealthOwner owner = toOwner(document);
+        OwnerBuilt owner = toOwner(document);
 
         HealthDocumentApprovedEvent healthDocumentApprovedEvent = new HealthDocumentApprovedEvent(document.getId(), document.getCustomerId(), owner, adminId, reviewedAt, document.getValidUntil());
 
@@ -157,7 +157,7 @@ public class HealthDocumentReviewService {
         documentRepository.save(document);
 
         // publica evento para notificações
-        HealthOwner owner = toOwner(document);
+        OwnerBuilt owner = toOwner(document);
 
         HealthDocumentRejectedEvent healthDocumentRejectedEvent = new HealthDocumentRejectedEvent(documentId, document.getCustomerId(), owner, adminId, reviewedAt);
 
@@ -171,10 +171,10 @@ public class HealthDocumentReviewService {
         eventPublisher.publishEvent(documentFilesDeletionRequestedEvent);
     }
 
-    private HealthOwner toOwner(Document document) {
+    private OwnerBuilt toOwner(Document document) {
         return document.getStudentId() != null
-                ? new HealthOwner(OwnerType.STUDENT, document.getStudentId())
-                : new HealthOwner(OwnerType.DRIVER, document.getDriverId());
+                ? new OwnerBuilt(OwnerType.STUDENT, document.getStudentId())
+                : new OwnerBuilt(OwnerType.DRIVER, document.getDriverId());
     }
 
     private LocalDate today() {

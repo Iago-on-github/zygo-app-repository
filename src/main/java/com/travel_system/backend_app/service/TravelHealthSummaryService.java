@@ -2,7 +2,7 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.interfaces.StudentEmergencyContactView;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.EmergencyContactDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthConditionSummaryDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentHealthSummaryDTO;
@@ -134,7 +134,7 @@ public class TravelHealthSummaryService {
             ));
 
             // ator = conta do motorista; recurso = declaração exibida (REQUIRES_NEW, sobrevive ao readOnly)
-            sensitiveDataAccessLogService.record(actorAccountId, new HealthOwner(OwnerType.STUDENT, student.getId()), ResourceType.HEALTH_DECLARATION, declaration.getId(), Action.VIEW, travel.getId());
+            sensitiveDataAccessLogService.record(actorAccountId, new OwnerBuilt(OwnerType.STUDENT, student.getId()), ResourceType.HEALTH_DECLARATION, declaration.getId(), Action.VIEW, travel.getId());
         }
 
         return summaries;

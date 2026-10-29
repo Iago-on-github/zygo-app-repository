@@ -13,7 +13,7 @@ import com.travel_system.backend_app.interfaces.mappers.response.DocumentRespons
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.request.DocumentUploadRequest;
 import com.travel_system.backend_app.model.dtos.request.HealthAccessContext;
-import com.travel_system.backend_app.model.dtos.request.HealthOwner;
+import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.dtos.response.DocumentDownloadResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.ProcessedDocument;
@@ -94,14 +94,14 @@ public class HealthDocumentService {
 
     // fazer upload de documentos de forma autônoma (aluno maior de idade ou motorista)
     public DocumentResponseDTO uploadMine(DocumentUploadRequest request, MultipartFile file) {
-        HealthOwner healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
 
         return uploadHealthDocument(healthOwner, getAuthenticatedUserAccountId(), request, file);
     }
 
     // responsável por um menor de idade realizando o upload por ele
     public DocumentResponseDTO uploadForStudent(UUID studentId, DocumentUploadRequest request, MultipartFile file) {
-        HealthOwner healthOwner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt healthOwner = userProfileResolverService.resolveForResponsible(studentId);
 
         return uploadHealthDocument(healthOwner, getAuthenticatedUserAccountId(), request, file);
     }
@@ -154,7 +154,7 @@ public class HealthDocumentService {
      * - REPLACED e EXPIRED ficam fora da listagem padrão
      * - documentos de matrícula (ENROLLMENT) nunca aparecem aqui
      * */
-    private List<DocumentResponseDTO> listByOwner(HealthOwner owner, List<DocumentStatus> statuses) {
+    private List<DocumentResponseDTO> listByOwner(OwnerBuilt owner, List<DocumentStatus> statuses) {
         List<DocumentStatus> filter = (statuses == null || statuses.isEmpty()) ? DEFAULT_LIST_STATUSES : statuses;
 
         return documentRepository.findByOwnerAndCategoryAndStatusIn(owner.id(), DocumentCategory.HEALTH, filter)
@@ -170,12 +170,12 @@ public class HealthDocumentService {
 
     /*
      *  responsável pelo upload completo de um documento:
-     * - o dono (HealthOwner) já chega resolvido e validado
+     * - o dono (OwnerBuilt) já chega resolvido e validado
      * - validações e processamento (antivírus) acontecem FORA de transação
      * - somente a gravação no banco é transacional (TransactionTemplate)
      * - se o banco falhar, o arquivo já enviado ao storage é removido (compensação)
      * */
-    private DocumentResponseDTO uploadHealthDocument(HealthOwner owner, UUID actorAccountId, DocumentUploadRequest request, MultipartFile file) {
+    private DocumentResponseDTO uploadHealthDocument(OwnerBuilt owner, UUID actorAccountId, DocumentUploadRequest request, MultipartFile file) {
         UUID customerId = TenantContext.getCurrentTenant();
 
         // valida condição, compatibilidade do tipo, validade e limite do plano
@@ -205,7 +205,7 @@ public class HealthDocumentService {
      * - salva o novo documento como PENDING_REVIEW
      * - publica os eventos (executados somente após o commit)
      * */
-    private Document persist(HealthOwner owner, UUID actorAccountId, DocumentUploadRequest request, HealthCondition condition, ProcessedDocument processed, String storageKey, String originalFilename, UUID customerId) {
+    private Document persist(OwnerBuilt owner, UUID actorAccountId, DocumentUploadRequest request, HealthCondition condition, ProcessedDocument processed, String storageKey, String originalFilename, UUID customerId) {
 
         List<String> keysToDelete = new ArrayList<>();
 
@@ -263,7 +263,7 @@ public class HealthDocumentService {
      * - validade obrigatória para tipos que vencem, e sempre no futuro
      * - limite de documentos ativos do plano
      * */
-    private HealthCondition validateUpload(HealthOwner owner, DocumentUploadRequest request, UUID customerId) {
+    private HealthCondition validateUpload(OwnerBuilt owner, DocumentUploadRequest request, UUID customerId) {
         HealthCondition condition = healthConditionRepository.findByIdInDeclarationWithStatus(request.healthConditionId(), HealthDeclarationStatus.CURRENT)
                 .filter(c -> belongsTo(c.getDeclaration(), owner))
                 .orElseThrow(() -> new EntityNotFoundException("Condição não encontrada"));
@@ -298,7 +298,7 @@ public class HealthDocumentService {
      * verifica o limite de documentos de saúde ativos por dono conforme o plano do Customer
      * - documentos de matrícula (ENROLLMENT) não contam: são temporários e apagados após a revisão
      * */
-    private void validatePlanLimit(HealthOwner owner, UUID customerId) {
+    private void validatePlanLimit(OwnerBuilt owner, UUID customerId) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new EntityNotFoundException("Customer não encontrado"));
 
@@ -309,14 +309,13 @@ public class HealthDocumentService {
         }
     }
     // confere se a declaração pertence ao dono informado
-    private boolean belongsTo(HealthDeclaration declaration, HealthOwner owner) {
+    private boolean belongsTo(HealthDeclaration declaration, OwnerBuilt owner) {
         return owner.type() == OwnerType.STUDENT
                 ? owner.id().equals(declaration.getStudentId())
                 : owner.id().equals(declaration.getDriverId());
     }
 
-    // chave única por arquivo: nunca sobrescreve um documento existente
-    private String generateKey(UUID customerId, HealthOwner owner) {
+    private String generateKey(UUID customerId, OwnerBuilt owner) {
         String ownerFolder = owner.type() == OwnerType.STUDENT ? "students" : "drivers";
 
         return "customers/" + customerId
