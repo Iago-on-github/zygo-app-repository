@@ -9,6 +9,7 @@ import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
 import com.travel_system.backend_app.model.enums.DocumentCategory;
 import com.travel_system.backend_app.model.enums.DocumentStatus;
 import com.travel_system.backend_app.model.enums.DocumentType;
+import com.travel_system.backend_app.projections.RequestDocumentCountView;
 import jakarta.persistence.LockModeType;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
@@ -121,4 +122,11 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     @Query("SELECT d FROM Document d WHERE d.studentId = :ownerId OR d.driverId = :ownerId AND d.documentCategory = :documentCategory")
     List<Document> findAllByCategoryAndOwnerId(@Param("ownerId") UUID ownerId, @Param("documentCategory") DocumentCategory documentCategory);
-}
+
+    @Query("""
+        SELECT d.registrationRequestId AS requestId, COUNT(d) AS total
+        FROM Document d
+        WHERE d.registrationRequestId IN :requestIds
+        GROUP BY d.registrationRequestId
+        """)
+    List<RequestDocumentCountView> countByRegistrationRequestIds(@Param("requestIds") Collection<UUID> requestIds);}

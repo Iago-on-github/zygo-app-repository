@@ -1,78 +1,260 @@
-Relatórios do admin
+Testes pendentes insomnia:
+- registrationReport (X)
 
-Objetivo geral: dar à secretaria a visão antecipada que motivou a matrícula: quantas pessoas vão para onde, em que turno e por qual rota, para dimensionar ônibus e rotas. E também uma visão de quem precisa de atenção (quem está para perder o acesso, quem está esperando análise).
+------------------------------
 
-Regras comuns:
+O QUE JÁ TEMOS:
 
-só o admin ativo do próprio Customer;
-consultas JPQL na requisição (o filtro de tenant se aplica); passar o customerId explicitamente é um reforço;
-as contagens não expõem dados sensíveis e não precisam de log de acesso; as listas mostram só nome, número e datas, também sem log;
-os índices que já existem (customer_id, status, customer_term_id e target_term_id, status) atendem essas consultas.
-1. Resumo geral (painel)
+- TRAVEL:
+ - create new travel
+ - start travel
+ - schedule travel
+ - end travel
+ - join student on travel
+ - driver change
+ - cancel travel
+ - leave (student) travel
+ - get active travel by student
+ - get travel standard route
+ - get travel preview
 
-O que faz: devolve os números do topo da tela de matrículas.
+  - [TRACKING]:
+    - mark driver checkpoint
+    - get driver position
+    - get travel history (+/-)
 
-Indicador	Significado	Como calcular
-Ativas	Matrículas em dia	ACTIVE com term.endTerm ≥ hoje
-Em carência	Vencidas, mas ainda com acesso	ACTIVE com term.endTerm < hoje e term.endTerm ≥ hoje − carência
-Pendentes	Começaram a matrícula e ainda não foram aprovadas	PENDING
-Encerradas	Perderam o acesso por não renovar	CLOSED
-Em análise	Tamanho da fila	Solicitações em UNDER_REVIEW
-Renovações pendentes	Podem renovar e ainda não enviaram	ACTIVE com a janela aberta (term.endTerm − janela ≤ hoje) e sem solicitação em UNDER_REVIEW
+  - [LOCATION]:
+    - student position
 
-Por que existe: em uma tela, o admin vê se a renovação está andando e se a fila está acumulando.
+  - [STANDARD ROUTE]:
+    - create
+    - update
+    - get all/byId/customerId
+    - update route stop points
+    - get standard route stop points by status
 
-Como fazer:
+  - [ROUTE STOP ASSIGNMENT]:
+    - reorder route stops
+    - remove route stop with standard route
+    - associate route stop with standard route
 
-as datas-limite são calculadas no Java e passadas como parâmetros (hoje, hoje − carência, hoje + janela). Assim, as consultas JPQL não precisam de aritmética de datas, que o JPQL lida mal;
-cada indicador é um COUNT. São seis consultas pequenas, ou uma consulta agrupada por status mais duas específicas;
-o resultado é um DTO único, por exemplo RegistrationSummaryDTO.
-2. Distribuição por período (o relatório principal)
+  - [ROUTE STOP]:
+    - create
+    - update data/status
+    - get by name/id
 
-O que faz: mostra para onde vão as pessoas matriculadas em um período.
+  - [STUDENT ROUTE STOP]:
+    - add students to route stop
+    - update student route stops
+    - get student route stops
+    - remove student to route stop
+    - get student route stop by period and standard route
 
-Por que existe: é o planejamento do transporte. “15 alunos vão para a instituição X, que fica na rota A: um ônibus resolve. 70 vão para a instituição H, na rota B: é preciso mais de um.”
+  - [TRAVEL HEALTH SUMMARY]:
+    - get current summary
 
-Entrada: o id do período. O padrão é o vigente.
+- ESPAÇO:
+ - get plan usage
+ - get my customer
+ - get customer info
+ - update my contact
+ - delete/update customer profile picture
+ - update my settings
 
-Fonte dos dados: as solicitações aprovadas do tipo INITIAL ou RENEWAL com targetTerm igual ao período. Cada matrícula tem uma dessas por período, e ela guarda a cópia da instituição, do curso e dos turnos de quando foi aprovada. Os UPDATE ficam de fora, para não contar a mesma pessoa duas vezes.
+  - [PLATFORM CUSTOMER]:
+    - get all
+    - find by id/slug
+    - create
+    - update
+    - update plan
+    - update status
 
-Agrupamentos (cada um é uma consulta JPQL com GROUP BY que devolve uma projeção com a chave e a quantidade):
+  - [CALENDAR AND HOLIDAYS]:
+    - get all
+    - create
+    - update
+    - delete
 
-Agrupamento	O que mostra	Como
-Instituição e curso	Quantos alunos vão para cada instituição e curso	Junção do institutionCourseId com a tabela de cursos e instituições, para pegar os nomes; agrupar por instituição e curso
-Turno	Quantos alunos por turno	Junção com a tabela de turnos da solicitação. Um aluno com dois turnos conta nos dois, e a tela precisa explicar isso
-Instituição × turno	O cruzamento mais útil (“noturno da instituição X: 45 alunos”)	As duas junções e o GROUP BY pelas duas chaves
-Rota	Quantos alunos por rota	Junção com o StudentRouteStopAssignment atual do aluno (a rota não está na cópia), agrupando pela rota
-Motoristas	Total de motoristas matriculados no período	Contagem simples, porque motorista não tem instituição nem turno
+  - [CUSTOMER TERM]:
+    - get current term
+    - get all customer terms
+    - create
+    - update
+    - delete
 
-Detalhes:
+- PLATFORM ADMINISTRATOR:
+ - create platform admin
+ - create first platform admin
 
-A rota é a atual, e não a da época da aprovação, porque ela não faz parte da cópia. Para o planejamento do período vigente, isso é o desejado. Para um período antigo, a rota pode estar desatualizada, e a tela deve deixar isso claro.
-Um período antigo continua contando quem foi aprovado para ele, mesmo que depois a matrícula tenha sido encerrada. É o retrato daquele período.
-Resposta: um DTO com uma lista para cada agrupamento, ou um endpoint por agrupamento, se o front preferir carregar cada gráfico separadamente.
-3. Listas para ação
+  - [SENSITIVE OPERATIONS]:
+    - review
+    - approved
+    - execute
+    - reject
 
-O que faz: listas paginadas de pessoas que precisam de atenção, com nome, tipo (aluno ou motorista), número da matrícula e a data relevante.
+- CITY:
+ - get all/byId/byStatus
+ - create
+ - remove customer
+ - update status
 
-Por que existe: o resumo diz quantos, e a lista diz quem, para o admin entrar em contato.
+- CNH:
+ - get all cnh
+ - get cnh by id
+ - get cnh by number
+ - update cnh
 
-Lista	Quem aparece	Ordenação	Como filtrar
-Em carência	Vencidas e ainda com acesso	Pelo fim da carência (quem perde o acesso primeiro)	ACTIVE com term.endTerm entre hoje − carência e hoje − 1
-Bloqueio próximo	Dentro do prazo do aviso de bloqueio	Pelo fim da carência	ACTIVE com term.endTerm entre hoje − carência e hoje − carência + aviso
-Matrículas paradas	Começaram e não enviaram há mais de X dias	Pela data de início	PENDING cuja INITIAL está em DRAFT, criada antes de hoje − X
+- INSTITUTIONS:
+ - get all
+ - get by id/students/courses
+ - create
+ - update
+ - add/remove course
+ - update status
 
-Como fazer:
+- VEHICLE:
+ - get all
+ - get by id
+ - create
+ - update
+ - update status
+ - update vehicle picture
+ - delete
 
-De novo, as datas-limite são calculadas no Java, e a consulta compara só o term.endTerm. Assim, a paginação é feita pelo banco, mesmo para estados calculados, como a carência;
-os nomes vêm das buscas em lote de alunos e motoristas, como na fila de análise;
-as matrículas com uma renovação em UNDER_REVIEW devem aparecer marcadas (“renovação em análise”), porque elas não vão ser bloqueadas. Para isso, busque em lote as solicitações abertas da página (findOpenByRegistrationIds).
-4. Componentes
-RegistrationReportService, com quatro métodos públicos: getSummary(), getDistribution(termId), listInGrace(pageable), listBlockingSoon(pageable) e listStalled(pageable). Todos com @Transactional(readOnly = true).
-Projeções (interfaces ou records) para os agrupamentos: chave (ou chaves) e quantidade.
-Consultas novas no TransportRegistrationRepository e no RegistrationRequestRepository. Todas recebem as datas como parâmetros.
-DTOs: RegistrationSummaryDTO, RegistrationDistributionDTO e um item de lista (nome, tipo, número, data e a marca “renovação em análise”).
-Endpoints, em /v1/admin/registrations/reports:
-GET /summary;
-GET /distribution?termId=;
-GET /grace, GET /blocking-soon e GET /stalled, paginados.
+- DOCUMENTS:
+ - [DOCUMENT REVIEW]:
+    - list pending documents
+    - find documents by owner
+    - approve document
+    - reject document
+
+  - [MINOR STUDENT]:
+    - get student documents
+    - download for student
+    - upload for student
+
+  - [STUDENTS AND DRIVERS]:
+    - my documents
+    - upload mine
+    - download mine
+
+- HEALTH CONSENT
+ - get current term
+
+ - [MINOR STUDENTS]:
+    - register minor student consent
+    - revoke minor student consent
+    - get minor student consent
+
+ - [STUDENT AND DRIVER]:
+    - get my consent
+    - register my consent
+    - revoke my consent
+
+- HEALTH DECLARATION:
+ - [ADMIN]:
+    - get declaration by id
+
+ - [MINOR STUDENT]:
+    - minor student declaration
+    - confirm unchanged for student
+    - update minor student declaration
+    - add minor student condition
+    - remove minor student condition
+    - get minor student declaration
+
+ - [STUDENT AND DRIVER]:
+    - my declaration
+    - update my declaration
+    - remove condition
+    - add conditions
+    - confirm unchanged mine
+    - get my current declaration
+
+- HEALTH PENDING ITEMS:
+ - [ADMIN]:
+    - get owner pending items
+
+ - [MINOR STUDENT]:
+    - get student pending items
+
+ - [STUDENT AND DRIVER]:
+    - get my pending items
+
+- TRANSPORT REGISTRATION:
+ - [MINOR STUDENT]:
+    - consult for student
+    - start registration for student
+    - upload document for student
+    - upload student photo (3x4)
+    - submit for student
+    - cancel for student
+    - start renewal for student
+    - start update for student
+    - resubmit for student
+
+  - [STUDENT AND DRIVER]:
+    - consult mine
+    - start mine registration
+    - save mine draft
+    - upload document
+    - upload mine photo (3x4)
+    - submit mine
+    - cancel mine
+    - start renewal mine
+    - start update mine
+    - resubmit mine
+
+- TRANSPORT REGSTRATION REVIEW:
+ - review queue
+ - get request detail
+ - download request document
+ - get request photo
+ - approve
+ - reject
+
+- ADMIN REGISTRATION REPORT:
+ - get registration summary
+ - get distribution by term
+ - list in grace
+ - list stalled
+
+- ADMINISTRATOR:
+ - get all/status/current
+ - update current
+ - update status
+
+-
+
+- AUTH:
+    - register new acc
+    - verify email/resend verification email
+    - signing
+
+  - [RABBITMQ]:
+    - authenticate messaging/vhost/resource/topic
+
+ - set-up auth (p/ operaões "insira sua senha novamente" para continuar)
+
+  - [INVITATIONS]:
+    - list my pending invitations
+    - resend invitations
+    - send/accept invitation p/ cada tipo de entidade de domínio
+
+-------------------------------
+
+O QUE AINDA FALTA FAZER (ESSENCIAL, NÃO PODE FALTAR)
+O QUE AINDA FALTA FAZER (IMPORTANTE, MAS PODE SER ACRESCENTADO DPS)
+O QUE PRIORIZAR PRIMEIRO
+
+------------------------------
+
+PENDÊNCIAS DA MINHA PARTE PARA COM A API
+- FALTA FAZER DOCUMENTAÇÃO NO SWAGGER ()
+- FALTA FAZER ENDPOINT DE CADASTRO DE CONFIGURAÇÕES CUSTOMIZADAS PARA O ADMIN NO CUSTOMER ()
+- FALTA FAZER OS TESTES UNITÁRIOS E DE INTEGRAÇÃO ()
+- FALTA FAZER OS TESTES DAS NOTIFICAÇÕES DO FIREBASE ()
+- FALTA FAZER ALGUMAS PARTES DO AUTH (como 2fa, pass recovery) ()
+- FALTA FAZER A PARTE DE CUSTOMIZATIONS (so tem pronta a entidade) ()
+- FALTA AINDA AJUSTAR, NO INSOMNIA, O MAPEAMENTO DAS ENTIDADES DE DOMÍNIO REMOVENDO OS ENDPOINTS DEPRECIADOS ()
+- FALTA FAZER OS MÉTODOS DE DELETAR CONTA PARA AS ENTIDADES DE DOMÍNIO ()

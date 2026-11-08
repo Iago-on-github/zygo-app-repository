@@ -64,4 +64,5 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     @Query("SELECT c.id FROM Customer c")
     List<UUID> findAllIds();
+
 }

@@ -63,14 +63,11 @@ public class DriverController {
         return ResponseEntity.ok(driverService.getDriverByCnhNumber(dto));
     }
 
-    // ex.: /v1/drivers/cnh-expiring?categories=D&categories=E&thresholdDate=2026-12-31
     @GetMapping("/cnh-expiring")
     public ResponseEntity<List<DriverCnhExpirationDTO>> getDriversWithCnhExpiringSoon(@RequestParam Set<CnhCategory> cnhCategories, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate thresholdDate) {
 
         // sem categorias informadas: considera todas
-        Set<CnhCategory> categories = (cnhCategories == null || cnhCategories.isEmpty())
-                ? EnumSet.allOf(CnhCategory.class)
-                : cnhCategories;
+        Set<CnhCategory> categories = (cnhCategories == null || cnhCategories.isEmpty()) ? EnumSet.allOf(CnhCategory.class) : cnhCategories;
 
         return ResponseEntity.ok(driverService.getDriversWithCnhExpiringSoon(categories, thresholdDate));
     }

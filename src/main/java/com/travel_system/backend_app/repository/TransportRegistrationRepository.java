@@ -4,11 +4,9 @@ import com.travel_system.backend_app.model.TransportRegistration;
 import com.travel_system.backend_app.model.enums.RegistrationRequestStatus;
 import com.travel_system.backend_app.model.enums.RegistrationRequestType;
 import com.travel_system.backend_app.model.enums.TransportRegistrationStatus;
-import com.travel_system.backend_app.projections.ActiveRangeCountView;
-import com.travel_system.backend_app.projections.RenewalProgressView;
-import com.travel_system.backend_app.projections.StatusCountView;
-import com.travel_system.backend_app.projections.TermEndCountView;
+import com.travel_system.backend_app.projections.*;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -130,4 +128,37 @@ public interface TransportRegistrationRepository extends JpaRepository<Transport
                                                            @Param("windowLimit") LocalDate windowLimit,
                                                            @Param("graceLimit") LocalDate graceLimit,
                                                            @Param("active") TransportRegistrationStatus active);
-}
+
+    /*
+     * matrículas ACTIVE em carência (período terminado, carência não esgotada)
+     * - blockingSoonLimit restringe ao prazo do aviso de bloqueio; sem o filtro, recebe "today" (não restringe nada a mais)
+     * - ordem fixa: quem perde o acesso primeiro aparece no topo
+     * */
+    @Query(value = """
+        SELECT r.id AS registrationId, r.studentId AS studentId, r.driverId AS driverId,
+               r.registrationNumber AS registrationNumber, t.endTerm AS termEnd
+        FROM TransportRegistration r
+        JOIN r.customerTerm t
+        WHERE r.customerId = :customerId
+          AND r.status = :active
+          AND t.endTerm >= :graceLimit
+          AND t.endTerm < :today
+          AND t.endTerm <= :blockingSoonLimit
+        ORDER BY t.endTerm ASC
+        """,
+            countQuery = """
+        SELECT COUNT(r)
+        FROM TransportRegistration r
+        JOIN r.customerTerm t
+        WHERE r.customerId = :customerId
+          AND r.status = :active
+          AND t.endTerm >= :graceLimit
+          AND t.endTerm < :today
+          AND t.endTerm <= :blockingSoonLimit
+        """)
+    Page<GraceRegistrationView> findInGrace(@Param("customerId") UUID customerId,
+                                            @Param("active") TransportRegistrationStatus active,
+                                            @Param("graceLimit") LocalDate graceLimit,
+                                            @Param("today") LocalDate today,
+                                            @Param("blockingSoonLimit") LocalDate blockingSoonLimit,
+                                            Pageable pageable);}

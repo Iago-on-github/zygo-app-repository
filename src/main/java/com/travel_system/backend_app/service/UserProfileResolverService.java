@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
@@ -143,6 +145,29 @@ public class UserProfileResolverService {
         }
 
         return new OwnerBuilt(OwnerType.STUDENT, student.getId());
+    }
+
+    // devolve um mapa id do perfil → nome completo (ids de alunos e motoristas nunca coincidem)
+    public Map<UUID, String> resolveNames(Collection<UUID> studentIds, Collection<UUID> driverIds) {
+        Map<UUID, String> names = new HashMap<>();
+
+        if (!studentIds.isEmpty()) {
+            studentRepository.findAllById(studentIds)
+                    .forEach(student -> names.put(student.getId(), fullName(student.getName(), student.getLastName())));
+        }
+
+        if (!driverIds.isEmpty()) {
+            driverRepository.findAllById(driverIds)
+                    .forEach(driver -> names.put(driver.getId(), fullName(driver.getName(), driver.getLastName())));
+        }
+
+        return names;
+    }
+
+    private String fullName(String name, String lastName) {
+        return Stream.of(name, lastName)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "));
     }
 
     protected boolean isMinor(LocalDate d1) {

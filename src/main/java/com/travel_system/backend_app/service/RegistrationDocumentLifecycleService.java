@@ -479,7 +479,7 @@ public class RegistrationDocumentLifecycleService {
     }
 
     // configurações do Customer usadas no cálculo das datas
-    private record RegistrationSettings(int gracePeriodDays, int renewalWindowDays, int blockWarningDays) { }
+    protected record RegistrationSettings(int gracePeriodDays, int renewalWindowDays, int blockWarningDays) { }
 
     /*
      * "fotografia" de uma matrícula que representa tudo o que a decisão precisa, sem entidades

@@ -8,6 +8,6 @@ import java.util.UUID;
 public interface InstitutionShiftCountView {
     UUID getInstitutionId();
     String getInstitutionName();
-    List<Shift> getShifts();
+    Shift getShifts();
     long getTotal();
 }
