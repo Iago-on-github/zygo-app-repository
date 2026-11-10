@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.jobs;
 
+import com.travel_system.backend_app.config.constants.SchedulerConstraints;
 import com.travel_system.backend_app.model.PendingDocsExclusions;
 import com.travel_system.backend_app.repository.PendingDocsExclusionsRepository;
 import com.travel_system.backend_app.service.S3PrivateStorageService;
@@ -26,7 +27,7 @@ public class ObjectStorageJobs {
         this.privateStorageService = privateStorageService;
     }
 
-    @Scheduled(initialDelay = 5, fixedDelay = 60, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(initialDelay = 5, fixedDelay = 60, timeUnit = TimeUnit.MINUTES, zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void retryPendingDocsDeletions() {
         for (PendingDocsExclusions pending : pendingDocsExclusionsRepository.findAllByAttemptsLessThan(MAX_ATTEMPTS)) {
 

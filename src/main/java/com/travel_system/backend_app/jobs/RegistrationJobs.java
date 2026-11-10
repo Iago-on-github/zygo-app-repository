@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.jobs;
 
+import com.travel_system.backend_app.config.constants.SchedulerConstraints;
 import com.travel_system.backend_app.repository.RegistrationRequestRepository;
 import com.travel_system.backend_app.service.RegistrationDocumentLifecycleService;
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ public class RegistrationJobs {
         this.registrationDocumentLifecycleService = registrationDocumentLifecycleService;
     }
 
-    @Scheduled(cron = "0 15 8 * * *", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 15 8 * * *", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void processRegistrationsLifecycle() {
         try {
             registrationDocumentLifecycleService.processRegistrations();
@@ -31,7 +32,7 @@ public class RegistrationJobs {
 
 
     // fora do horário de uso do app (madrugada)
-    @Scheduled(cron = "0 30 3 * * *", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 30 3 * * *", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void runDailyRegistrationJobs() {
         try {
             registrationDocumentLifecycleService.cancelAbandonedDrafts();

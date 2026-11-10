@@ -47,6 +47,7 @@ public class HealthDocumentService {
     private final CustomerRepository customerRepository;
     private final HealthConditionRepository healthConditionRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final PrivateStorageService privateStorageService;
     private final UserProfileResolverService userProfileResolverService;
     private final DocumentPersistenceService documentPersistenceService;
@@ -65,12 +66,13 @@ public class HealthDocumentService {
     // tipos de documento que exigem data de validade
     private static final Set<DocumentType> TYPES_REQUIRING_VALIDITY = EnumSet.of(DocumentType.PRESCRIPTION, DocumentType.MEDICAL_REPORT);
 
-    public HealthDocumentService(DocumentStorageProperties documentStorageProperties, UserAccountRepository userAccountRepository, DocumentRepository documentRepository, ResponsibleAdultRepository responsibleAdultRepository, CustomerRepository customerRepository, HealthConditionRepository healthConditionRepository, PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, DocumentPersistenceService documentPersistenceService, DocumentProcessingService documentProcessingService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentResponseMapper documentResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthDocumentService(DocumentStorageProperties documentStorageProperties, UserAccountRepository userAccountRepository, DocumentRepository documentRepository, ResponsibleAdultRepository responsibleAdultRepository, CustomerRepository customerRepository, HealthConditionRepository healthConditionRepository, CustomerTimeService customerTimeService, PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, DocumentPersistenceService documentPersistenceService, DocumentProcessingService documentProcessingService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentResponseMapper documentResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.documentStorageProperties = documentStorageProperties;
         this.userAccountRepository = userAccountRepository;
         this.documentRepository = documentRepository;
         this.customerRepository = customerRepository;
         this.healthConditionRepository = healthConditionRepository;
+        this.customerTimeService = customerTimeService;
         this.privateStorageService = privateStorageService;
         this.userProfileResolverService = userProfileResolverService;
         this.documentPersistenceService = documentPersistenceService;
@@ -133,7 +135,7 @@ public class HealthDocumentService {
         // registra acesso de dado sensível
         sensitiveDataAccessLogService.record(context.actorAccountId(), context.dtoOwner(), ResourceType.DOCUMENT, documentId, Action.DOWNLOAD, null);
 
-        return new DocumentDownloadResponseDTO(url, Instant.now().plus(documentStorageProperties.getDownloadUrlTtl()));
+        return new DocumentDownloadResponseDTO(url, customerTimeService.instant().plus(documentStorageProperties.getDownloadUrlTtl()));
     }
 
     private UUID getAuthenticatedUserAccountId() {
@@ -276,7 +278,7 @@ public class HealthDocumentService {
         if (TYPES_REQUIRING_VALIDITY.contains(request.documentType()) && validUntil == null) {
             throw new DocumentValidationException("A data de validade é obrigatória para esse tipo de documento");
         }
-        if (validUntil != null && !validUntil.isAfter(LocalDate.now())) {
+        if (validUntil != null && !validUntil.isAfter(customerTimeService.today())) {
             throw new DocumentValidationException("A data de validade deve ser futura");
         }
 

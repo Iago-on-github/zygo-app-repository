@@ -31,14 +31,16 @@ public class SensitiveOperationApprovalService {
 
     private final SensitiveOperationRepository sensitiveOperationRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final SensitiveOperationExecutionService sensitiveOperationExecutionService;
     private final ApprovalAuthorizationService approvalAuthorizationService;
 
     @Value("${secret.hash.token-key}")
     private String secretHashTokenKey;
 
-    public SensitiveOperationApprovalService(SensitiveOperationRepository sensitiveOperationRepository, SensitiveOperationExecutionService sensitiveOperationExecutionService, ApprovalAuthorizationService approvalAuthorizationService) {
+    public SensitiveOperationApprovalService(SensitiveOperationRepository sensitiveOperationRepository, CustomerTimeService customerTimeService, SensitiveOperationExecutionService sensitiveOperationExecutionService, ApprovalAuthorizationService approvalAuthorizationService) {
         this.sensitiveOperationRepository = sensitiveOperationRepository;
+        this.customerTimeService = customerTimeService;
         this.sensitiveOperationExecutionService = sensitiveOperationExecutionService;
         this.approvalAuthorizationService = approvalAuthorizationService;
     }
@@ -63,7 +65,7 @@ public class SensitiveOperationApprovalService {
          * obs.: a marcação como EXPIRED é feita pelo job agendado através de update em lote
          * obs.: getExpiresAt é calculado com base na constante, por isso nao é necessário comparar dnv
          * */
-        if (sensitiveOperation.getExpiresAt().isBefore(Instant.now())) {
+        if (sensitiveOperation.getExpiresAt().isBefore(instant())) {
             throw new ResourceGoneException("Recurso expirado");
         }
 
@@ -97,7 +99,7 @@ public class SensitiveOperationApprovalService {
          * obs.: a marcação como EXPIRED é feita pelo job agendado através de update em lote
          * obs.: getExpiresAt é calculado com base na constante, por isso nao é necessário comparar dnv
          * */
-        if (sensitiveOperation.getExpiresAt().isBefore(Instant.now())) {
+        if (sensitiveOperation.getExpiresAt().isBefore(instant())) {
             throw new ResourceGoneException("Recurso expirado");
         }
 
@@ -110,7 +112,7 @@ public class SensitiveOperationApprovalService {
         }
 
         sensitiveOperation.setSensitiveOperationStatus(SensitiveOperationStatus.APPROVED);
-        sensitiveOperation.setApprovedAt(Instant.now());
+        sensitiveOperation.setApprovedAt(instant());
 
         SensitiveOperation savedOperation = sensitiveOperationRepository.save(sensitiveOperation);
 
@@ -141,7 +143,7 @@ public class SensitiveOperationApprovalService {
          * obs.: a marcação como EXPIRED é feita pelo job agendado através de update em lote
          * obs.: getExpiresAt é calculado com base na constante, por isso nao é necessário comparar dnv
          * */
-        if (sensitiveOperation.getExpiresAt().isBefore(Instant.now())) {
+        if (sensitiveOperation.getExpiresAt().isBefore(instant())) {
             throw new ResourceGoneException("Recurso expirado");
         }
 
@@ -156,7 +158,7 @@ public class SensitiveOperationApprovalService {
         sensitiveOperationExecutionService.execute(sensitiveOperation);
 
         sensitiveOperation.setSensitiveOperationStatus(SensitiveOperationStatus.EXECUTED);
-        sensitiveOperation.setExecutedAt(Instant.now());
+        sensitiveOperation.setExecutedAt(instant());
 
         // limpa o payload: após a execução ele não é mais necessário e pode conter dados sensíveis (ex.: hash de senha)
         sensitiveOperation.setPayload(null);
@@ -189,7 +191,7 @@ public class SensitiveOperationApprovalService {
          * obs.: a marcação como EXPIRED é feita pelo job agendado através de update em lote
          * obs.: getExpiresAt é calculado com base na constante, por isso nao é necessário comparar dnv
          * */
-        if (sensitiveOperation.getExpiresAt().isBefore(Instant.now())) {
+        if (sensitiveOperation.getExpiresAt().isBefore(instant())) {
             throw new ResourceGoneException("Recurso expirado");
         }
 
@@ -201,7 +203,7 @@ public class SensitiveOperationApprovalService {
         }
 
         sensitiveOperation.setSensitiveOperationStatus(SensitiveOperationStatus.REJECTED);
-        sensitiveOperation.setRejectedAt(Instant.now());
+        sensitiveOperation.setRejectedAt(instant());
 
         // limpa o payload: a operação nunca será executada e ele pode conter dados sensíveis (ex.: hash de senha)
         sensitiveOperation.setPayload(null);
@@ -211,5 +213,9 @@ public class SensitiveOperationApprovalService {
         String message = "Operação Rejeitada com sucesso.";
 
         return new SensitiveOperationResponseDTO(savedOperation.getId(), savedOperation.getSensitiveOperationStatus(), message, savedOperation.getExpiresAt());
+    }
+
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 }

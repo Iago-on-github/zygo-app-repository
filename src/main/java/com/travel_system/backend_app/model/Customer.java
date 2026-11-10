@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 @Table(name = "customer_table")
 @EntityListeners(AuditingEntityListener.class)
 public class Customer {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -67,8 +68,12 @@ public class Customer {
     @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week")
     private Set<DayOfWeek> operatingDays = new HashSet<>();
+
+
     @Column(nullable = false, length = 50)
     private String timeZone = "America/Sao_Paulo";
+    private boolean timeZoneConfirmed = false;
+
 
     @CreatedDate
     private Instant createdAt;
@@ -78,7 +83,7 @@ public class Customer {
     public Customer() {
     }
 
-    public Customer(UUID id, String name, String slug, String legalName, String cnpj, String contactEmail, String contactTelephone, GeneralStatus status, City city, ClientSector clientSector, String logoUrl, Address address, boolean healthDeclarationRequestEnabled, int registrationGracePeriodDays, int registrationRenewalWindowDays, int registrationBlockWarningDays, CustomerPlan plan, Set<Shift> shifts, Set<DayOfWeek> operatingDays, String timeZone, Instant createdAt, Instant updatedAt) {
+    public Customer(UUID id, String name, String slug, String legalName, String cnpj, String contactEmail, String contactTelephone, GeneralStatus status, City city, ClientSector clientSector, String logoUrl, Address address, boolean healthDeclarationRequestEnabled, int registrationGracePeriodDays, int registrationRenewalWindowDays, int registrationBlockWarningDays, CustomerPlan plan, Set<Shift> shifts, Set<DayOfWeek> operatingDays, String timeZone, boolean timeZoneConfirmed, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.slug = slug;
@@ -99,6 +104,7 @@ public class Customer {
         this.shifts = shifts;
         this.operatingDays = operatingDays;
         this.timeZone = timeZone;
+        this.timeZoneConfirmed = timeZoneConfirmed;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -257,6 +263,14 @@ public class Customer {
 
     public String getTimeZone() {
         return timeZone;
+    }
+
+    public boolean isTimeZoneConfirmed() {
+        return timeZoneConfirmed;
+    }
+
+    public void setTimeZoneConfirmed(boolean timeZoneConfirmed) {
+        this.timeZoneConfirmed = timeZoneConfirmed;
     }
 
     public void setTimeZone(String timeZone) {

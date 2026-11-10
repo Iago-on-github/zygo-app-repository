@@ -46,16 +46,18 @@ public class StudentTravelRouteStopService {
     private final RedisTrackingService redisTrackingService;
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
 
+    private final CustomerTimeService customerTimeService;
     private final RedisTemplate<String, String> redisTemplate;
 
     private final ObjectMapper objectMapper;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public StudentTravelRouteStopService(RouteCalculationService routeCalculationService, RedisTrackingService redisTrackingService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
+    public StudentTravelRouteStopService(RouteCalculationService routeCalculationService, RedisTrackingService redisTrackingService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, CustomerTimeService customerTimeService, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.routeCalculationService = routeCalculationService;
         this.redisTrackingService = redisTrackingService;
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
+        this.customerTimeService = customerTimeService;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
@@ -170,7 +172,7 @@ public class StudentTravelRouteStopService {
 
         log.info("[processRouteStopApproach] - processamento realizado com sucesso, publicando no listener");
 
-        ProcessStudentTravelRouteStopApproachingEvent processRouteStopApproachingEvent = new ProcessStudentTravelRouteStopApproachingEvent(studentTravelId, trackingData.studentId(), travelId, trackingData.routeStopId(), distanceResponseDTO.distance(), Instant.now());
+        ProcessStudentTravelRouteStopApproachingEvent processRouteStopApproachingEvent = new ProcessStudentTravelRouteStopApproachingEvent(studentTravelId, trackingData.studentId(), travelId, trackingData.routeStopId(), distanceResponseDTO.distance(), customerTimeService.instant());
 
         eventPublisher.publishEvent(processRouteStopApproachingEvent);
     }

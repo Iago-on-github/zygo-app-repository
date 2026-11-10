@@ -6,6 +6,7 @@ import com.travel_system.backend_app.model.TravelLocationHistory;
 import com.travel_system.backend_app.model.TravelReports;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;
 import com.travel_system.backend_app.repository.TravelReportsRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.PolylineService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import org.slf4j.Logger;
@@ -25,12 +26,14 @@ public class CollectTravelReportsMetrics {
     private final RedisTrackingService redisTrackingService;
     private final TravelReportsRepository travelReportsRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final PolylineService polylineService;
 
-    public CollectTravelReportsMetrics(TravelLocationHistoryRepository travelLocationHistoryRepository, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, PolylineService polylineService) {
+    public CollectTravelReportsMetrics(TravelLocationHistoryRepository travelLocationHistoryRepository, RedisTrackingService redisTrackingService, TravelReportsRepository travelReportsRepository, CustomerTimeService customerTimeService, PolylineService polylineService) {
         this.travelLocationHistoryRepository = travelLocationHistoryRepository;
         this.redisTrackingService = redisTrackingService;
         this.travelReportsRepository = travelReportsRepository;
+        this.customerTimeService = customerTimeService;
         this.polylineService = polylineService;
     }
 
@@ -71,7 +74,7 @@ public class CollectTravelReportsMetrics {
                 accumulatedDistance,
                 formattedDurationInMinutes,
                 polylineEncoded,
-                Instant.now(),
+                customerTimeService.instant(),
                 totalStudentsCount, // expectativa de estudantes na viagem
                 (int) embarkedStudentsCount, // ocupação total de estudantes embarcados
                 (int) percentual);

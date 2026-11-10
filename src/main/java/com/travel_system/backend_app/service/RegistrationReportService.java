@@ -6,6 +6,9 @@ import com.travel_system.backend_app.exceptions.CustomerTermNotFoundException;
 import com.travel_system.backend_app.exceptions.InactiveAccountException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationQueryLimits;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationSettings;
 import com.travel_system.backend_app.model.dtos.request.CustomerRegistrationNotificationSettingsDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerTermResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.GraceRegistrationItemDTO;
@@ -15,24 +18,18 @@ import com.travel_system.backend_app.model.dtos.response.StalledRegistrationItem
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.projections.*;
 import com.travel_system.backend_app.repository.*;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.repository.query.Param;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.Period;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 import static java.util.Map.Entry.comparingByValue;
@@ -48,13 +45,12 @@ public class RegistrationReportService {
     private final RegistrationRequestRepository registrationRequestRepository;
 
     private final UserProfileResolverService userProfileResolverService;
-
-    private static final ZoneId ZONE_ID = ZoneId.of("America/Sao_Paulo");
+    private final CustomerTimeService customerTimeService;
 
     private static final String UNKNOWN_OWNER = "Titular não encontrado";
     private static final List<RegistrationRequestType> APPROVED_ENROLLMENT_TYPES = List.of(RegistrationRequestType.INITIAL, RegistrationRequestType.RENEWAL);
 
-    public RegistrationReportService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, TransportRegistrationRepository transportRegistrationRepository, DocumentRepository documentRepository, RegistrationRequestRepository registrationRequestRepository, UserProfileResolverService userProfileResolverService) {
+    public RegistrationReportService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, TransportRegistrationRepository transportRegistrationRepository, DocumentRepository documentRepository, RegistrationRequestRepository registrationRequestRepository, UserProfileResolverService userProfileResolverService, CustomerTimeService customerTimeService) {
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
@@ -62,6 +58,7 @@ public class RegistrationReportService {
         this.documentRepository = documentRepository;
         this.registrationRequestRepository = registrationRequestRepository;
         this.userProfileResolverService = userProfileResolverService;
+        this.customerTimeService = customerTimeService;
     }
 
     /*
@@ -77,17 +74,19 @@ public class RegistrationReportService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
 
-        RegistrationSummaryDTO.RegistrationSettingsInfo settings = new RegistrationSummaryDTO.RegistrationSettingsInfo(
-                customer.getRegistrationGracePeriodDays(),
-                customer.getRegistrationRenewalWindowDays(),
-                customer.getRegistrationBlockWarningDays());
+        RegistrationSettings settings = RegistrationSettings.from(customer);
+
+        RegistrationSummaryDTO.RegistrationSettingsInfo settingsInfo = new RegistrationSummaryDTO.RegistrationSettingsInfo(
+                settings.gracePeriodDays(),
+                settings.renewalWindowDays(),
+                settings.blockWarningDays());
 
         /*
          * datas de referência (independem do período vigente: cada matrícula é comparada pelo próprio endTerm)
          * - graceLimit: período que terminou antes desta data já esgotou a carência
          * - windowLimit: período que termina até esta data já está com a janela de renovação aberta
          * */
-        LocalDate today = today();
+        LocalDate today = customerTimeService.today();
         LocalDate graceLimit = today.minusDays(settings.gracePeriodDays());
         LocalDate windowLimit = today.plusDays(settings.renewalWindowDays());
 
@@ -95,7 +94,7 @@ public class RegistrationReportService {
                 buildStatusSummary(customerId, today, graceLimit),
                 buildReviewQueueSummary(customerId),
                 buildRenewalProgressSummary(customerId, windowLimit, graceLimit),
-                buildContext(customerId, today, settings)
+                buildContext(customerId, today, settingsInfo)
         );
     }
 
@@ -148,10 +147,9 @@ public class RegistrationReportService {
         UUID customerId = administrator.getCustomerId();
 
         // carrega as infos do customer sobre carência e bloqueio
-        CustomerRegistrationNotificationSettingsDTO settings = getCustomerConfigurations(customerId);
+        RegistrationSettings settings = getCustomerConfigurations(customerId);
 
-        int graceDays = settings.registrationGracePeriodDays();
-        int warningDays = settings.registrationBlockWarningDays();
+        RegistrationQueryLimits registrationQueryLimits = RegistrationQueryLimits.of(today(), settings);
 
         /*
          * datas-limite (cada matrícula é comparada pelo próprio endTerm na consulta)
@@ -159,14 +157,13 @@ public class RegistrationReportService {
          * - bloqueio próximo: endTerm + carência <= today + aviso → endTerm <= today + aviso − carência
          * - sem o filtro, blockingSoonLimit = today (não restringe nada além do "< today")
          * */
-        LocalDate today = today();
-        LocalDate graceLimit = today.minusDays(graceDays);
-        LocalDate blockingSoonLimit = onlyBlockingSoon ? today.plusDays(warningDays).minusDays(graceDays) : today;
+        LocalDate graceLimit = registrationQueryLimits.graceLimit();
+        LocalDate blockingSoonLimit = registrationQueryLimits.blockingSoonLimit();
 
         // a ordenação é fixa na consulta; mantém apenas a página e o tamanho
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 
-        Page<GraceRegistrationView> page = transportRegistrationRepository.findInGrace(customerId, TransportRegistrationStatus.ACTIVE, graceLimit, today, blockingSoonLimit, pageOnly);
+        Page<GraceRegistrationView> page = transportRegistrationRepository.findInGrace(customerId, TransportRegistrationStatus.ACTIVE, graceLimit, today(), blockingSoonLimit, pageOnly);
 
         if (page.isEmpty()) {
             return Page.empty(pageOnly);
@@ -189,7 +186,9 @@ public class RegistrationReportService {
             boolean isStudent = row.getStudentId() != null;
             UUID ownerId = isStudent ? row.getStudentId() : row.getDriverId();
 
-            LocalDate graceEnd = row.getTermEnd().plusDays(graceDays);
+            RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(row.getTermEnd(), settings);
+
+            LocalDate graceEnd = registrationDeadlines.graceEnd();
 
             return new GraceRegistrationItemDTO(
                     row.getRegistrationId(),
@@ -198,7 +197,7 @@ public class RegistrationReportService {
                     ownerNames.getOrDefault(ownerId, UNKNOWN_OWNER),
                     row.getTermEnd(),
                     graceEnd,
-                    ChronoUnit.DAYS.between(today, graceEnd),
+                    ChronoUnit.DAYS.between(today(), graceEnd),
                     toRenewalProgress(openRequestStatus.get(row.getRegistrationId()))
             );
         });
@@ -220,8 +219,8 @@ public class RegistrationReportService {
         UUID customerId = administrator.getCustomerId();
 
         // início do dia de (hoje − minDays), no fuso do sistema
-        LocalDate today = today();
-        Instant cutoff = today.minusDays(minDays).atStartOfDay(ZONE_ID).toInstant();
+        LocalDate today = customerTimeService.today();
+        Instant cutoff = customerTimeService.startOfDay(today);
 
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
 
@@ -259,7 +258,7 @@ public class RegistrationReportService {
             StalledReason reason = row.getRequestStatus() == RegistrationRequestStatus.DRAFT ? StalledReason.DRAFT_NOT_SUBMITTED : StalledReason.REJECTED_NOT_RESUBMITTED;
 
             // dias parados, contados em datas do fuso do sistema
-            long daysStalled = ChronoUnit.DAYS.between(LocalDate.ofInstant(row.getSince(), ZONE_ID), today);
+            long daysStalled = ChronoUnit.DAYS.between(customerTimeService.toLocalDate(row.getSince()), today);
 
             return new StalledRegistrationItemDTO(
                     row.getRegistrationId(),
@@ -482,8 +481,8 @@ public class RegistrationReportService {
 
             // verifica se o período é o vigente
         } else {
-            customerTerm = customerTermRepository.findByCurrentDate(today())
-                    .orElseGet(() -> customerTermRepository.findFirstByStartTermAfterOrderByStartTermAsc(today()).orElse(null));
+            customerTerm = customerTermRepository.findByCurrentDate(customerTimeService.today())
+                    .orElseGet(() -> customerTermRepository.findFirstByStartTermAfterOrderByStartTermAsc(customerTimeService.today()).orElse(null));
 
             if (customerTerm == null) {
                 throw new CustomerTermNotFoundException("Nenhum período encontrado");
@@ -599,18 +598,10 @@ public class RegistrationReportService {
     }
 
     // recupera as configs do customer sobre prazos
-    private CustomerRegistrationNotificationSettingsDTO getCustomerConfigurations(UUID customerId) {
+    private RegistrationSettings getCustomerConfigurations(UUID customerId) {
         Customer customer = customerRepository.findById(customerId).orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
 
-        return new CustomerRegistrationNotificationSettingsDTO(
-                customer.getRegistrationGracePeriodDays(),
-                customer.getRegistrationRenewalWindowDays(),
-                customer.getRegistrationBlockWarningDays()
-        );
-    }
-
-    private LocalDate today() {
-        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        return RegistrationSettings.from(customer);
     }
 
     private Administrator getAuthenticatedActiveAdministrator() {
@@ -637,8 +628,12 @@ public class RegistrationReportService {
         }
     }
 
+    private LocalDate today() {
+        return customerTimeService.today();
+    }
+
     private boolean isCurrentPeriod(CustomerTerm customerTerm) {
-        return !today().isBefore(customerTerm.getStartTerm()) && !today().isAfter(customerTerm.getEndTerm());
+        return !customerTimeService.today().isBefore(customerTerm.getStartTerm()) && !customerTimeService.today().isAfter(customerTerm.getEndTerm());
     }
 
     private long toLong(Long value) {

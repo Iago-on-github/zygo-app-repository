@@ -1,0 +1,2 @@
+ALTER TABLE customer_table
+    ADD COLUMN IF NOT EXISTS time_zone_confirmed BOOLEAN NOT NULL DEFAULT FALSE;

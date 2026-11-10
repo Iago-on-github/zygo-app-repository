@@ -5,6 +5,7 @@ import com.travel_system.backend_app.events.send_emails.EmailVerificationRequest
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmailAlreadyVerifiedException;
 import com.travel_system.backend_app.exceptions.ErrorWithEmailProcessVerificationException;
+import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.EmailVerificationToken;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.UserAccount;
@@ -39,16 +40,18 @@ public class AuthService {
 
     private final PasswordEncoder passwordEncoder;
 
+    private final CustomerTimeService customerTimeService;
     private final UserProfileResolverService userProfileResolverService;
     private final AuthenticationManager authenticationManager;
     private final TokenConfig tokenConfig;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public AuthService(UserAccountRepository userAccountRepository, EmailVerificationTokenRepository emailVerificationTokenRepository, PasswordEncoder passwordEncoder, UserProfileResolverService userProfileResolverService, AuthenticationManager authenticationManager, TokenConfig tokenConfig, ApplicationEventPublisher eventPublisher) {
+    public AuthService(UserAccountRepository userAccountRepository, EmailVerificationTokenRepository emailVerificationTokenRepository, PasswordEncoder passwordEncoder, CustomerTimeService customerTimeService, UserProfileResolverService userProfileResolverService, AuthenticationManager authenticationManager, TokenConfig tokenConfig, ApplicationEventPublisher eventPublisher) {
         this.userAccountRepository = userAccountRepository;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.customerTimeService = customerTimeService;
         this.userProfileResolverService = userProfileResolverService;
         this.authenticationManager = authenticationManager;
         this.tokenConfig = tokenConfig;
@@ -68,7 +71,7 @@ public class AuthService {
 
         userAccount.setEmail(email);
         userAccount.setPassword(passwordEncoder.encode(accountRegisterDTO.password()));
-        userAccount.setTermsAcceptedAt(LocalDate.now());
+        userAccount.setTermsAcceptedAt(customerTimeService.today());
         userAccount.setUserAccountType(UserAccountType.UNASSIGNED);
         userAccount.setEmailVerified(false);
 
@@ -84,7 +87,7 @@ public class AuthService {
 
     @Transactional
     public void verifyEmail(String token) {
-        Instant now = Instant.now();
+        Instant now = instant();
 
         if (token == null || token.isBlank()) {
             throw new ErrorWithEmailProcessVerificationException("Link inválido ou expirado");
@@ -128,7 +131,7 @@ public class AuthService {
         }
 
         // invalida os links anteriores deixando apenas o novo valer
-        emailVerificationTokenRepository.invalidatePendingTokens(user.getId(), Instant.now());
+        emailVerificationTokenRepository.invalidatePendingTokens(user.getId(), instant());
 
         sendVerificationEmail(user);
     }
@@ -190,14 +193,14 @@ public class AuthService {
 
         String simplePureToken = HmacTokenService.calculateSimpleHash(pureToken);
 
-        Instant expiresAt = Instant.now().plus(Duration.ofHours(24));
+        Instant expiresAt = instant().plus(Duration.ofHours(24));
 
         EmailVerificationToken emailVerificationToken = new EmailVerificationToken();
 
         emailVerificationToken.setTokenHash(simplePureToken);
         emailVerificationToken.setUserAccountId(userAccount.getId());
         emailVerificationToken.setExpiresAt(expiresAt);
-        emailVerificationToken.setCreatedAt(Instant.now());
+        emailVerificationToken.setCreatedAt(instant());
 
         emailVerificationTokenRepository.save(emailVerificationToken);
 
@@ -205,6 +208,10 @@ public class AuthService {
         eventPublisher.publishEvent(new EmailVerificationRequestedEvent(userAccount.getId(), userAccount.getEmail(), pureToken, emailVerificationToken.getExpiresAt()));
     }
 
+    private Instant instant() {
+        return customerTimeService.instant();
+    }
+    
     private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase();
     }

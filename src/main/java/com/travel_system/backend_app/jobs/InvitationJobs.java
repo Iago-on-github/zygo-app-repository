@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.jobs;
 
+import com.travel_system.backend_app.config.constants.SchedulerConstraints;
 import com.travel_system.backend_app.model.enums.InvitationStatus;
 import com.travel_system.backend_app.repository.InvitationRepository;
 import com.travel_system.backend_app.service.InvitationService;
@@ -21,7 +22,7 @@ public class InvitationJobs {
         this.invitationService = invitationService;
     }
 
-    @Scheduled(fixedDelay = 1, initialDelay = 1, timeUnit = TimeUnit.HOURS)
+    @Scheduled(fixedDelay = 1, initialDelay = 1, timeUnit = TimeUnit.HOURS, zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void invitationExpirationJob() {
         try {
             int count = invitationService.expirePendingInvitations();

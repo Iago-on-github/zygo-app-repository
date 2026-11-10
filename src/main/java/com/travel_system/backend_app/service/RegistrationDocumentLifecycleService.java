@@ -4,6 +4,8 @@ import com.travel_system.backend_app.events.documents.*;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationSettings;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
@@ -18,7 +20,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
@@ -51,6 +52,8 @@ public class RegistrationDocumentLifecycleService {
     private final TransportRegistrationRepository transportRegistrationRepository;
     private final CustomerTermRepository customerTermRepository;
 
+    private final CustomerTimeService customerTimeService;
+
     private final ApplicationEventPublisher eventPublisher;
 
     private final TransactionTemplate transactionTemplate;
@@ -60,15 +63,14 @@ public class RegistrationDocumentLifecycleService {
     // rascunhos sem atividade por mais tempo que isso são cancelados
     private static final Duration ABANDONED_DRAFT_AFTER = Duration.ofDays(30);
 
-    private static final ZoneId ZONE_ID = ZoneId.of("America/Sao_Paulo");
-
-    public RegistrationDocumentLifecycleService(DocumentRepository documentRepository, CustomerRepository customerRepository, RegistrationRequestRepository registrationRequestRepository, RegistrationDocumentAuditRepository registrationDocumentAuditRepository, TransportRegistrationRepository transportRegistrationRepository, CustomerTermRepository customerTermRepository, ApplicationEventPublisher eventPublisher, TransactionTemplate transactionTemplate) {
+    public RegistrationDocumentLifecycleService(DocumentRepository documentRepository, CustomerRepository customerRepository, RegistrationRequestRepository registrationRequestRepository, RegistrationDocumentAuditRepository registrationDocumentAuditRepository, TransportRegistrationRepository transportRegistrationRepository, CustomerTermRepository customerTermRepository, CustomerTimeService customerTimeService, ApplicationEventPublisher eventPublisher, TransactionTemplate transactionTemplate) {
         this.documentRepository = documentRepository;
         this.customerRepository = customerRepository;
         this.registrationRequestRepository = registrationRequestRepository;
         this.registrationDocumentAuditRepository = registrationDocumentAuditRepository;
         this.transportRegistrationRepository = transportRegistrationRepository;
         this.customerTermRepository = customerTermRepository;
+        this.customerTimeService = customerTimeService;
         this.eventPublisher = eventPublisher;
         this.transactionTemplate = transactionTemplate;
     }
@@ -86,7 +88,7 @@ public class RegistrationDocumentLifecycleService {
             return;
         }
 
-        Instant reviewedAt = Instant.now();
+        Instant reviewedAt = instant();
 
         // auditoria
         List<RegistrationDocumentAudit> audits = documents.stream().map(document -> toAudit(document, reviewerAccountId, outcome, reviewedAt))
@@ -141,7 +143,7 @@ public class RegistrationDocumentLifecycleService {
      * - apaga documentos e foto pendente (dados sensíveis não ficam parados no storage)
      * */
     public void cancelAbandonedDrafts() {
-        Instant cutoff = Instant.now().minus(ABANDONED_DRAFT_AFTER);
+        Instant cutoff = instant().minus(ABANDONED_DRAFT_AFTER);
 
         for (UUID customerId : customerRepository.findAllIds()) {
             try {
@@ -165,7 +167,7 @@ public class RegistrationDocumentLifecycleService {
      * - fase 3: alerta ao admin quando o próximo período não foi cadastrado
      * */
     public void processRegistrations() {
-        LocalDate today = LocalDate.now(ZONE_ID);
+        LocalDate today = customerTimeService.today();
 
         for (UUID customerId : customerRepository.findAllIds()) {
             try {
@@ -217,10 +219,7 @@ public class RegistrationDocumentLifecycleService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
 
-        RegistrationSettings settings = new RegistrationSettings(
-                customer.getRegistrationGracePeriodDays(),
-                customer.getRegistrationRenewalWindowDays(),
-                customer.getRegistrationBlockWarningDays());
+        RegistrationSettings settings = RegistrationSettings.from(customer);
 
         // apenas as matrículas ativas, já com o período carregado
         List<TransportRegistration> registrations = transportRegistrationRepository.findActiveWithTermByCustomerId(customerId, TransportRegistrationStatus.ACTIVE);
@@ -248,9 +247,9 @@ public class RegistrationDocumentLifecycleService {
                     end -> customerTermRepository.existsByCustomerIdAndStartTermAfter(customerId, end));
 
             // janela aberta e sem próximo período o titular não consegue renovar (notificação ao admin)
-            LocalDate windowStart = termEnd.minusDays(settings.renewalWindowDays());
+            RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(termEnd, settings);
 
-            if (!hasNextTerm && !today.isBefore(windowStart)) {
+            if (!hasNextTerm && registrationDeadlines.isWindowOpen(today)) {
                 nextTermMissingCount++;
             }
 
@@ -282,38 +281,34 @@ public class RegistrationDocumentLifecycleService {
         }
 
         LocalDate termEnd = snapshot.termEnd();
-        // configs customer
-        LocalDate windowStart = termEnd.minusDays(settings.renewalWindowDays());
-        LocalDate graceEnd = termEnd.plusDays(settings.gracePeriodDays());
-        LocalDate blockWarningStart = graceEnd.minusDays(settings.blockWarningDays());
+
+        RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(termEnd, settings);
 
         int stage = snapshot.reminderStage();
 
         // se o período de carência estiver esgotado
-        if (today.isAfter(graceEnd)) {
+        if (registrationDeadlines.isGraceExhausted(today)) {
             return RegistrationLifecycleAction.CLOSE;
         }
 
         // bloqueio se aproximando (titular e admin uma vez)
-        if (!today.isBefore(blockWarningStart) && (stage < RegistrationReminderStage.BLOCK_WARNING.getValue() || !snapshot.adminBlockWarningSent())) {
+        if (registrationDeadlines.isInBlockWarning(today) && (stage < RegistrationReminderStage.BLOCK_WARNING.getValue() || !snapshot.adminBlockWarningSent())) {
             return RegistrationLifecycleAction.BLOCK_WARNING;
         }
 
         // se o período é encerrado começa o período de carência
-        if (today.isAfter(termEnd)) {
-            return stage < RegistrationReminderStage.GRACE_STARTED.getValue()
-                    ? RegistrationLifecycleAction.GRACE_STARTED
-                    : RegistrationLifecycleAction.NONE;
+        if (registrationDeadlines.isInGrace(today)) {
+            return stage < RegistrationReminderStage.GRACE_STARTED.getValue() ? RegistrationLifecycleAction.GRACE_STARTED : RegistrationLifecycleAction.NONE;
         }
 
         // se nenhuma acima se aplica o período ainda vigente
         // avisos só com a janela de renovação aberta
-        if (today.isBefore(windowStart)) {
+        if (!registrationDeadlines.isWindowOpen(today)) {
             return RegistrationLifecycleAction.NONE;
         }
 
         // lembretes de vencimento (<= não perde o aviso se o job não rodar em algum dia)
-        long daysLeft = ChronoUnit.DAYS.between(today, termEnd);
+        long daysLeft = registrationDeadlines.daysUntilTermEnd(today);
 
         if (daysLeft <= 1 && stage < RegistrationReminderStage.DAYS_1.getValue()) {
             return RegistrationLifecycleAction.EXPIRING_1;
@@ -354,7 +349,10 @@ public class RegistrationDocumentLifecycleService {
 
         OwnerBuilt owner = buildOwner(registration);
         LocalDate termEnd = registration.getCustomerTerm().getEndTerm();
-        LocalDate graceEnd = termEnd.plusDays(settings.gracePeriodDays());
+
+        RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(termEnd, settings);
+
+        LocalDate graceEnd = registrationDeadlines.graceEnd();
         int currentStage = RegistrationReminderStage.valueOf(String.valueOf(registration.getLastReminderStage())).getValue();
 
         switch (action) {
@@ -366,7 +364,7 @@ public class RegistrationDocumentLifecycleService {
 
                 registration.setStatus(TransportRegistrationStatus.CLOSED);
                 registration.setClosedReason(RegistrationClosedReason.NOT_RENEWED);
-                registration.setClosedAt(Instant.now());
+                registration.setClosedAt(instant());
 
                 // evento para notificação
                 eventPublisher.publishEvent(new RegistrationClosedEvent(registration.getId(), customerId, owner, registration.getRegistrationNumber()));
@@ -384,7 +382,7 @@ public class RegistrationDocumentLifecycleService {
                     registration.setLastReminderStage(RegistrationReminderStage.BLOCK_WARNING.getValue());
                 }
                 if (notifyAdmin) {
-                    registration.setAdminBlockWarningSentAt(Instant.now());
+                    registration.setAdminBlockWarningSentAt(instant());
                 }
 
                 // envia notificação para o admin apenas uma vez quando é compatível com o bloqueio
@@ -410,7 +408,7 @@ public class RegistrationDocumentLifecycleService {
                             case GRACE_STARTED -> new RegistrationGraceStartedEvent(registration.getId(), customerId, owner, termEnd, graceEnd);
                             case WINDOW_OPENED -> new RegistrationRenewalWindowOpenedEvent(registration.getId(), customerId, owner, termEnd);
 
-                            default -> new RegistrationExpiringEvent(registration.getId(), customerId, owner, termEnd, ChronoUnit.DAYS.between(LocalDate.now(ZONE_ID), termEnd), openRequest != null);
+                            default -> new RegistrationExpiringEvent(registration.getId(), customerId, owner, termEnd, ChronoUnit.DAYS.between(customerTimeService.today(), termEnd), openRequest != null);
                     }
                 );
             }
@@ -478,9 +476,9 @@ public class RegistrationDocumentLifecycleService {
         return audit;
     }
 
-    // configurações do Customer usadas no cálculo das datas
-    protected record RegistrationSettings(int gracePeriodDays, int renewalWindowDays, int blockWarningDays) { }
-
+    private Instant instant() {
+        return customerTimeService.instant();
+    }
     /*
      * "fotografia" de uma matrícula que representa tudo o que a decisão precisa, sem entidades
      * (as entidades deixam de ser gerenciadas quando a transação de leitura termina)
@@ -497,5 +495,6 @@ public class RegistrationDocumentLifecycleService {
 
     // resultado da leitura de um Customer
     private record CustomerLifecycleData(RegistrationSettings settings, List<RegistrationSnapshot> snapshots, int nextTermMissingCount) { }
+    
 }
 

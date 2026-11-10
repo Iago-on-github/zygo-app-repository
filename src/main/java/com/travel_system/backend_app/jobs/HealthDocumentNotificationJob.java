@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.jobs;
 
+import com.travel_system.backend_app.config.constants.SchedulerConstraints;
 import com.travel_system.backend_app.service.HealthDocumentReminderService;
 import com.travel_system.backend_app.service.HealthPendingItemsService;
 import org.slf4j.Logger;
@@ -20,23 +21,23 @@ public class HealthDocumentNotificationJob {
     }
 
     // lembretes de vencimento dos documentos todos os dias
-    @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 0 8 * * *", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void sendDocumentNotificationWhenExpiring() {
         healthDocumentReminderService.sendExpiringReminders();
     }
 
-    @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 0 8 * * *", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void sendDocumentNotificationWhenExpire() {
         healthDocumentReminderService.sendExpireReminders();
     }
 
-    @Scheduled(cron = "0 0 8 * * *", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 0 8 * * *", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void sendDocumentNotificationWhenOutdatedTermComingSoon() {
         healthDocumentReminderService.markOutdatedDeclarations();
     }
 
     // lembretes de pendências de saúde de semana em semana, na segunda, as 09h
-    @Scheduled(cron = "0 0 9 * * MON", zone = "America/Sao_Paulo")
+    @Scheduled(cron = "0 0 9 * * MON", zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void notifyHealthPendingItems() {
         healthPendingItemsService.sendPendingItemsReminders();
     }

@@ -7,16 +7,18 @@ import com.travel_system.backend_app.interfaces.mappers.CustomerRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerHolidayResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerResponseMapper;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.events.CustomerTimeZoneChangedEvent;
 import com.travel_system.backend_app.model.dtos.request.CustomerContactUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerRegistrationNotificationSettingsDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerSettingsUpdateDTO;
+import com.travel_system.backend_app.model.dtos.request.TimeZoneUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.CustomerPlan;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cglib.core.Local;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,7 @@ public class CustomerSettingsService {
     private final CustomerHolidayRepository customerHolidayRepository;
     private final CustomerTermRepository customerTermRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final AdministratorService administratorService;
     private final DriverService driverService;
     private final StudentService studentService;
@@ -45,18 +48,22 @@ public class CustomerSettingsService {
     private final CustomerRequestMapper customerRequestMapper;
     private final CustomerResponseMapper customerResponseMapper;
 
-    public CustomerSettingsService(CustomerRepository customerRepository, AdministratorRepository administratorRepository, StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, CustomerHolidayResponseMapper customerHolidayResponseMapper, S3StorageService storageService, CustomerHolidayRepository customerHolidayRepository, CustomerTermRepository customerTermRepository, AdministratorService administratorService, DriverService driverService, StudentService studentService, CustomerRequestMapper customerRequestMapper, CustomerResponseMapper customerResponseMapper) {
+    private final ApplicationEventPublisher eventPublisher;
+
+    public CustomerSettingsService(CustomerRepository customerRepository, AdministratorRepository administratorRepository, StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, CustomerHolidayResponseMapper customerHolidayResponseMapper, S3StorageService storageService, CustomerHolidayRepository customerHolidayRepository, CustomerTermRepository customerTermRepository, CustomerTimeService customerTimeService, AdministratorService administratorService, DriverService driverService, StudentService studentService, CustomerRequestMapper customerRequestMapper, CustomerResponseMapper customerResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.customerRepository = customerRepository;
         this.administratorRepository = administratorRepository;
         this.standardRouteRepository = standardRouteRepository;
         this.storageService = storageService;
         this.customerHolidayRepository = customerHolidayRepository;
         this.customerTermRepository = customerTermRepository;
+        this.customerTimeService = customerTimeService;
         this.administratorService = administratorService;
         this.driverService = driverService;
         this.studentService = studentService;
         this.customerRequestMapper = customerRequestMapper;
         this.customerResponseMapper = customerResponseMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -93,9 +100,9 @@ public class CustomerSettingsService {
                 .map(this::toStandardRouteDTO).toList();
 
         // pega os próximos 30 dias de feriados e período atual
-        List<CustomerHoliday> upcomingHolidays = customerHolidayRepository.findAllByDateBetweenOrderByDateAsc(today(), today().plusDays(30));
+        List<CustomerHoliday> upcomingHolidays = customerHolidayRepository.findAllByDateBetweenOrderByDateAsc(customerTimeService.today(), customerTimeService.today().plusDays(30));
 
-        CustomerTerm currentTerm = customerTermRepository.findFirstByStartTermLessThanEqualAndEndTermGreaterThanEqual(today(), today())
+        CustomerTerm currentTerm = customerTermRepository.findFirstByStartTermLessThanEqualAndEndTermGreaterThanEqual(customerTimeService.today(), customerTimeService.today())
                 .orElse(null);
 
         return new CustomerInfoResponseDTO(
@@ -118,6 +125,20 @@ public class CustomerSettingsService {
                         .toList()
         );
 
+    }
+
+    /*
+    * faz o cadastro obrigatório do timezone, se nao, roda de forma padrão como America/Sao_Paulo
+    * */
+    @Transactional
+    public void updateTimeZone(TimeZoneUpdateDTO dto) {
+        Customer customer = findCustomer();
+
+        customer.setTimeZone(dto.timeZone());
+        customer.setTimeZoneConfirmed(true);
+
+        // publica evento p/ limpar cache pós commit
+        eventPublisher.publishEvent(new CustomerTimeZoneChangedEvent(customer.getId()));
     }
 
     @Transactional
@@ -191,10 +212,6 @@ public class CustomerSettingsService {
                 .orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
     }
 
-    private LocalDate today() {
-        return LocalDate.now(ZoneId.of(findCustomer().getTimeZone()));
-    }
-
     // rota padrão e pontos de parada
     private CustomerInfoResponseDTO.StandardRouteDTO toStandardRouteDTO(StandardRoute standardRoute) {
         List<CustomerInfoResponseDTO.RouteStopDTO> routeStops = standardRoute.getRouteStopAssignments().stream()
@@ -223,27 +240,27 @@ public class CustomerSettingsService {
     // período letivo, dia da semana e feriado
     private CustomerInfoResponseDTO.OperatingStatusDTO resolveOperatingStatus(Customer customer, CustomerTerm currentTerm, List<CustomerHoliday> upcomingHolidays) {
         if (currentTerm == null) {
-            return new CustomerInfoResponseDTO.OperatingStatusDTO(today(), false, "Fora do período letivo");
+            return new CustomerInfoResponseDTO.OperatingStatusDTO(customerTimeService.today(), false, "Fora do período letivo");
         }
-        if (!customer.getOperatingDays().contains(today().getDayOfWeek())) {
-            return new CustomerInfoResponseDTO.OperatingStatusDTO(today(), false, "Sem transporte neste dia da semana");
+        if (!customer.getOperatingDays().contains(customerTimeService.today().getDayOfWeek())) {
+            return new CustomerInfoResponseDTO.OperatingStatusDTO(customerTimeService.today(), false, "Sem transporte neste dia da semana");
         }
 
         // pega o feriado de hoje
-        Optional<CustomerHoliday> holidayToday = upcomingHolidays.stream().filter(h -> h.getDate().equals(today())).findFirst();
+        Optional<CustomerHoliday> holidayToday = upcomingHolidays.stream().filter(h -> h.getDate().equals(customerTimeService.today())).findFirst();
 
         if (holidayToday.isPresent()) {
             CustomerHoliday holiday = holidayToday.get();
 
             // se nao consta turnos, considera como o dia inteiro e com turnos só esses turnos ficam sem transporte
             if (holiday.getShifts().isEmpty()) {
-                return new CustomerInfoResponseDTO.OperatingStatusDTO(today(), false, holiday.getDescription());
+                return new CustomerInfoResponseDTO.OperatingStatusDTO(customerTimeService.today(), false, holiday.getDescription());
             }
 
-            return new CustomerInfoResponseDTO.OperatingStatusDTO(today(), true, "Sem transporte nos turnos " + holiday.getShifts() + ": " + holiday.getDescription());
+            return new CustomerInfoResponseDTO.OperatingStatusDTO(customerTimeService.today(), true, "Sem transporte nos turnos " + holiday.getShifts() + ": " + holiday.getDescription());
         }
 
-        return new CustomerInfoResponseDTO.OperatingStatusDTO(today(), true, null);
+        return new CustomerInfoResponseDTO.OperatingStatusDTO(customerTimeService.today(), true, null);
     }
 
     private AddressResponseDTO toAddressDTO(Address address) {

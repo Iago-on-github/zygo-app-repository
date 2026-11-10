@@ -50,12 +50,13 @@ public class StudentService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final CustomerRepository customerRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final PasswordEncoder passwordEncoder;
 
     private final StudentResponseMapper studentResponseMapper;
     private final StudentRequestMapper studentRequestMapper;
 
-    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, InstitutionRepository institutionRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper, InstitutionResponseMapper institutionResponseMapper, InstitutionCourseRepository institutionCourseRepository, StudentEnrollmentRepository studentEnrollmentRepository, CustomerRepository customerRepository) {
+    public StudentService(StudentRepository studentRepository, PermissionsRepository permissionsRepository, InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, InstitutionRepository institutionRepository, PasswordEncoder passwordEncoder, StudentResponseMapper studentResponseMapper, StudentRequestMapper studentRequestMapper, InstitutionResponseMapper institutionResponseMapper, InstitutionCourseRepository institutionCourseRepository, StudentEnrollmentRepository studentEnrollmentRepository, CustomerRepository customerRepository, CustomerTimeService customerTimeService) {
         this.studentRepository = studentRepository;
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
@@ -67,6 +68,7 @@ public class StudentService {
         this.institutionCourseRepository = institutionCourseRepository;
         this.studentEnrollmentRepository = studentEnrollmentRepository;
         this.customerRepository = customerRepository;
+        this.customerTimeService = customerTimeService;
     }
 
     @Transactional(readOnly = true)
@@ -211,7 +213,7 @@ public class StudentService {
             throw new IllegalStateException("O responsável não possui data de nascimento cadastrada");
         }
 
-        int responsibleAdultAge = Period.between(responsibleAdult.getBirthdate(), LocalDate.now()).getYears();
+        int responsibleAdultAge = Period.between(responsibleAdult.getBirthdate(), today()).getYears();
 
         // O responsável precisa ser maior de idade.
         if (responsibleAdultAge < 18) {
@@ -290,7 +292,7 @@ public class StudentService {
         }
 
         // calcula a idade do estudante
-        int studentAge = Period.between(studentEntity.getBirthdate(), LocalDate.now()).getYears();
+        int studentAge = Period.between(studentEntity.getBirthdate(), today()).getYears();
 
         // estudantes menores de idade não podem se auto-desvincular de um responsável
         if (studentAge < 18) {
@@ -367,5 +369,9 @@ public class StudentService {
         }
 
         courses.forEach(course -> student.addEnrollment(course, poolOfEnrollment));
+    }
+
+    private LocalDate today() {
+        return customerTimeService.today();
     }
 }

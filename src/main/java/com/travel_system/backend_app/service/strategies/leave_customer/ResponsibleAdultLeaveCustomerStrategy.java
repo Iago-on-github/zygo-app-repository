@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.ResponsibleAdultRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
@@ -23,8 +24,11 @@ public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrat
 
     private final ResponsibleAdultRepository responsibleAdultRepository;
 
-    public ResponsibleAdultLeaveCustomerStrategy(ResponsibleAdultRepository responsibleAdultRepository) {
+    private final CustomerTimeService customerTimeService;
+
+    public ResponsibleAdultLeaveCustomerStrategy(ResponsibleAdultRepository responsibleAdultRepository, CustomerTimeService customerTimeService) {
         this.responsibleAdultRepository = responsibleAdultRepository;
+        this.customerTimeService = customerTimeService;
     }
 
     @Override
@@ -36,7 +40,7 @@ public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrat
     public void validateLeave(UserAccount account) {
         ResponsibleAdult responsible = findResponsible();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = customerTimeService.today();
 
         // se tiver alunos menores de idade lança exception
         boolean hasMinorStudent = responsible.getStudents().stream()
@@ -61,7 +65,7 @@ public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrat
 
         responsible.setUserAccount(null);
         responsible.setStatus(GeneralStatus.INACTIVE);
-        responsible.setLeftAt(Instant.now());
+        responsible.setLeftAt(customerTimeService.instant());
 
         // dados pessoais (alguns ficam para histórico)
         responsible.setCpf(null);

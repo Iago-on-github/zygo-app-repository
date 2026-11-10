@@ -47,11 +47,13 @@ public class HealthConsentService {
     private final DocumentRepository documentRepository;
     private final HealthDeclarationRepository healthDeclarationRepository;
 
+    private final CustomerTimeService customerTimeService;
+    
     private final HealthConsentResponseMapper healthConsentResponseMapper;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public HealthConsentService(HealthConsentProperties consentProperties, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, ResponsibleAdultRepository responsibleAdultRepository, StudentRepository studentRepository, UserAccountRepository userAccountRepository, HealthConsentRepository healthConsentRepository, DocumentRepository documentRepository, HealthDeclarationRepository healthDeclarationRepository, HealthConsentResponseMapper healthConsentResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthConsentService(HealthConsentProperties consentProperties, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, ResponsibleAdultRepository responsibleAdultRepository, StudentRepository studentRepository, UserAccountRepository userAccountRepository, HealthConsentRepository healthConsentRepository, DocumentRepository documentRepository, HealthDeclarationRepository healthDeclarationRepository, CustomerTimeService customerTimeService, HealthConsentResponseMapper healthConsentResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.consentProperties = consentProperties;
         this.userProfileResolverService = userProfileResolverService;
         this.customerRepository = customerRepository;
@@ -61,6 +63,7 @@ public class HealthConsentService {
         this.healthConsentRepository = healthConsentRepository;
         this.documentRepository = documentRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
+        this.customerTimeService = customerTimeService;
         this.healthConsentResponseMapper = healthConsentResponseMapper;
         this.eventPublisher = eventPublisher;
     }
@@ -138,7 +141,7 @@ public class HealthConsentService {
         // declaração (as condições saem pelo orphanRemoval)
         healthDeclarationRepository.findByOwnerId(owner.id()).ifPresent(healthDeclarationRepository::delete);
 
-        consent.setRevokedAt(Instant.now());
+        consent.setRevokedAt(instant());
 
         // arquivos apagados do storage somente após o commit (listener AFTER_COMMIT)
         if (!storageKeys.isEmpty()) {
@@ -166,7 +169,7 @@ public class HealthConsentService {
              * Aceite de uma versão nova: encerra o anterior SEM apagar os dados de saúde.
              * saveAndFlush antes do insert, por causa do índice único parcial (revoked_at IS NULL).
              */
-            active.setRevokedAt(Instant.now());
+            active.setRevokedAt(instant());
             healthConsentRepository.saveAndFlush(active);
         }
 
@@ -179,7 +182,7 @@ public class HealthConsentService {
         }
 
         consent.setConsentedBy(getAuthenticatedUserAccountId());
-        consent.setConsentedAt(Instant.now());
+        consent.setConsentedAt(instant());
         consent.setTermVersion(consentProperties.getTermVersion());
         consent.setPurpose(consentProperties.getPurpose());
         consent.assignCustomer(getCurrentCustomer().getId());
@@ -207,6 +210,10 @@ public class HealthConsentService {
     private Customer getCurrentCustomer() {
         return customerRepository.findById(getCurrentTenant())
                 .orElseThrow(() -> new CustomerNotFoundException("Customer não encontrado"));
+    }
+    
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 
 }

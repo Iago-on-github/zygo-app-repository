@@ -2,6 +2,7 @@ package com.travel_system.backend_app.exceptions.catchException;
 
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -16,6 +17,12 @@ import java.time.LocalDate;
 
 @ControllerAdvice
 public class CapturedAndCustomizedExceptions {
+
+    private final CustomerTimeService customerTimeService;
+
+    public CapturedAndCustomizedExceptions(CustomerTimeService customerTimeService) {
+        this.customerTimeService = customerTimeService;
+    }
 
     @ExceptionHandler(InvalidJwtAuthenticationToken.class)
     public final ResponseEntity<StandardError> invalidJwtAuthenticationException(InvalidJwtAuthenticationToken ex, WebRequest webRequest) {
@@ -525,7 +532,7 @@ public class CapturedAndCustomizedExceptions {
 
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {
         StandardError standardError = new StandardError(
-                LocalDate.now(),
+                customerTimeService.today(),
                 httpStatus.value(),
                 ex.getMessage(),
                 webRequest.getDescription(false)

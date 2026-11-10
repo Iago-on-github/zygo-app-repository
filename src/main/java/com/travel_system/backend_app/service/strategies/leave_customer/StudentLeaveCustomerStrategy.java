@@ -12,6 +12,7 @@ import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.StudentRepository;
 import com.travel_system.backend_app.repository.StudentRouteStopAssignmentRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.RegistrationDataCleanupService;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,15 +30,17 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final TravelRepository travelRepository;
     private final StudentRouteStopAssignmentRepository routeStopAssignmentRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final RegistrationDataCleanupService registrationDataCleanupService;
     private final HealthDataCleanupService healthDataCleanupService;
 
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
+    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
         this.studentRepository = studentRepository;
         this.travelRepository = travelRepository;
         this.routeStopAssignmentRepository = routeStopAssignmentRepository;
+        this.customerTimeService = customerTimeService;
         this.registrationDataCleanupService = registrationDataCleanupService;
         this.healthDataCleanupService = healthDataCleanupService;
     }
@@ -67,7 +70,7 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
 
         student.setUserAccount(null);
         student.setStatus(GeneralStatus.INACTIVE);
-        student.setLeftAt(Instant.now());
+        student.setLeftAt(customerTimeService.instant());
 
         // remove os dados de rotas
         routeStopAssignmentRepository.deleteAllByStudentId(student.getId());

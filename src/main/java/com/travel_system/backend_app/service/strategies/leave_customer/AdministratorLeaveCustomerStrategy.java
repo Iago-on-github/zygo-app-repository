@@ -10,6 +10,7 @@ import com.travel_system.backend_app.model.enums.InvitationStatus;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.AdministratorRepository;
 import com.travel_system.backend_app.repository.InvitationRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.InvitationService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -26,11 +27,13 @@ public class AdministratorLeaveCustomerStrategy implements LeaveCustomerStrategy
     private final AdministratorRepository administratorRepository;
     private final InvitationRepository invitationRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final InvitationService invitationService;
 
-    public AdministratorLeaveCustomerStrategy(AdministratorRepository administratorRepository, InvitationRepository invitationRepository, InvitationService invitationService) {
+    public AdministratorLeaveCustomerStrategy(AdministratorRepository administratorRepository, InvitationRepository invitationRepository, CustomerTimeService customerTimeService, InvitationService invitationService) {
         this.administratorRepository = administratorRepository;
         this.invitationRepository = invitationRepository;
+        this.customerTimeService = customerTimeService;
         this.invitationService = invitationService;
     }
 
@@ -49,7 +52,7 @@ public class AdministratorLeaveCustomerStrategy implements LeaveCustomerStrategy
     @Override
     public void unlinkFromCustomer(UserAccount account) {
         Administrator admin = findAdmin();
-        Instant now = Instant.now();
+        Instant now = customerTimeService.instant();
 
         // convites pendentes enviados por este admin deixam de valer
         invitationRepository.findAllByInvitedByAndInvitationStatus(account.getId(), InvitationStatus.PENDING)

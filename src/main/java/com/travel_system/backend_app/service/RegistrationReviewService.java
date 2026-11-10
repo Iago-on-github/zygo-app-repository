@@ -53,6 +53,7 @@ public class RegistrationReviewService {
     private final CustomerRepository customerRepository;
     private final DocumentRepository documentRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final RegistrationDocumentLifecycleService registrationDocumentLifecycleService;
     private final RegistrationNumberGenerator registrationNumberGenerator;
     private final PrivateStorageService privateStorageService;
@@ -61,7 +62,7 @@ public class RegistrationReviewService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public RegistrationReviewService(DocumentStorageProperties documentStorageProperties, RegistrationRequestRepository registrationRequestRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, DocumentRepository documentRepository, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, RegistrationNumberGenerator registrationNumberGenerator, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, ApplicationEventPublisher eventPublisher) {
+    public RegistrationReviewService(DocumentStorageProperties documentStorageProperties, RegistrationRequestRepository registrationRequestRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, DocumentRepository documentRepository, CustomerTimeService customerTimeService, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, RegistrationNumberGenerator registrationNumberGenerator, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, ApplicationEventPublisher eventPublisher) {
         this.documentStorageProperties = documentStorageProperties;
         this.registrationRequestRepository = registrationRequestRepository;
         this.studentRepository = studentRepository;
@@ -70,6 +71,7 @@ public class RegistrationReviewService {
         this.customerTermRepository = customerTermRepository;
         this.customerRepository = customerRepository;
         this.documentRepository = documentRepository;
+        this.customerTimeService = customerTimeService;
         this.registrationDocumentLifecycleService = registrationDocumentLifecycleService;
         this.registrationNumberGenerator = registrationNumberGenerator;
         this.privateStorageService = privateStorageService;
@@ -194,7 +196,7 @@ public class RegistrationReviewService {
         // registra log de acesso sensível
         sensitiveDataAccessLogService.record(administrator.getUserAccount().getId(), ownerBuilt, ResourceType.REGISTRATION_DOCUMENT, document.getId(), Action.DOWNLOAD, null);
 
-        return new DocumentDownloadResponseDTO(url, Instant.now().plus(documentStorageProperties.getDownloadUrlTtl()));
+        return new DocumentDownloadResponseDTO(url, instant().plus(documentStorageProperties.getDownloadUrlTtl()));
     }
 
     // admin vê a foto pendente da solicitação
@@ -217,7 +219,7 @@ public class RegistrationReviewService {
                 // log de acesso
                 sensitiveDataAccessLogService.record(administrator.getUserAccount().getId(), ownerBuilt, ResourceType.REGISTRATION_PHOTO, request.getTransportRegistration().getId(), Action.VIEW, null);
 
-                return new RequestPhotoResponseDTO(url, Instant.now().plus(documentStorageProperties.getDownloadUrlTtl()), false);
+                return new RequestPhotoResponseDTO(url, instant().plus(documentStorageProperties.getDownloadUrlTtl()), false);
             }
 
             // se nao tiver
@@ -229,7 +231,7 @@ public class RegistrationReviewService {
 
         String url = privateStorageService.generatePresignPhotoUrl(request.getPendingPhotoStorageKey());
 
-        return new RequestPhotoResponseDTO(url, Instant.now().plus(documentStorageProperties.getDownloadUrlTtl()), true);
+        return new RequestPhotoResponseDTO(url, instant().plus(documentStorageProperties.getDownloadUrlTtl()), true);
     }
 
     /*
@@ -275,7 +277,7 @@ public class RegistrationReviewService {
 
         request.setTargetTerm(customerTerm);
         request.setReviewedBy(administrator.getUserAccount().getId());
-        request.setReviewedAt(Instant.now());
+        request.setReviewedAt(instant());
 
         // grava a auditoria dos documentos e os apaga
         registrationDocumentLifecycleService.closeReviewedDocuments(request, administrator.getUserAccount().getId(), RegistrationReviewOutcome.APPROVED);
@@ -312,7 +314,7 @@ public class RegistrationReviewService {
         request.setRejectionReason(dto.rejectionReason());
         request.setStatus(RegistrationRequestStatus.REJECTED);
         request.setReviewedBy(administrator.getUserAccount().getId());
-        request.setReviewedAt(Instant.now());
+        request.setReviewedAt(instant());
 
         // apaga e grava auditoria
         registrationDocumentLifecycleService.closeReviewedDocuments(request, administrator.getUserAccount().getId(), RegistrationReviewOutcome.REJECTED);
@@ -362,7 +364,7 @@ public class RegistrationReviewService {
         updateRegistration.setCustomerTerm(resolvedCustomerTerm);
         updateRegistration.setDeclaredBy(request.getSubmittedBy());
 
-        Instant now = Instant.now();
+        Instant now = instant();
 
         if (updateRegistration.getFirstApprovedAt() == null) {
             updateRegistration.setFirstApprovedAt(now);
@@ -383,8 +385,8 @@ public class RegistrationReviewService {
     // responsável por validar os períodos conforme o tipo de matrícula
     private CustomerTerm resolveTargetTerm(RegistrationRequest request) {
         return switch (request.getType()) {
-            case INITIAL -> customerTermRepository.findByCurrentDate(today())
-                    .or(() -> customerTermRepository.findFirstByStartTermAfterOrderByStartTermAsc(today()))
+            case INITIAL -> customerTermRepository.findByCurrentDate(customerTimeService.today())
+                    .or(() -> customerTermRepository.findFirstByStartTermAfterOrderByStartTermAsc(customerTimeService.today()))
                     .orElseThrow(() -> new CustomerTermAbsencePeriodException("Cadastre um período antes de continuar"));
             case RENEWAL -> // busca o período mais próximo
                     customerTermRepository.findFirstByStartTermAfterOrderByStartTermAsc(request.getTargetTerm().getEndTerm())
@@ -436,10 +438,6 @@ public class RegistrationReviewService {
         );
     }
 
-    private LocalDate today() {
-        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
-    }
-
     private String ownerName(TransportRegistration registration) {
         boolean isStudent = registration.getStudentId() != null;
         if (isStudent) {
@@ -482,5 +480,9 @@ public class RegistrationReviewService {
         }
 
         return administrator;
+    }
+    
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 }

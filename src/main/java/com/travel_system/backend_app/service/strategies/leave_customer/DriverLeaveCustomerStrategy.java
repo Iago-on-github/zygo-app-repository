@@ -10,6 +10,7 @@ import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.CnhRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.RegistrationDataCleanupService;
 import com.travel_system.backend_app.service.SetupAuthenticationService;
@@ -26,15 +27,17 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final TravelRepository travelRepository;
     private final CnhRepository cnhRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final RegistrationDataCleanupService registrationDataCleanupService;
     private final HealthDataCleanupService healthDataCleanupService;
 
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
+    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
         this.driverRepository = driverRepository;
         this.travelRepository = travelRepository;
         this.cnhRepository = cnhRepository;
+        this.customerTimeService = customerTimeService;
         this.registrationDataCleanupService = registrationDataCleanupService;
         this.healthDataCleanupService = healthDataCleanupService;
     }
@@ -63,7 +66,7 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
 
         driver.setUserAccount(null);
         driver.setStatus(GeneralStatus.INACTIVE);
-        driver.setLeftAt(Instant.now());
+        driver.setLeftAt(customerTimeService.instant());
 
         // dados pessoais saem (nome, sobrenome e foto ficam p/ o histórico)
         driver.setTelephone(null);

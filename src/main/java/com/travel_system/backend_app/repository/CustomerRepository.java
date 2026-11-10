@@ -65,4 +65,6 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     @Query("SELECT c.id FROM Customer c")
     List<UUID> findAllIds();
 
+    @Query("SELECT c.id FROM Customer c WHERE c.timeZoneConfirmed IS FALSE")
+    List<UUID> findAllByTimeZoneConfirmedFalse();
 }

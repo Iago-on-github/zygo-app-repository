@@ -47,15 +47,17 @@ public class ResponsibleAdultService {
     private final StudentRepository studentRepository;
 
     private final PasswordEncoder passwordEncoder;
+    private final CustomerTimeService customerTimeService;
 
     private final ResponsibleAdultRequestMapper responsibleAdultRequestMapper;
     private final ResponsibleAdultResponseMapper responsibleAdultResponseMapper;
 
-    public ResponsibleAdultService(ResponsibleAdultRepository responsibleAdultRepository, UserAccountRepository userAccountRepository, StudentRepository studentRepository, PasswordEncoder passwordEncoder, ResponsibleAdultRequestMapper responsibleAdultRequestMapper, ResponsibleAdultResponseMapper responsibleAdultResponseMapper) {
+    public ResponsibleAdultService(ResponsibleAdultRepository responsibleAdultRepository, UserAccountRepository userAccountRepository, StudentRepository studentRepository, PasswordEncoder passwordEncoder, CustomerTimeService customerTimeService, ResponsibleAdultRequestMapper responsibleAdultRequestMapper, ResponsibleAdultResponseMapper responsibleAdultResponseMapper) {
         this.responsibleAdultRepository = responsibleAdultRepository;
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
         this.passwordEncoder = passwordEncoder;
+        this.customerTimeService = customerTimeService;
         this.responsibleAdultRequestMapper = responsibleAdultRequestMapper;
         this.responsibleAdultResponseMapper = responsibleAdultResponseMapper;
     }
@@ -148,7 +150,7 @@ public class ResponsibleAdultService {
         }
 
         // validação para idade
-        int responsibleYears = Period.between(profileDTO.responsibleAdultAccept().birthdate(), LocalDate.now()).getYears();
+        int responsibleYears = Period.between(profileDTO.responsibleAdultAccept().birthdate(), today()).getYears();
 
         if (responsibleYears < 18) {
             throw new UnderageResponsibleAdultException("O responsável deve ter 18 anos ou mais");
@@ -199,7 +201,7 @@ public class ResponsibleAdultService {
 
         // validação da troca da data de aniversário
         if (dto.birthdate() != null) {
-            int responsibleYears = Period.between(dto.birthdate(), LocalDate.now()).getYears();
+            int responsibleYears = Period.between(dto.birthdate(), today()).getYears();
 
             if (responsibleYears < 18) {
                 throw new UnderageResponsibleAdultException("O responsável deve ter 18 anos ou mais");
@@ -317,7 +319,7 @@ public class ResponsibleAdultService {
             throw new StudentNotAssociatedWithResponsibleAdultException("O estudante informado não está vinculado ao responsável autenticado");
         }
 
-        int studentAge = Period.between(student.getBirthdate(), LocalDate.now()).getYears();
+        int studentAge = Period.between(student.getBirthdate(), today()).getYears();
 
         // caso o estudante seja menor, necessário vincular um outro responsável a ele
         if (studentAge < 18) {
@@ -367,7 +369,7 @@ public class ResponsibleAdultService {
         // valida mesmo customer
         validateSameCustomer(student.getCustomerId(), responsibleAdult.getCustomerId());
 
-        int studentAge = Period.between(student.getBirthdate(), LocalDate.now()).getYears();
+        int studentAge = Period.between(student.getBirthdate(), today()).getYears();
 
         if (studentAge < 18) {
             throw new MinorStudentResponsibleAdultTransferRequiredException("Não é possível seguir com a operação, é necessário vincular um novo responsável ao estudante menor de idade.");
@@ -389,6 +391,10 @@ public class ResponsibleAdultService {
         if (!customerOne.equals(customerTwo)) {
             throw new CustomerMismatchException("Divergência entre customer identificada entre as entidades.");
         }
+    }
+    
+    private LocalDate today() {
+        return customerTimeService.today();
     }
 
     private static String blankToNull(String value) {

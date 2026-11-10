@@ -66,6 +66,7 @@ public class TravelService {
     private final TravelTrackingStaticCacheService travelTrackingStaticCacheService;
     private final StudentTravelCooldownService studentTravelCooldownService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
+    private final CustomerTimeService customerTimeService;
 
     private final CollectTravelReportsMetrics collectTravelReportsMetrics;
 
@@ -76,7 +77,7 @@ public class TravelService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, HealthConditionRepository healthConditionRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, HealthDeclarationRepository healthDeclarationRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, UserProfileResolverService userProfileResolverService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, HealthConditionRepository healthConditionRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, HealthDeclarationRepository healthDeclarationRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, UserProfileResolverService userProfileResolverService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -100,6 +101,7 @@ public class TravelService {
         this.travelTrackingStaticCacheService = travelTrackingStaticCacheService;
         this.studentTravelCooldownService = studentTravelCooldownService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
+        this.customerTimeService = customerTimeService;
         this.collectTravelReportsMetrics = collectTravelReportsMetrics;
         this.routeStopResponseMapper = routeStopResponseMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
@@ -159,7 +161,7 @@ public class TravelService {
 
         travel.setTravelDirection(travelRequestDTO.travelDirection());
 
-        travel.setCreatedAt(Instant.now());
+        travel.setCreatedAt(instant());
         travel.setTravelStatus(TravelStatus.PENDING);
         travel.setDriver(driver);
 
@@ -261,7 +263,7 @@ public class TravelService {
 
         travel.setTravelDirection(dto.travel().travelDirection());
 
-        travel.setCreatedAt(Instant.now());
+        travel.setCreatedAt(instant());
         travel.setScheduledStartAt(dto.schedule().scheduledStartAt());
         travel.setTravelStatus(TravelStatus.SCHEDULED);
         travel.setDriver(driver);
@@ -348,7 +350,7 @@ public class TravelService {
         }
 
         actualTrip.setTravelStatus(TravelStatus.FINISH);
-        actualTrip.setEndHourTravelAt(Instant.now());
+        actualTrip.setEndHourTravelAt(instant());
 
         UUID baseCustomerId = actualTrip.getCustomerId();
 
@@ -498,8 +500,8 @@ public class TravelService {
         }
 
         travel.setTravelStatus(TravelStatus.CANCELED);
-        travel.setCancelledAt(Instant.now());
-        travel.setEndHourTravelAt(Instant.now());
+        travel.setCancelledAt(instant());
+        travel.setEndHourTravelAt(instant());
         travel.setCancelledReason(dto.cancelledReason());
 
         UUID baseCustomerId = travel.getCustomerId();
@@ -627,13 +629,13 @@ public class TravelService {
     // pega as viagens agendadas (usado no job)
     @Transactional(readOnly = true)
     public List<UUID> getDueTravels() {
-        return travelRepository.findDueTravels(TravelStatus.SCHEDULED, Instant.now());
+        return travelRepository.findDueTravels(TravelStatus.SCHEDULED, instant());
     }
 
     // recupera as viagens agendadas nas quais estão com 1h30 ou menos de começar (usado no job)
     @Transactional(readOnly = true)
     public List<UUID> getScheduledTravelsWithinTimeWindow() {
-        Instant now = Instant.now();
+        Instant now = instant();
         Instant nowPlusThreshold = now.plus(Duration.ofMinutes(90));
 
         return travelRepository.findScheduledTravelsWithinTimeWindow(TravelStatus.SCHEDULED, now, nowPlusThreshold);
@@ -697,7 +699,7 @@ public class TravelService {
         travelToStart.setDuration(routeDetailsDTO.duration());
         travelToStart.setDistance(routeDetailsDTO.distance());
         travelToStart.setPolylineRoute(routeDetailsDTO.geometry());
-        travelToStart.setStartHourTravelAt(Instant.now());
+        travelToStart.setStartHourTravelAt(instant());
 
         travelToStart.setTravelStatus(TravelStatus.TRAVELLING);
 
@@ -734,7 +736,7 @@ public class TravelService {
         studentTravel.setTravel(travel);
         studentTravel.setStudent(student);
         studentTravel.setEmbark(true);
-        studentTravel.setEmbarkHour(Instant.now());
+        studentTravel.setEmbarkHour(instant());
         studentTravel.setStudentTravelStatus(status);
 
         studentTravelRepository.save(studentTravel);
@@ -795,7 +797,7 @@ public class TravelService {
         String studentEmail = studentTravelCache.studentEmail();
 
         UUID studentTravelId = studentTravelCache.studentTravelId();
-        Instant disembarkHour = Instant.now();
+        Instant disembarkHour = instant();
 
         // faz a persistencia, validando o desvinculo
         studentTravelRepository.disconnectedStudentFromTrip(travelId, List.of(studentTravelId), studentTravelStatus, disembarkHour, false);
@@ -1017,9 +1019,13 @@ public class TravelService {
     * */
     private void batchUpdateProcessing(UUID travelId, List<UUID> studentTravelIds) {
         if (!studentTravelIds.isEmpty()) {
-            Instant disconnectedHour = Instant.now();
+            Instant disconnectedHour = instant();
 
             studentTravelRepository.disconnectedStudentFromTrip(travelId, studentTravelIds, StudentTravelStatus.LEFT, disconnectedHour, false);
         }
+    }
+    
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 }

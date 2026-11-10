@@ -53,6 +53,7 @@ public class InvitationService {
     private final AdministratorRepository administratorRepository;
     private final CustomerRepository customerRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final InstitutionService institutionService;
     private final PermissionsService permissionsService;
     private final TokenConfig tokenConfig;
@@ -64,11 +65,12 @@ public class InvitationService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, InstitutionService institutionService, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
+    public InvitationService(InvitationRepository invitationRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTimeService customerTimeService, InstitutionService institutionService, PermissionsService permissionsService, TokenConfig tokenConfig, InvitationResponseMapper invitationResponseMapper, ObjectMapper objectMapper, ApplicationEventPublisher eventPublisher) {
         this.invitationRepository = invitationRepository;
         this.userAccountRepository = userAccountRepository;
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
+        this.customerTimeService = customerTimeService;
         this.institutionService = institutionService;
         this.permissionsService = permissionsService;
         this.tokenConfig = tokenConfig;
@@ -97,7 +99,7 @@ public class InvitationService {
                 .findAllByUserAccountIdIn(inviterUserAccountIds).stream()
                 .collect(Collectors.toMap(a -> a.getUserAccount().getId(), Function.identity()));
 
-        Instant now = Instant.now();
+        Instant now = instant();
         return invitations.map(inv -> {
             Administrator inviter = invitersByUserAccountId.get(inv.getInvitedBy());
             return invitationResponseMapper.toResponse(inv, inviter != null ? inviter.getName() : null, now);
@@ -118,7 +120,7 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findByIdAndInvitedUserAccountIdIgnoringTenant(invitationId, user.getId())
                 .orElseThrow(() -> new InvitationNotFoundException("Convite não encontrado"));
 
-        if (!invitation.isPending() || invitation.isExpired(Instant.now())) {
+        if (!invitation.isPending() || invitation.isExpired(instant())) {
             throw new InvitationNotPendingException("O convite não está mais disponível");
         }
 
@@ -134,7 +136,7 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findById(invitationId)
                 .orElseThrow(() -> new InvitationNotFoundException("Invitation não encontrada pelo ID"));
 
-        invitation.revoke(Instant.now());
+        invitation.revoke(instant());
     }
 
     @Transactional
@@ -146,7 +148,7 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findById(invitationId)
                 .orElseThrow(() -> new InvitationNotFoundException("Invitation não encontrada pelo ID"));
 
-        Instant now = Instant.now();
+        Instant now = instant();
 
         UUID invitedUserAccountId = invitation.getInvitedUserAccountId();
 
@@ -191,7 +193,7 @@ public class InvitationService {
             return List.of();
         }
 
-        Instant now = Instant.now();
+        Instant now = instant();
 
         List<Invitation> myPendingInvitations = invitationRepository.findMyPendingInvitations(user.getId(), now);
 
@@ -224,7 +226,7 @@ public class InvitationService {
     public InvitationAcceptResponseDTO acceptInvitation(UUID invitationId, TargetUserType expectedType, ProfileCreator creator) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
-        Instant now = Instant.now();
+        Instant now = instant();
 
         // conta do usuário autenticado
         UserAccount userAccount = userAccountRepository.findByEmailForUpdate(authenticatedUserEmail)
@@ -295,7 +297,7 @@ public class InvitationService {
     public void declineInvitation(UUID invitationId) {
         String authenticatedUserEmail = getAuthenticatedUserEmail();
 
-        Instant now = Instant.now();
+        Instant now = instant();
 
         UserAccount user = userAccountRepository.findUserByEmail(authenticatedUserEmail);
 
@@ -319,7 +321,7 @@ public class InvitationService {
 
     @Transactional
     public InvitationResponseDTO sendInvitation(String rawEmail, InvitationProfileData profileData) {
-        Instant now = Instant.now();
+        Instant now = instant();
 
         TargetUserType targetUserType = profileData.targetUserType();
 
@@ -372,7 +374,7 @@ public class InvitationService {
     @Transactional
     public int expirePendingInvitations() {
         // usa job
-        return invitationRepository.expirePendingInvitationsWithoutTenantFilter(Instant.now());
+        return invitationRepository.expirePendingInvitationsWithoutTenantFilter(instant());
     }
 
     private UserAccount resolveInvitableUserById(UUID invitedUserAccountId) {
@@ -467,5 +469,9 @@ public class InvitationService {
        }
 
        return administrator;
+   }
+
+   private Instant instant() {
+        return customerTimeService.instant();
    }
 }

@@ -5,6 +5,7 @@ import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
 import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import com.travel_system.backend_app.service.TravelHistoryPingsService;
 import com.travel_system.backend_app.service.TravelTrackingNotificationService;
@@ -18,14 +19,17 @@ import java.util.UUID;
 
 @Component
 public class RabbitMQConsumers {
+
+    private final CustomerTimeService customerTimeService;
     private final RedisTrackingService redisTrackingService;
     private final TravelHistoryPingsService travelHistoryPingsService;
     private final TravelTrackingNotificationService trackingNotificationService;
 
-    public RabbitMQConsumers(RedisTrackingService redisTrackingService, TravelHistoryPingsService travelHistoryPingsService, TravelTrackingNotificationService trackingNotificationService, TenantFilterAspect tenantFilterAspect) {
+    public RabbitMQConsumers(RedisTrackingService redisTrackingService, TravelHistoryPingsService travelHistoryPingsService, TravelTrackingNotificationService trackingNotificationService, TenantFilterAspect tenantFilterAspect, CustomerTimeService customerTimeService) {
         this.redisTrackingService = redisTrackingService;
         this.travelHistoryPingsService = travelHistoryPingsService;
         this.trackingNotificationService = trackingNotificationService;
+        this.customerTimeService = customerTimeService;
     }
 
     private final Logger logger = LoggerFactory.getLogger(RabbitMQConsumers.class);
@@ -43,7 +47,7 @@ public class RabbitMQConsumers {
 
         logger.info("Method processingMessagesGpsCoordinates received message: {}", gpsPayload);
 
-        Instant now = Instant.now();
+        Instant now = customerTimeService.instant();
         UUID travelId = gpsPayload.travelId();
         UUID cityId = gpsPayload.cityId();
         Double latitude = gpsPayload.latitude();

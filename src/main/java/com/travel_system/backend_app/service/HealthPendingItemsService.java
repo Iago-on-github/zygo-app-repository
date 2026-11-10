@@ -43,6 +43,7 @@ public class HealthPendingItemsService {
     private final StudentRepository studentRepository;
     private final DriverRepository driverRepository;
 
+    private final CustomerTimeService customerTimeService;
     private final HealthConsentService healthConsentService;
     private final UserProfileResolverService userProfileResolverService;
 
@@ -53,9 +54,7 @@ public class HealthPendingItemsService {
     // status em que um documento ainda pode comprovar a condição
     private static final Set<DocumentStatus> ACTIVE_STATUSES = EnumSet.of(DocumentStatus.PENDING_REVIEW, DocumentStatus.APPROVED);
 
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("America/Sao_Paulo");
-
-    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, PlatformTransactionManager transactionManager, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher, TransactionTemplate readOnlyTransactionTemplate) {
+    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, PlatformTransactionManager transactionManager, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher, TransactionTemplate readOnlyTransactionTemplate, CustomerTimeService customerTimeService) {
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
@@ -67,6 +66,7 @@ public class HealthPendingItemsService {
         this.userProfileResolverService = userProfileResolverService;
         this.eventPublisher = eventPublisher;
         this.readOnlyTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.customerTimeService = customerTimeService;
         this.readOnlyTransactionTemplate.setReadOnly(true);
     }
 
@@ -221,9 +221,9 @@ public class HealthPendingItemsService {
     // fuso do Customer para calcular o "hoje" (fallback para o horário de Brasília)
     private ZoneId zoneOf(Customer customer) {
         try {
-            return customer.getTimeZone() != null ? ZoneId.of(customer.getTimeZone()) : DEFAULT_ZONE;
+            return customer.getTimeZone() != null ? ZoneId.of(customer.getTimeZone()) : customerTimeService.zoneOf(customer);
         } catch (DateTimeException e) {
-            return DEFAULT_ZONE;
+            return customerTimeService.zoneOf(customer);
         }
     }
 

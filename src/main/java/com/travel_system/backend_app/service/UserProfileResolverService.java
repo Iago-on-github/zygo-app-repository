@@ -34,16 +34,18 @@ public class UserProfileResolverService {
     private final DriverRepository driverRepository;
     private final AdministratorRepository administratorRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
-
     private final DocumentRepository documentRepository;
 
-    public UserProfileResolverService(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository, DocumentRepository documentRepository) {
+    private final CustomerTimeService customerTimeService;
+
+    public UserProfileResolverService(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository, DocumentRepository documentRepository, CustomerTimeService customerTimeService) {
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
         this.administratorRepository = administratorRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
         this.documentRepository = documentRepository;
+        this.customerTimeService = customerTimeService;
     }
 
     public UUID resolveCustomerId(UserAccount userAccount) {
@@ -171,7 +173,7 @@ public class UserProfileResolverService {
     }
 
     protected boolean isMinor(LocalDate d1) {
-        return Period.between(d1, LocalDate.now()).getYears() < 18;
+        return Period.between(d1, customerTimeService.today()).getYears() < 18;
     }
 
 }

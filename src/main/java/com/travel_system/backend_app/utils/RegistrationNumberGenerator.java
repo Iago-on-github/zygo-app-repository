@@ -3,6 +3,7 @@ package com.travel_system.backend_app.utils;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.model.RegistrationRequest;
 import com.travel_system.backend_app.repository.RegistrationNumberSequenceRepository;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,16 +28,17 @@ public class RegistrationNumberGenerator {
 
     private final RegistrationNumberSequenceRepository registrationNumberSequenceRepository;
 
+    private final CustomerTimeService customerTimeService;
+
     private static final long MODULUS = 1_000_000L;
 
     // A não pode ser divisível por 2 nem por 5, senão haveria repetição
     private static final long MULTIPLIER = 738_161L;
     private static final long OFFSET = 254_983L;
 
-    private static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
-
-    public RegistrationNumberGenerator(RegistrationNumberSequenceRepository registrationNumberSequenceRepository) {
+    public RegistrationNumberGenerator(RegistrationNumberSequenceRepository registrationNumberSequenceRepository, CustomerTimeService customerTimeService) {
         this.registrationNumberSequenceRepository = registrationNumberSequenceRepository;
+        this.customerTimeService = customerTimeService;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -50,7 +52,7 @@ public class RegistrationNumberGenerator {
 
         long scrambled = (MULTIPLIER * sequence + OFFSET) % MODULUS;
 
-        return "%04d%06d".formatted(LocalDate.now(ZONE).getYear(), scrambled);
+        return "%04d%06d".formatted(customerTimeService.today().getYear(), scrambled);
     }
 
 }

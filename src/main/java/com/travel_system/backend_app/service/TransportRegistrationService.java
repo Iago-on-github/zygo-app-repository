@@ -4,11 +4,12 @@ package com.travel_system.backend_app.service;
 * Upload do documento e da foto: valida a solicitação, monta a chave e define os callbacks
 * */
 
-import com.itextpdf.text.DocumentException;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
 import com.travel_system.backend_app.events.documents.RegistrationSubmittedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
+import com.travel_system.backend_app.model.dtos.ownApi.RegistrationSettings;
 import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.security.ProcessedDocument;
@@ -16,18 +17,15 @@ import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.apache.tika.Tika;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.UnsupportedMediaTypeException;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -51,6 +49,7 @@ public class TransportRegistrationService {
 
     private final RegistrationDocumentLifecycleService registrationDocumentLifecycleService;
 
+    private final CustomerTimeService customerTimeService;
     private final DocumentProcessingService documentProcessingService;
     private final DocumentPersistenceService documentPersistenceService;
 
@@ -79,7 +78,7 @@ public class TransportRegistrationService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public TransportRegistrationService(TransportRegistrationRepository transportRegistrationRepository, RegistrationRequestRepository registrationRequestRepository, DocumentRepository documentRepository, StudentRepository studentRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, UserAccountRepository userAccountRepository, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, DocumentProcessingService documentProcessingService, DocumentPersistenceService documentPersistenceService, ImageProcessingService imageProcessingService, S3PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher) {
+    public TransportRegistrationService(TransportRegistrationRepository transportRegistrationRepository, RegistrationRequestRepository registrationRequestRepository, DocumentRepository documentRepository, StudentRepository studentRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, UserAccountRepository userAccountRepository, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, CustomerTimeService customerTimeService, DocumentProcessingService documentProcessingService, DocumentPersistenceService documentPersistenceService, ImageProcessingService imageProcessingService, S3PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher) {
         this.transportRegistrationRepository = transportRegistrationRepository;
         this.registrationRequestRepository = registrationRequestRepository;
         this.documentRepository = documentRepository;
@@ -88,6 +87,7 @@ public class TransportRegistrationService {
         this.customerRepository = customerRepository;
         this.userAccountRepository = userAccountRepository;
         this.registrationDocumentLifecycleService = registrationDocumentLifecycleService;
+        this.customerTimeService = customerTimeService;
         this.documentProcessingService = documentProcessingService;
         this.documentPersistenceService = documentPersistenceService;
         this.imageProcessingService = imageProcessingService;
@@ -227,9 +227,13 @@ public class TransportRegistrationService {
 
         Customer customer = getCurrentCustomer();
 
+        RegistrationSettings settings = RegistrationSettings.from(customer);
+
+        RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(registration.getCustomerTerm().getEndTerm(), settings);
+
         // regras de tipo
         if (oldRequest.getType() == RegistrationRequestType.UPDATE) {
-            if (today().isBefore(renewalWindowStart(registration, customer))) {
+            if (registrationDeadlines.isWindowOpen(today())) {
                 throw new RegistrationNotUpdatableException(UpdateBlockReason.RENEWAL_PERIOD, "O período de renovação está aberto. Atualize os seus dados pela renovação");
             }
         }
@@ -305,12 +309,14 @@ public class TransportRegistrationService {
             throw new RegistrationNotUpdatableException(UpdateBlockReason.OPEN_REQUEST, "Já existe uma solicitação em andamento");
         }
 
-        // a partir da abertura da janela (inclui a carência), os dados são atualizados pela renovação
-        LocalDate windowStart = renewalWindowStart(registration, getCurrentCustomer());
+        RegistrationSettings settings = RegistrationSettings.from(getCurrentCustomer());
+        RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(registration.getCustomerTerm().getEndTerm(), settings);
 
-        if (!today().isBefore(windowStart)) {
-            throw new RegistrationNotUpdatableException(UpdateBlockReason.RENEWAL_PERIOD,
-                    "O período de renovação está aberto. Atualize os seus dados pela renovação");
+        // a partir da abertura da janela (inclui a carência), os dados são atualizados pela renovação
+
+
+        if (registrationDeadlines.isWindowOpen(today())) {
+            throw new RegistrationNotUpdatableException(UpdateBlockReason.RENEWAL_PERIOD, "O período de renovação está aberto. Atualize os seus dados pela renovação");
         }
 
         RegistrationRequest request = newRequestFrom(registration, RegistrationRequestType.UPDATE, owner);
@@ -364,8 +370,12 @@ public class TransportRegistrationService {
         LocalDate today = LocalDate.now(ZoneId.of(ZONE));
         LocalDate termEnd = registration.getCustomerTerm().getEndTerm();
 
-        LocalDate windowStart = termEnd.minusDays(customer.getRegistrationRenewalWindowDays());
-        LocalDate graceEnd = termEnd.plusDays(customer.getRegistrationGracePeriodDays());
+        RegistrationSettings settings = RegistrationSettings.from(customer);
+
+        RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(termEnd, settings);
+
+        LocalDate windowStart = registrationDeadlines.windowStart();
+        LocalDate graceEnd = registrationDeadlines.graceEnd();
 
         if (hasOpenRequest) {
             return RenewalEligibility.blocked(RenewalBlockReason.OPEN_REQUEST, windowStart);
@@ -520,7 +530,7 @@ public class TransportRegistrationService {
         // se completo envia direto para análise por parte do administrador
         request.setStatus(RegistrationRequestStatus.UNDER_REVIEW);
         request.setSubmittedBy(getAuthenticatedUserAccountId());
-        request.setSubmittedAt(Instant.now());
+        request.setSubmittedAt(customerTimeService.instant());
 
         // notificação dos admins do customer
         eventPublisher.publishEvent(new RegistrationSubmittedEvent(
@@ -962,13 +972,6 @@ public class TransportRegistrationService {
         };
     }
 
-
-    // início da janela de renovação: fim do período atual − dias de antecedência configurados no Customer
-    private LocalDate renewalWindowStart(TransportRegistration registration, Customer customer) {
-        return registration.getCustomerTerm().getEndTerm()
-                .minusDays(customer.getRegistrationRenewalWindowDays());
-    }
-
     // customer do usuário logado (via TenantContext)
     private Customer getCurrentCustomer() {
         return customerRepository.findById(getCurrentTenant())
@@ -976,7 +979,7 @@ public class TransportRegistrationService {
     }
 
     private LocalDate today() {
-        return LocalDate.now(ZoneId.of(ZONE));
+        return customerTimeService.today();
     }
 
     private UUID getAuthenticatedUserAccountId() {

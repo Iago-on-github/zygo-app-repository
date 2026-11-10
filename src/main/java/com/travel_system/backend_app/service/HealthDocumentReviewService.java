@@ -42,19 +42,21 @@ public class HealthDocumentReviewService {
     private final PrivateStorageService privateStorageService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
 
+    private final CustomerTimeService customerTimeService;
     private final DocumentStorageProperties documentStorageProperties;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private final DocumentResponseMapper documentResponseMapper;
 
-    public HealthDocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolverService userProfileResolverService, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
+    public HealthDocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolverService userProfileResolverService, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
         this.documentRepository = documentRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
         this.userProfileResolverService = userProfileResolverService;
         this.privateStorageService = privateStorageService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
+        this.customerTimeService = customerTimeService;
         this.documentStorageProperties = documentStorageProperties;
         this.eventPublisher = eventPublisher;
         this.documentResponseMapper = documentResponseMapper;
@@ -94,7 +96,7 @@ public class HealthDocumentReviewService {
         // registra acesso de dado sensível
         sensitiveDataAccessLogService.record(admId, owner, ResourceType.DOCUMENT, documentId, Action.DOWNLOAD, null);
 
-        return new DocumentDownloadResponseDTO(url, Instant.now().plus(documentStorageProperties.getDownloadUrlTtl()));
+        return new DocumentDownloadResponseDTO(url, instant().plus(documentStorageProperties.getDownloadUrlTtl()));
     }
 
     @Transactional
@@ -111,12 +113,12 @@ public class HealthDocumentReviewService {
 
         // se documento já passou a validade
         LocalDate validUntil = document.getValidUntil();
-        if (validUntil != null && !validUntil.isBefore(today())) {
+        if (validUntil != null && !validUntil.isBefore(customerTimeService.today())) {
             throw new DocumentConflictException("A validade do documento está expirada");
         }
 
         // realiza o update
-        Instant reviewedAt = Instant.now();
+        Instant reviewedAt = instant();
 
         document.setDocumentStatus(DocumentStatus.APPROVED);
         document.setReviewedBy(adminId);
@@ -147,7 +149,7 @@ public class HealthDocumentReviewService {
         // aqui é permtido rejeitar um documento cujo prazo de validade já expirou
 
         // realiza o update
-        Instant reviewedAt = Instant.now();
+        Instant reviewedAt = instant();
 
         document.setDocumentStatus(DocumentStatus.REJECTED);
         document.setRejectionReason(dto.rejectReason());
@@ -177,8 +179,8 @@ public class HealthDocumentReviewService {
                 : new OwnerBuilt(OwnerType.DRIVER, document.getDriverId());
     }
 
-    private LocalDate today() {
-        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 }
 

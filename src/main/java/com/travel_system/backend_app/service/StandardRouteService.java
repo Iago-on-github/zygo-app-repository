@@ -39,10 +39,11 @@ public class StandardRouteService {
     private final StandardRouteRequestMapper standardRouteRequestMapper;
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
+    private final CustomerTimeService customerTimeService;
     private final CurrentUserService currentUserService;
     private final MapboxAPIService mapboxAPIService;
 
-    public StandardRouteService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, StudentRepository studentRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService) {
+    public StandardRouteService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, StudentRepository studentRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CustomerTimeService customerTimeService, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService) {
         this.standardRouteRepository = standardRouteRepository;
         this.routeStopRepository = routeStopRepository;
         this.userAccountRepository = userAccountRepository;
@@ -50,6 +51,7 @@ public class StandardRouteService {
         this.studentRepository = studentRepository;
         this.standardRouteRequestMapper = standardRouteRequestMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
+        this.customerTimeService = customerTimeService;
         this.currentUserService = currentUserService;
         this.mapboxAPIService = mapboxAPIService;
     }
@@ -255,7 +257,7 @@ public class StandardRouteService {
         standardRoute.setRouteStopAssignments(assignments);
         standardRoute.setStatus(GeneralStatus.ACTIVE);
         standardRoute.setTravelPeriods(standardRouteRequestDTO.periods());
-        standardRoute.setCreatedAt(Instant.now());
+        standardRoute.setCreatedAt(customerTimeService.instant());
 
         // importante: caso o cascade do relacionamento seja removido é necessário salvar o RouteStopAssignments explicitamente
         StandardRoute savedStandardRoute = standardRouteRepository.save(standardRoute);

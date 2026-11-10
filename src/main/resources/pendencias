@@ -1,7 +1,7 @@
 Testes pendentes insomnia:
 - registrationReport (X)
 
-------------------------------
+-------------------------------
 
 O QUE JÁ TEMOS:
 
@@ -224,7 +224,26 @@ O QUE JÁ TEMOS:
  - update current
  - update status
 
--
+- DRIVER:
+ - get drivers with cnh expiring soon
+ - get by id/cpf/cnhNumber/status
+ - get all/current
+ - update current
+ - update status
+
+- STUDENT:
+ - get by id/pool of enrollment/cpf/status
+ - get student institutions
+ - get all/current
+ - add/remove responsible
+ - update status
+
+- RESPONSIBLE:
+ - get all/current
+ - get by id/name/cpf/studentId
+ - update
+ - add/remove students
+ - transfer student to another responsible
 
 - AUTH:
     - register new acc
@@ -234,7 +253,7 @@ O QUE JÁ TEMOS:
   - [RABBITMQ]:
     - authenticate messaging/vhost/resource/topic
 
- - set-up auth (p/ operaões "insira sua senha novamente" para continuar)
+ - set-up auth ("insira sua senha novamente" para continuar)
 
   - [INVITATIONS]:
     - list my pending invitations
@@ -247,7 +266,7 @@ O QUE AINDA FALTA FAZER (ESSENCIAL, NÃO PODE FALTAR)
 O QUE AINDA FALTA FAZER (IMPORTANTE, MAS PODE SER ACRESCENTADO DPS)
 O QUE PRIORIZAR PRIMEIRO
 
-------------------------------
+-------------------------------
 
 PENDÊNCIAS DA MINHA PARTE PARA COM A API
 - FALTA FAZER DOCUMENTAÇÃO NO SWAGGER ()
@@ -256,5 +275,15 @@ PENDÊNCIAS DA MINHA PARTE PARA COM A API
 - FALTA FAZER OS TESTES DAS NOTIFICAÇÕES DO FIREBASE ()
 - FALTA FAZER ALGUMAS PARTES DO AUTH (como 2fa, pass recovery) ()
 - FALTA FAZER A PARTE DE CUSTOMIZATIONS (so tem pronta a entidade) ()
-- FALTA AINDA AJUSTAR, NO INSOMNIA, O MAPEAMENTO DAS ENTIDADES DE DOMÍNIO REMOVENDO OS ENDPOINTS DEPRECIADOS ()
+
+- FALTA AINDA AJUSTAR, NO INSOMNIA, O MAPEAMENTO DAS ENTIDADES DE DOMÍNIO REMOVENDO OS ENDPOINTS DEPRECIADOS (X)
+
+- AINDA FALTA FAZER A FEATURE DE BLOQUEIO DE ACESSO DO SISTEMA ()
+
 - FALTA FAZER OS MÉTODOS DE DELETAR CONTA PARA AS ENTIDADES DE DOMÍNIO ()
+
+------------------------------
+FEATURES QUE EU ESTOU TRABALHANDO NO MOMENTO
+- organização de data por zoneId (X)
+- RegistrationDeadlines ()
+- Restrições de acesso ()

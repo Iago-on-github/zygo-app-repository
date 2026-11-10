@@ -27,13 +27,15 @@ public class GpsDataIngestorService {
     private final RabbitTemplate rabbitTemplate;
     private final CircuitBreaker circuitBreaker;
 
+    private final CustomerTimeService customerTimeService;
     private final RedisTrackingService redisTrackingService;
 
     private final Logger logger = LoggerFactory.getLogger(GpsDataIngestorService.class);
 
-    public GpsDataIngestorService(RabbitTemplate rabbitTemplate, CircuitBreakerRegistry registry, RedisTrackingService redisTrackingService) {
+    public GpsDataIngestorService(RabbitTemplate rabbitTemplate, CircuitBreakerRegistry registry, CustomerTimeService customerTimeService, RedisTrackingService redisTrackingService) {
         this.rabbitTemplate = rabbitTemplate;
         this.circuitBreaker = registry.circuitBreaker("gpsIngestor");
+        this.customerTimeService = customerTimeService;
         this.redisTrackingService = redisTrackingService;
 
         // registra listener de construção de estado
@@ -66,7 +68,7 @@ public class GpsDataIngestorService {
 
         final String ROUTING_KEY = "v1.gps." + vehicleGpsMessageDTO.city() + "." + vehicleGpsMessageDTO.travelId();
 
-        Instant now = Instant.now();
+        Instant now = customerTimeService.instant();
         UUID cityId = UUID.fromString(vehicleGpsMessageDTO.city());
         VehicleLocationRequestDTO vehicleLocation = vehicleGpsMessageDTO.vehicleLocation();
         UUID travelId = UUID.fromString(vehicleGpsMessageDTO.travelId());

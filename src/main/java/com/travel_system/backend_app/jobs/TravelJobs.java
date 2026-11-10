@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.jobs;
 
+import com.travel_system.backend_app.config.constants.SchedulerConstraints;
 import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.service.TravelNotificationService;
 import com.travel_system.backend_app.service.TravelService;
@@ -31,7 +32,7 @@ public class TravelJobs {
     }
 
 
-    @Scheduled(fixedDelay = 30_000)
+    @Scheduled(fixedDelay = 30_000, zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void scheduledTripJob() {
         List<UUID> scheduledTravels;
 
@@ -53,7 +54,7 @@ public class TravelJobs {
         }
     }
 
-    @Scheduled(fixedDelay = 30_000)
+    @Scheduled(fixedDelay = 30_000, zone = SchedulerConstraints.SCHEDULER_ZONE)
     public void checkTripsForUpcomingRemindersJob() {
         List<UUID> travelsId;
 

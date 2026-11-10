@@ -38,6 +38,7 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 @Service
 public class HealthDeclarationService {
 
+    private final CustomerTimeService customerTimeService;
     private final UserProfileResolverService userProfileResolverService;
     private final HealthConsentService healthConsentService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
@@ -55,7 +56,8 @@ public class HealthDeclarationService {
     private final ApplicationEventPublisher eventPublisher;
 
 
-    public HealthDeclarationService(UserProfileResolverService userProfileResolverService, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationRequestMapper healthDeclarationRequestMapper, HealthConditionRequestMapper healthConditionRequestMapper, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthDeclarationService(CustomerTimeService customerTimeService, UserProfileResolverService userProfileResolverService, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationRequestMapper healthDeclarationRequestMapper, HealthConditionRequestMapper healthConditionRequestMapper, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
+        this.customerTimeService = customerTimeService;
         this.userProfileResolverService = userProfileResolverService;
         this.healthConsentService = healthConsentService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
@@ -117,15 +119,15 @@ public class HealthDeclarationService {
             declaration.setDriverId(owner.id());
         }
 
-        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(today())
-                .or(() -> customerTermRepository.findFirstByStartTermGreaterThanEqualOrderByStartTermAsc(today()))
+        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(customerTimeService.today())
+                .or(() -> customerTermRepository.findFirstByStartTermGreaterThanEqualOrderByStartTermAsc(customerTimeService.today()))
                 .orElse(null);
 
         declaration.setHasCondition(dto.hasCondition());
         declaration.setHealthDeclarationStatus(HealthDeclarationStatus.CURRENT);
         declaration.setCustomerTerm(currentTerm);
         declaration.setDeclaredBy(context.actorAccountId());
-        declaration.setDeclaredAt(Instant.now());
+        declaration.setDeclaredAt(instant());
 
         // converte e vincula cada condição à declaração
         conditions.forEach(conditionDTO -> declaration.addCondition(healthConditionRequestMapper.toEntity(conditionDTO)));
@@ -227,7 +229,7 @@ public class HealthDeclarationService {
 
         declaration.setHasCondition(!declaration.getConditions().isEmpty());
         declaration.setDeclaredBy(context.actorAccountId());
-        declaration.setDeclaredAt(Instant.now());
+        declaration.setDeclaredAt(instant());
 
         // notifica o adm
         eventPublisher.publishEvent(new HealthConditionChangedEvent(declaration.getId(), owner.id(), declaration.isHasCondition(), declaration.getDeclaredBy(), declaration.getCustomerId()));
@@ -253,7 +255,7 @@ public class HealthDeclarationService {
         // recalcula a flag e registra quem alterou
         healthDeclaration.setHasCondition(!healthDeclaration.getConditions().isEmpty());
         healthDeclaration.setDeclaredBy(context.actorAccountId());
-        healthDeclaration.setDeclaredAt(Instant.now());
+        healthDeclaration.setDeclaredAt(instant());
 
         // notifica o administrador quando houve condição adicionada ou editada
         publishConditionChanged(healthDeclaration, owner);
@@ -290,7 +292,7 @@ public class HealthDeclarationService {
 
         declaration.setHasCondition(!declaration.getConditions().isEmpty());
         declaration.setDeclaredBy(context.actorAccountId());
-        declaration.setDeclaredAt(Instant.now());
+        declaration.setDeclaredAt(instant());
 
         HealthDeclaration savedDeclaration = healthDeclarationRepository.save(declaration);
 
@@ -335,7 +337,7 @@ public class HealthDeclarationService {
                 .orElseThrow(() -> new EntityNotFoundException("Nenhuma declaração de saúde encontrada para revalidar"));
 
         // período letivo vigente (que pode não existir)
-        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(today()).orElse(null);
+        CustomerTerm currentTerm = customerTermRepository.findByCurrentDate(customerTimeService.today()).orElse(null);
 
         // se já está vigente no período atual
         if (declaration.getHealthDeclarationStatus() == HealthDeclarationStatus.CURRENT && Objects.equals(termId(declaration.getCustomerTerm()), termId(currentTerm))) {
@@ -345,7 +347,7 @@ public class HealthDeclarationService {
         declaration.setHealthDeclarationStatus(HealthDeclarationStatus.CURRENT);
         declaration.setCustomerTerm(currentTerm);
         declaration.setDeclaredBy(context.actorAccountId());
-        declaration.setDeclaredAt(Instant.now());
+        declaration.setDeclaredAt(instant());
 
         return healthDeclarationResponseMapper.toDTO(declaration);
     }
@@ -365,10 +367,6 @@ public class HealthDeclarationService {
         if (!healthConsentService.hasActiveConsent(owner.id())) {
             throw new HealthConsentRequiredException("É necessário aceitar o termo de consentimento antes de continuar");
         }
-    }
-
-    private LocalDate today() {
-        return LocalDate.now(ZoneId.of("America/Sao_Paulo"));
     }
 
     // publica o evento para notificar o administrador sobre condições novas ou alteradas
@@ -400,5 +398,9 @@ public class HealthDeclarationService {
         }
 
         return user.getId();
+    }
+
+    private Instant instant() {
+        return customerTimeService.instant();
     }
 }
