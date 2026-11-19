@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.response.HealthPendingItemsResponseDTO;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.service.HealthPendingItemsService;
@@ -9,11 +10,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/pending-items")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class HealthPendingItemsController {
 
     private final HealthPendingItemsService healthPendingItemsService;
@@ -44,6 +45,7 @@ public class HealthPendingItemsController {
     * endpoints para admin
     * */
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/admin/{ownerType}/{ownerId}")
     public ResponseEntity<HealthPendingItemsResponseDTO>  getOwnerPendingItems(@PathVariable OwnerType ownerType, @PathVariable UUID ownerId) {
         return ResponseEntity.ok().body(healthPendingItemsService.getOwnerPendingItems(ownerType, ownerId));

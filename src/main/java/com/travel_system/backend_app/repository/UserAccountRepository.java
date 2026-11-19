@@ -3,6 +3,7 @@ package com.travel_system.backend_app.repository;
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
+import com.travel_system.backend_app.model.enums.UserAccountType;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,9 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 
 @Repository
 public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
@@ -35,4 +35,18 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     @Query("SELECT u FROM UserAccount u WHERE u.email = :email")
     Optional<UserAccount> findByEmailForUpdate(@Param("email") String email);
 
+    @Modifying
+    @Query("UPDATE UserAccount u SET u.lastActivityAt = :lastActivityAt WHERE u.id = :userAccountId AND u.lastActivityAt IS NULL " +
+            "OR u.lastActivityAt < :twentyFourHoursAgo")
+    int recordUserLastActivity(@Param("userAccountId") UUID userAccountId, @Param("lastActivityAt") Instant lastActivityAt, @Param("twentyFourHoursAgo") Instant twentyFourHoursAgo);
+
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN TRUE ELSE FALSE END FROM UserAccount u WHERE u.id = :userAccountId AND u.inactiveAt IS NOT NULL")
+    boolean existsInactiveUserById(@Param("userAccountId") UUID userAccountId);
+
+    @Modifying
+    @Query("UPDATE UserAccount u SET u.inactiveAt = NULL WHERE u.inactiveAt IS NOT NULL AND u.id = :userAccountId")
+    int clearInactiveAtByUserId(@Param("userAccountId") UUID userAccountId);
+
+    @Query("SELECT u.userAccountType FROM UserAccount u WHERE u.id = :userAccountId")
+    UserAccountType findUserTypeByUserId(UUID userAccountId, Collection<UserAccountType> types);
 }

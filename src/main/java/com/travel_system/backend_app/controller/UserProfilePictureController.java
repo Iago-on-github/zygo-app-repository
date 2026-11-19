@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.service.profilePicture.UserProfilePictureService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import java.io.IOException;
 
 @RequestMapping("/profile/picture")
 @RestController
+@RequireAccess(AccessScope.REGULARIZATION)
 public class UserProfilePictureController {
 
     private final UserProfilePictureService userProfilePictureService;

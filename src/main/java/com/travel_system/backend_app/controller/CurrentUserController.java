@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.security.AuthTokens;
 import com.travel_system.backend_app.service.CustomerMembershipService;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/me")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class CurrentUserController {
 
     private final CustomerMembershipService customerMembershipService;

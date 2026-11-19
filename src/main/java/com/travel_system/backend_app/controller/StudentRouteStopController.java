@@ -1,21 +1,12 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.RouteStopStudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.RouteStopStudentsRequestDTO;
-import com.travel_system.backend_app.model.dtos.response.RouteStopResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentRouteStopAssociateResponseDTO;
 import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.service.StudentRouteStopService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import org.apache.coyote.Response;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -24,6 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/route-stop-students")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class StudentRouteStopController {
     
     private final StudentRouteStopService studentRouteStopService;

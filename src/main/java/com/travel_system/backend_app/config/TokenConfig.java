@@ -53,21 +53,22 @@ public class TokenConfig {
         algorithm = Algorithm.HMAC256(secret.getBytes());
     }
 
-    public LoginResponseDTO createAccessToken(String email, List<String> roles, UUID customerId, UserAccountType userAccountType)  {
+    public LoginResponseDTO createAccessToken(UUID userAccountId, String email, List<String> roles, UUID customerId, UserAccountType userAccountType)  {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInMilliseconds, ChronoUnit.MILLIS);
 
-        var accessToken = getAccessToken(email, roles, now, validity, customerId, userAccountType);
-        var refreshToken = getRefreshToken(email, roles, now, customerId, userAccountType);
+        var accessToken = getAccessToken(userAccountId, email, roles, now, validity, customerId, userAccountType);
+        var refreshToken = getRefreshToken(userAccountId, email, roles, now, customerId, userAccountType);
 
         return new LoginResponseDTO(email, true, now, validity, accessToken, refreshToken);
     }
 
-    private String getAccessToken(String email, List<String> roles, Instant now, Instant validity, UUID customerId, UserAccountType userAccountType) {
+    private String getAccessToken(UUID userAccountId, String email, List<String> roles, Instant now, Instant validity, UUID customerId, UserAccountType userAccountType) {
         String issuerUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
 
         JWTCreator.Builder builder = JWT.create()
                 .withClaim("roles", roles)
+                .withClaim("userAccountId", userAccountId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validity)
                 .withSubject(email)
@@ -80,11 +81,12 @@ public class TokenConfig {
         return builder.sign(algorithm).strip();
     }
 
-    private String getRefreshToken(String email, List<String> roles, Instant now, UUID customerId, UserAccountType userAccountType) {
+    private String getRefreshToken(UUID userAccountId, String email, List<String> roles, Instant now, UUID customerId, UserAccountType userAccountType) {
         Instant validityRefreshToken = now.plus(validityInMilliseconds * 3, ChronoUnit.MILLIS);
 
         JWTCreator.Builder builder = JWT.create()
                 .withClaim("roles", roles)
+                .withClaim("userAccountId", userAccountId.toString())
                 .withIssuedAt(now)
                 .withExpiresAt(validityRefreshToken)
                 .withSubject(email);
@@ -104,6 +106,7 @@ public class TokenConfig {
 
         String email = decodedJWT.getSubject();
         List<String> roles = decodedJWT.getClaim("roles").asList(String.class);
+        String userAccountId = decodedJWT.getClaim("userAccountId").asString();
 
         UUID customerId = null;
 
@@ -113,7 +116,7 @@ public class TokenConfig {
         }
 
         // chama o metodo e retorna somente os campos necessários
-        LoginResponseDTO token = createAccessToken(email, roles, customerId, userAccountType);
+        LoginResponseDTO token = createAccessToken(UUID.fromString(userAccountId), email, roles, customerId, userAccountType);
 
         return new RefreshTokenResponseDTO(token.accessToken(), token.refreshToken(), token.expiration());
     }
@@ -170,16 +173,18 @@ public class TokenConfig {
         return decodedJWT.getClaim("roles").asList(String.class);
     }
 
-    public String getUsernameFromToken(String token) {
+    public UUID getIdFromToken(String token) {
         DecodedJWT decodedJWT = decodedToken(token);
 
-        return decodedJWT.getClaim("email").asString();
+        String userAccountIdStr = decodedJWT.getClaim("userAccountId").asString();
+
+        return UUID.fromString(userAccountIdStr);
     }
 
     public AuthTokens generateBothTokens(UserAccount userAccount, UUID customerId) {
         List<String> permissions = userAccount.getPermissions().stream().map(Permissions::getDescription).toList();
 
-        LoginResponseDTO tokens = createAccessToken(userAccount.getEmail(), permissions, customerId, userAccount.getUserAccountType());
+        LoginResponseDTO tokens = createAccessToken(userAccount.getId(), userAccount.getEmail(), permissions, customerId, userAccount.getUserAccountType());
 
         return new AuthTokens(tokens.accessToken(), tokens.refreshToken());
     }

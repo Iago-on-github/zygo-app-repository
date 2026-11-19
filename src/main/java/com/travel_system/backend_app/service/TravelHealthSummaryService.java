@@ -8,6 +8,7 @@ import com.travel_system.backend_app.model.dtos.response.HealthConditionSummaryD
 import com.travel_system.backend_app.model.dtos.response.StudentHealthSummaryDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 /*
 * responsável por dados sensíveis (como documentos) para o motorista durante a viagem
@@ -36,17 +37,17 @@ public class TravelHealthSummaryService {
     private final HealthDeclarationRepository healthDeclarationRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
 
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
 
-    public TravelHealthSummaryService(UserAccountRepository userAccountRepository, DriverRepository driverRepository, StudentRepository studentRepository, TravelRepository travelRepository, HealthDeclarationRepository healthDeclarationRepository, ResponsibleAdultRepository responsibleAdultRepository, UserProfileResolverService userProfileResolverService, SensitiveDataAccessLogService sensitiveDataAccessLogService) {
+    public TravelHealthSummaryService(UserAccountRepository userAccountRepository, DriverRepository driverRepository, StudentRepository studentRepository, TravelRepository travelRepository, HealthDeclarationRepository healthDeclarationRepository, ResponsibleAdultRepository responsibleAdultRepository, UserProfileResolver userProfileResolver, SensitiveDataAccessLogService sensitiveDataAccessLogService) {
         this.userAccountRepository = userAccountRepository;
         this.driverRepository = driverRepository;
         this.studentRepository = studentRepository;
         this.travelRepository = travelRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
     }
 
@@ -86,7 +87,7 @@ public class TravelHealthSummaryService {
 
         // contatos dos responsáveis, só para os menores, em lote
         List<UUID> minorIds = students.values().stream()
-                .filter(s -> userProfileResolverService.isMinor(s.getBirthdate()))
+                .filter(s -> userProfileResolver.isMinor(s.getBirthdate()))
                 .map(Student::getId)
                 .toList();
 
@@ -117,7 +118,7 @@ public class TravelHealthSummaryService {
                     .toList();
 
             // menor -> responsáveis; maior -> contatos informados nas próprias condições
-            List<EmergencyContactDTO> contacts = userProfileResolverService.isMinor(student.getBirthdate())
+            List<EmergencyContactDTO> contacts = userProfileResolver.isMinor(student.getBirthdate())
                     ? responsibleContacts.getOrDefault(student.getId(), List.of())
                     : declaration.getConditions().stream()
                     .filter(c -> c.getEmergencyContactTelephone() != null)

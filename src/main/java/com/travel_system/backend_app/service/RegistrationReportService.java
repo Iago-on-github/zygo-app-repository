@@ -9,7 +9,6 @@ import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
 import com.travel_system.backend_app.model.dtos.ownApi.RegistrationQueryLimits;
 import com.travel_system.backend_app.model.dtos.ownApi.RegistrationSettings;
-import com.travel_system.backend_app.model.dtos.request.CustomerRegistrationNotificationSettingsDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerTermResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.GraceRegistrationItemDTO;
 import com.travel_system.backend_app.model.dtos.response.RegistrationDistributionDTO;
@@ -18,6 +17,7 @@ import com.travel_system.backend_app.model.dtos.response.StalledRegistrationItem
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.projections.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,8 +31,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
-import static java.util.Map.Entry.comparingByValue;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class RegistrationReportService {
@@ -44,20 +43,20 @@ public class RegistrationReportService {
     private final DocumentRepository documentRepository;
     private final RegistrationRequestRepository registrationRequestRepository;
 
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final CustomerTimeService customerTimeService;
 
     private static final String UNKNOWN_OWNER = "Titular não encontrado";
     private static final List<RegistrationRequestType> APPROVED_ENROLLMENT_TYPES = List.of(RegistrationRequestType.INITIAL, RegistrationRequestType.RENEWAL);
 
-    public RegistrationReportService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, TransportRegistrationRepository transportRegistrationRepository, DocumentRepository documentRepository, RegistrationRequestRepository registrationRequestRepository, UserProfileResolverService userProfileResolverService, CustomerTimeService customerTimeService) {
+    public RegistrationReportService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, TransportRegistrationRepository transportRegistrationRepository, DocumentRepository documentRepository, RegistrationRequestRepository registrationRequestRepository, UserProfileResolver userProfileResolver, CustomerTimeService customerTimeService) {
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
         this.transportRegistrationRepository = transportRegistrationRepository;
         this.documentRepository = documentRepository;
         this.registrationRequestRepository = registrationRequestRepository;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.customerTimeService = customerTimeService;
     }
 
@@ -173,7 +172,7 @@ public class RegistrationReportService {
         Set<UUID> studentIds = page.stream().map(GraceRegistrationView::getStudentId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<UUID> driverIds = page.stream().map(GraceRegistrationView::getDriverId).filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Map<UUID, String> ownerNames = userProfileResolverService.resolveNames(studentIds, driverIds);
+        Map<UUID, String> ownerNames = userProfileResolver.resolveNames(studentIds, driverIds);
 
         // renovação aberta de cada matrícula da página, em lote
         List<UUID> registrationIds = page.stream().map(GraceRegistrationView::getRegistrationId).toList();
@@ -241,7 +240,7 @@ public class RegistrationReportService {
         Set<UUID> studentIds = page.stream().map(StalledRegistrationView::getStudentId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<UUID> driverIds = page.stream().map(StalledRegistrationView::getDriverId).filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Map<UUID, String> ownerNames = userProfileResolverService.resolveNames(studentIds, driverIds);
+        Map<UUID, String> ownerNames = userProfileResolver.resolveNames(studentIds, driverIds);
 
         // documentos já enviados (os documentos são apagados assim que a matricula é aprovada, ou seja, isso aqui só roda em DRAFT)
         List<UUID> draftRequestIds = page.stream()

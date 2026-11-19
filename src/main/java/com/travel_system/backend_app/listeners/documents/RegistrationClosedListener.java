@@ -1,7 +1,6 @@
 package com.travel_system.backend_app.listeners.documents;
 
-import com.travel_system.backend_app.events.documents.RegistrationApprovedEvent;
-import com.travel_system.backend_app.events.documents.RegistrationClosedEvent;
+import com.travel_system.backend_app.events.documents.ClosedEvent;
 import com.travel_system.backend_app.service.RegistrationDocumentNotificationService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -19,7 +18,7 @@ public class RegistrationClosedListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("documentNotificationTaskExecutor")
-    public void notifyOwnerWhenRegistrationClosed(RegistrationClosedEvent event) {
+    public void notifyOwnerWhenRegistrationClosed(ClosedEvent event) {
         registrationDocumentNotificationService.sendNotifyOwnerWhenRegistrationClosed(event);
 
         registrationDocumentNotificationService.sendNotifyAdminsWhenRegistrationClosed(event);

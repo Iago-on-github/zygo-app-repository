@@ -38,7 +38,7 @@ public class RouteStopAssignmentService {
 
     private final EntityManager entityManager;
 
-    public RouteStopAssignmentService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService, EntityManager entityManager) {
+    public RouteStopAssignmentService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, MapboxAPIService mapboxAPIService, EntityManager entityManager) {
         this.standardRouteRepository = standardRouteRepository;
         this.routeStopRepository = routeStopRepository;
         this.standardRouteResponseMapper = standardRouteResponseMapper;

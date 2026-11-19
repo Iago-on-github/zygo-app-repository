@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.listeners.routestops_algorithm;
 
 import com.travel_system.backend_app.events.routestops_algorithm.StudentTravelRouteStopDisembarkedEvent;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.repository.StudentTravelRouteStopRepository;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;

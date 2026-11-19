@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.enums.Platform;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/notifications")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class FirebaseNotificationController {
     private final FirebaseNotificationSender firebaseNotificationSender;
 

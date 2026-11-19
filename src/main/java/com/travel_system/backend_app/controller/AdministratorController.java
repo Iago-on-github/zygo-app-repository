@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.AdministratorUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.AdministratorResponseDTO;
@@ -11,13 +12,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/v1/admins")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class AdministratorController {
 
     private final AdministratorService administratorService;

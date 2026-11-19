@@ -19,6 +19,7 @@ import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.ProcessedDocument;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,11 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Paths;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
+
 
 @Service
 public class HealthDocumentService {
@@ -49,7 +50,7 @@ public class HealthDocumentService {
 
     private final CustomerTimeService customerTimeService;
     private final PrivateStorageService privateStorageService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final DocumentPersistenceService documentPersistenceService;
     private final DocumentProcessingService documentProcessingService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
@@ -66,7 +67,7 @@ public class HealthDocumentService {
     // tipos de documento que exigem data de validade
     private static final Set<DocumentType> TYPES_REQUIRING_VALIDITY = EnumSet.of(DocumentType.PRESCRIPTION, DocumentType.MEDICAL_REPORT);
 
-    public HealthDocumentService(DocumentStorageProperties documentStorageProperties, UserAccountRepository userAccountRepository, DocumentRepository documentRepository, ResponsibleAdultRepository responsibleAdultRepository, CustomerRepository customerRepository, HealthConditionRepository healthConditionRepository, CustomerTimeService customerTimeService, PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, DocumentPersistenceService documentPersistenceService, DocumentProcessingService documentProcessingService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentResponseMapper documentResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthDocumentService(DocumentStorageProperties documentStorageProperties, UserAccountRepository userAccountRepository, DocumentRepository documentRepository, ResponsibleAdultRepository responsibleAdultRepository, CustomerRepository customerRepository, HealthConditionRepository healthConditionRepository, CustomerTimeService customerTimeService, PrivateStorageService privateStorageService, UserProfileResolver userProfileResolver, DocumentPersistenceService documentPersistenceService, DocumentProcessingService documentProcessingService, SensitiveDataAccessLogService sensitiveDataAccessLogService, DocumentResponseMapper documentResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.documentStorageProperties = documentStorageProperties;
         this.userAccountRepository = userAccountRepository;
         this.documentRepository = documentRepository;
@@ -74,7 +75,7 @@ public class HealthDocumentService {
         this.healthConditionRepository = healthConditionRepository;
         this.customerTimeService = customerTimeService;
         this.privateStorageService = privateStorageService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.documentPersistenceService = documentPersistenceService;
         this.documentProcessingService = documentProcessingService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
@@ -85,25 +86,25 @@ public class HealthDocumentService {
     // aluno maior ou motorista: os próprios documentos
     @Transactional(readOnly = true)
     public List<DocumentResponseDTO> myDocuments(List<DocumentStatus> statuses) {
-        return listByOwner(userProfileResolverService.resolveSelf(), statuses);
+        return listByOwner(userProfileResolver.resolveSelf(), statuses);
     }
 
     // responsável: documentos de um aluno menor vinculado
     @Transactional(readOnly = true)
     public List<DocumentResponseDTO> studentDocuments(UUID studentId, List<DocumentStatus> statuses) {
-        return listByOwner(userProfileResolverService.resolveForResponsible(studentId), statuses);
+        return listByOwner(userProfileResolver.resolveForResponsible(studentId), statuses);
     }
 
     // fazer upload de documentos de forma autônoma (aluno maior de idade ou motorista)
     public DocumentResponseDTO uploadMine(DocumentUploadRequest request, MultipartFile file) {
-        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolver.resolveSelf();
 
         return uploadHealthDocument(healthOwner, getAuthenticatedUserAccountId(), request, file);
     }
 
     // responsável por um menor de idade realizando o upload por ele
     public DocumentResponseDTO uploadForStudent(UUID studentId, DocumentUploadRequest request, MultipartFile file) {
-        OwnerBuilt healthOwner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt healthOwner = userProfileResolver.resolveForResponsible(studentId);
 
         return uploadHealthDocument(healthOwner, getAuthenticatedUserAccountId(), request, file);
     }
@@ -111,12 +112,12 @@ public class HealthDocumentService {
     // aluno maior de idade ou motorista
     @Transactional(readOnly = true)
     public DocumentDownloadResponseDTO downloadMine(UUID documentId) {
-        return generateDownload(new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolverService.resolveSelf()), documentId);
+        return generateDownload(new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolver.resolveSelf()), documentId);
     }
 
     @Transactional(readOnly = true)
     public DocumentDownloadResponseDTO downloadForStudent(UUID studentId, UUID documentId) {
-        return generateDownload(new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolverService.resolveForResponsible(studentId)), documentId);
+        return generateDownload(new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolver.resolveForResponsible(studentId)), documentId);
     }
 
     private DocumentDownloadResponseDTO generateDownload(HealthAccessContext context, UUID documentId) {

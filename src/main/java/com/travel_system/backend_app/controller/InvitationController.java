@@ -1,8 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
-import com.travel_system.backend_app.interfaces.InvitationProfileData;
-import com.travel_system.backend_app.interfaces.ProfileCreator;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.invitation.InvitationAcceptResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.MyInvitationResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.admin.AdministratorAcceptDTO;
@@ -13,28 +12,22 @@ import com.travel_system.backend_app.model.dtos.invitation.responsible.Responsib
 import com.travel_system.backend_app.model.dtos.invitation.responsible.ResponsibleInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.InstitutionCatalogResponseDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentAcceptDTO;
-import com.travel_system.backend_app.model.dtos.invitation.student.StudentInvitationDTO;
 import com.travel_system.backend_app.model.dtos.invitation.student.StudentInvitationRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.InvitationResponseDTO;
 import com.travel_system.backend_app.model.enums.InvitationStatus;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
-import com.travel_system.backend_app.model.enums.TargetUserType;
 import com.travel_system.backend_app.service.InvitationService;
 import com.travel_system.backend_app.service.strategies.invitation.AdministratorInvitationProfileStrategy;
 import com.travel_system.backend_app.service.strategies.invitation.DriverInvitationProfileStrategy;
 import com.travel_system.backend_app.service.strategies.invitation.ResponsibleInvitationProfileStrategy;
 import com.travel_system.backend_app.service.strategies.invitation.StudentInvitationProfileStrategy;
 import jakarta.validation.Valid;
-import org.apache.coyote.Response;
-import org.simpleframework.xml.Path;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,6 +35,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/invitation")
+@RequireAccess(AccessScope.UNRESTRICTED) // sobrescrito nos endpoints dos convidados
 public class InvitationController {
 
     private final InvitationService invitationService;
@@ -118,11 +112,13 @@ public class InvitationController {
      * (estudante tem endpoint para listar as instituições/cursos disponíveis)
      * */
 
+    @RequireAccess(AccessScope.REGULARIZATION)
     @GetMapping("/me/pending")
     public ResponseEntity<List<MyInvitationResponseDTO>> listMyPendingInvitations() {
         return ResponseEntity.ok(invitationService.listMyPendingInvitations());
     }
 
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PatchMapping("/me/{invitationId}/decline")
     public ResponseEntity<Void> declineInvitation(@PathVariable UUID invitationId) {
         invitationService.declineInvitation(invitationId);
@@ -132,11 +128,13 @@ public class InvitationController {
     /*
     * students
     * */
+    @RequireAccess(AccessScope.REGULARIZATION)
     @GetMapping("/{invitationId}/institutions")
     public ResponseEntity<List<InstitutionCatalogResponseDTO>> getInvitationInstitutions(@PathVariable UUID invitationId) {
         return ResponseEntity.ok().body(invitationService.getInvitationInstitutions(invitationId));
     }
 
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PostMapping("/me/students/{invitationId}/accept")
     public ResponseEntity<InvitationAcceptResponseDTO> acceptStudentInvitation(@PathVariable UUID invitationId, @Valid @RequestBody StudentAcceptDTO dto) {
         return ResponseEntity.ok(studentInvitationStrategy.acceptStudentInvitation(invitationId, dto));
@@ -145,6 +143,7 @@ public class InvitationController {
     /*
     * administrators
     * */
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PostMapping("/me/admins/{invitationId}/accept")
     public ResponseEntity<InvitationAcceptResponseDTO> acceptAdministratorInvitation(@PathVariable UUID invitationId, @Valid @RequestBody AdministratorAcceptDTO dto) {
         return ResponseEntity.ok(administratorInvitationProfileStrategy.acceptAdministratorInvitation(invitationId, dto));
@@ -153,6 +152,7 @@ public class InvitationController {
     /*
     * drives
     * */
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PostMapping("/me/drivers/{invitationId}/accept")
     public ResponseEntity<InvitationAcceptResponseDTO> acceptDriverInvitation(@PathVariable UUID invitationId, @Valid @RequestBody DriverAcceptDTO dto) {
         return ResponseEntity.ok(driverInvitationProfileStrategy.acceptDriverInvitation(invitationId, dto));
@@ -161,6 +161,7 @@ public class InvitationController {
     /*
     * responsibles
     * */
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PostMapping("/me/responsibles/{invitationId}/accept")
     public ResponseEntity<InvitationAcceptResponseDTO> acceptResponsibleInvitation(@PathVariable UUID invitationId, @Valid @RequestBody ResponsibleAdultAcceptDTO dto) {
         return ResponseEntity.ok().body(responsibleInvitationProfileStrategy.acceptResponsibleAdultInvitation(invitationId, dto));

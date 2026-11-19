@@ -1,11 +1,10 @@
 package com.travel_system.backend_app.controller;
 
-import com.travel_system.backend_app.model.Student;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.CpfSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultLinkRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.StudentUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
-import com.travel_system.backend_app.model.dtos.response.InstitutionResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.InstitutionType;
@@ -21,12 +20,12 @@ import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/students")
+@RequireAccess(AccessScope.REGULARIZATION) // sobrescrito no método para as requisições p/ apenas adms
 public class StudentController {
 
     private final InstitutionService institutionService;
@@ -37,6 +36,7 @@ public class StudentController {
         this.studentService = studentService;
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/all")
     public ResponseEntity<Page<StudentResponseDTO>> getAllStudents(
             @RequestParam(required = false) String email,
@@ -51,26 +51,32 @@ public class StudentController {
         return ResponseEntity.ok().body(studentService.getAllStudents(email, name, lastName, neighborhood, institutionName, institutionType, shift, pageable));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/institutions/{institutionId}")
     public ResponseEntity<Page<StudentResponseDTO>> getAllStudentsByInstitution(@PathVariable UUID institutionId, @RequestParam(required = false) Set<UUID> courseIds, @PageableDefault(size = 15) Pageable pageable) {
 
         return ResponseEntity.ok().body(studentService.getAllStudentsByInstitution(institutionId, courseIds, pageable));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/{studentId}")
     public ResponseEntity<StudentResponseDTO> getStudentById(@PathVariable UUID studentId) {
         return ResponseEntity.ok(studentService.getStudentById(studentId));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @PostMapping("/search-by-cpf")
     public ResponseEntity<StudentResponseDTO> getStudentByCpf(@Valid @RequestBody CpfSearchRequestDTO dto) {
         return ResponseEntity.ok(studentService.getStudentByCpf(dto.cpf()));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping
     public ResponseEntity<Page<StudentResponseDTO>> getStudentsByStatus(@RequestParam(required = false) GeneralStatus status, @PageableDefault(size = 15) @SortDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok().body(studentService.getStudentsByStatus(status, pageable));
     }
+
+    // requisições do próprio student
 
     @GetMapping("/me")
     public ResponseEntity<StudentResponseDTO> getCurrentStudent() {

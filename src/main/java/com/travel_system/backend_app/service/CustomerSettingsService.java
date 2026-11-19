@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.events.CustomerSettingsCacheInvalidationEvent;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.exceptions.CustomerNotificationLogicException;
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
@@ -7,7 +8,7 @@ import com.travel_system.backend_app.interfaces.mappers.CustomerRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerHolidayResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerResponseMapper;
 import com.travel_system.backend_app.model.*;
-import com.travel_system.backend_app.events.CustomerTimeZoneChangedEvent;
+import com.travel_system.backend_app.events.CustomerTimeZoneCacheInvalidationEvent;
 import com.travel_system.backend_app.model.dtos.request.CustomerContactUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerRegistrationNotificationSettingsDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerSettingsUpdateDTO;
@@ -23,11 +24,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.*;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class CustomerSettingsService {
@@ -138,7 +137,7 @@ public class CustomerSettingsService {
         customer.setTimeZoneConfirmed(true);
 
         // publica evento p/ limpar cache pós commit
-        eventPublisher.publishEvent(new CustomerTimeZoneChangedEvent(customer.getId()));
+        eventPublisher.publishEvent(new CustomerTimeZoneCacheInvalidationEvent(customer.getId()));
     }
 
     @Transactional
@@ -190,6 +189,10 @@ public class CustomerSettingsService {
         customerRequestMapper.updateSettingsFromDTO(dto, customer);
 
         Customer savedCustomer = customerRepository.save(customer);
+
+        // publica evento para limpar cache remanescente do customer para a parte de registros
+        // a carência e a janela podem ter mudado, sempre garante que o cache esteja limpo caso aconteça
+        eventPublisher.publishEvent(new CustomerSettingsCacheInvalidationEvent(customer.getId()));
 
         return customerResponseMapper.toSettingsDTO(savedCustomer);
     }

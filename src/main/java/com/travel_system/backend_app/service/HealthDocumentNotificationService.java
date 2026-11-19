@@ -4,6 +4,7 @@ import com.travel_system.backend_app.events.documents.*;
 import com.travel_system.backend_app.model.dtos.notifications.SystemPushNotificationCommandDTO;
 import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.model.enums.SystemNotificationAudience;
+import com.travel_system.backend_app.resolvers.OwnerNotificationRecipientResolver;
 import com.travel_system.backend_app.utils.DateTimeFormats;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.springframework.stereotype.Component;

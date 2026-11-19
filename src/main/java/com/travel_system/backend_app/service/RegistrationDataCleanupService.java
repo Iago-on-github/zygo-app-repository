@@ -6,7 +6,6 @@ import com.travel_system.backend_app.model.RegistrationRequest;
 import com.travel_system.backend_app.model.TransportRegistration;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.DocumentCategory;
-import com.travel_system.backend_app.model.enums.DocumentType;
 import com.travel_system.backend_app.repository.DocumentRepository;
 import com.travel_system.backend_app.repository.RegistrationDocumentAuditRepository;
 import com.travel_system.backend_app.repository.RegistrationRequestRepository;

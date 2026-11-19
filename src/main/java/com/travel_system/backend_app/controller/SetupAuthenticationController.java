@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.security.SetupAuthProcessDTO;
 import com.travel_system.backend_app.service.SetupAuthenticationService;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/auth/set-up")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class SetupAuthenticationController {
 
     private final SetupAuthenticationService setupAuthenticationService;

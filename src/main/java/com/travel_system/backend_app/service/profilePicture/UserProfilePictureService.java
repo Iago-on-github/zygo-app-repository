@@ -6,7 +6,7 @@ import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.UserAccountRepository;
 import com.travel_system.backend_app.service.ImageStorageService;
-import com.travel_system.backend_app.service.UserProfileResolverService;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +16,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
+
 
 @Service
 public class UserProfilePictureService {
@@ -24,13 +25,13 @@ public class UserProfilePictureService {
     private final UserAccountRepository userAccountRepository;
 
     private final List<ProfilePictureStrategy> profileStrategies;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final ImageStorageService imageStorageService;
 
-    public UserProfilePictureService(UserAccountRepository userAccountRepository, List<ProfilePictureStrategy> profileStrategies, UserProfileResolverService userProfileResolverService, ImageStorageService imageStorageService) {
+    public UserProfilePictureService(UserAccountRepository userAccountRepository, List<ProfilePictureStrategy> profileStrategies, UserProfileResolver userProfileResolver, ImageStorageService imageStorageService) {
         this.userAccountRepository = userAccountRepository;
         this.profileStrategies = profileStrategies;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.imageStorageService = imageStorageService;
     }
 
@@ -60,7 +61,7 @@ public class UserProfilePictureService {
 
     // decide se é customer ou platform e monta a key
     private String generateProfilePictureKey(UserAccount userAccount) {
-        UUID customerId = userProfileResolverService.resolveCustomerId(userAccount);
+        UUID customerId = userProfileResolver.resolveCustomerId(userAccount);
         UUID userId = userAccount.getId();
 
         if (customerId == null) {

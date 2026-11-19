@@ -5,6 +5,7 @@ import com.travel_system.backend_app.model.dtos.notifications.SystemPushNotifica
 import com.travel_system.backend_app.model.enums.Priority;
 import com.travel_system.backend_app.model.enums.RegistrationRequestType;
 import com.travel_system.backend_app.model.enums.SystemNotificationAudience;
+import com.travel_system.backend_app.resolvers.OwnerNotificationRecipientResolver;
 import com.travel_system.backend_app.utils.DateTimeFormats;
 import com.travel_system.backend_app.utils.FirebaseNotificationSender;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,7 @@ public class RegistrationDocumentNotificationService {
         this.firebaseNotificationSender = firebaseNotificationSender;
     }
 
-    public void sendNotifyAdminsOnRegistrationUploaded(RegistrationSubmittedEvent dto) {
+    public void sendNotifyAdminsOnRegistrationUploaded(SubmittedEvent dto) {
         SystemNotificationAudience allCustomerAdmins = SystemNotificationAudience.ALL_CUSTOMER_ADMINS;
 
         String title = "Nova matrícula de usuário";
@@ -55,7 +56,7 @@ public class RegistrationDocumentNotificationService {
         firebaseNotificationSender.sendSystemNotification(command);
     }
 
-    public void sendNotifyOwnerWhenRegistrationApproved(RegistrationApprovedEvent dto) {
+    public void sendNotifyOwnerWhenRegistrationApproved(ApprovedEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String validUntilInfo = dateTimeFormats.localDateFormat(dto.endTerm());
@@ -88,7 +89,7 @@ public class RegistrationDocumentNotificationService {
         }
     }
 
-    public void sendNotifyOwnerWhenRegistrationRejected(RegistrationRejectedEvent dto) {
+    public void sendNotifyOwnerWhenRegistrationRejected(RejectedEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String reason = dto.rejectionReason();
@@ -112,7 +113,7 @@ public class RegistrationDocumentNotificationService {
         }
     }
 
-    public void sendNotifyOwnerWhenRegistrationClosed(RegistrationClosedEvent dto) {
+    public void sendNotifyOwnerWhenRegistrationClosed(ClosedEvent dto) {
         SystemNotificationAudience specificUserAccount = SystemNotificationAudience.SPECIFIC_USER_ACCOUNT;
 
         String title = "Aviso de matrícula encerrada";
@@ -131,7 +132,7 @@ public class RegistrationDocumentNotificationService {
         }
     }
 
-    public void sendNotifyAdminsWhenRegistrationClosed(RegistrationClosedEvent dto) {
+    public void sendNotifyAdminsWhenRegistrationClosed(ClosedEvent dto) {
         SystemNotificationAudience allCustomerAdmins = SystemNotificationAudience.ALL_CUSTOMER_ADMINS;
 
         String title = "Aviso de matrícula encerrada";

@@ -2,16 +2,12 @@ package com.travel_system.backend_app.listeners;
 
 import com.travel_system.backend_app.events.NewLocationReceivedEvents;
 import com.travel_system.backend_app.exceptions.EtaDataStatesInvalidException;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
-import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.service.PushNotificationService;
 import com.travel_system.backend_app.service.TravelTrackingService;
-import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;

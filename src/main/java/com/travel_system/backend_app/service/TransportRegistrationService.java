@@ -4,8 +4,9 @@ package com.travel_system.backend_app.service;
 * Upload do documento e da foto: valida a solicitação, monta a chave e define os callbacks
 * */
 
+import com.travel_system.backend_app.events.StatusCacheInvalidationEvent;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
-import com.travel_system.backend_app.events.documents.RegistrationSubmittedEvent;
+import com.travel_system.backend_app.events.documents.SubmittedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.model.*;
 import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
@@ -15,6 +16,7 @@ import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.security.ProcessedDocument;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.apache.tika.Tika;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,7 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class TransportRegistrationService {
@@ -56,7 +58,7 @@ public class TransportRegistrationService {
     private final ImageProcessingService imageProcessingService;
 
     private final S3PrivateStorageService privateStorageService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
     private final Tika tika = new Tika();
 
@@ -78,7 +80,7 @@ public class TransportRegistrationService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public TransportRegistrationService(TransportRegistrationRepository transportRegistrationRepository, RegistrationRequestRepository registrationRequestRepository, DocumentRepository documentRepository, StudentRepository studentRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, UserAccountRepository userAccountRepository, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, CustomerTimeService customerTimeService, DocumentProcessingService documentProcessingService, DocumentPersistenceService documentPersistenceService, ImageProcessingService imageProcessingService, S3PrivateStorageService privateStorageService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher) {
+    public TransportRegistrationService(TransportRegistrationRepository transportRegistrationRepository, RegistrationRequestRepository registrationRequestRepository, DocumentRepository documentRepository, StudentRepository studentRepository, CustomerTermRepository customerTermRepository, CustomerRepository customerRepository, UserAccountRepository userAccountRepository, RegistrationDocumentLifecycleService registrationDocumentLifecycleService, CustomerTimeService customerTimeService, DocumentProcessingService documentProcessingService, DocumentPersistenceService documentPersistenceService, ImageProcessingService imageProcessingService, S3PrivateStorageService privateStorageService, UserProfileResolver userProfileResolver, ApplicationEventPublisher eventPublisher) {
         this.transportRegistrationRepository = transportRegistrationRepository;
         this.registrationRequestRepository = registrationRequestRepository;
         this.documentRepository = documentRepository;
@@ -92,7 +94,7 @@ public class TransportRegistrationService {
         this.documentPersistenceService = documentPersistenceService;
         this.imageProcessingService = imageProcessingService;
         this.privateStorageService = privateStorageService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.eventPublisher = eventPublisher;
     }
 
@@ -103,106 +105,106 @@ public class TransportRegistrationService {
     // aluno maior ou motorista retorna a própria matrícula
     @Transactional(readOnly = true)
     public TransportRegistrationResponseDTO consultMine() {
-        return consult(userProfileResolverService.resolveSelf());
+        return consult(userProfileResolver.resolveSelf());
     }
 
     // responsável retorna matrícula de um aluno menor vinculado
     @Transactional(readOnly = true)
     public TransportRegistrationResponseDTO consultForStudent(UUID studentId) {
-        return consult(userProfileResolverService.resolveForResponsible(studentId));
+        return consult(userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO startMineRegistration() {
-        return startRegistration(userProfileResolverService.resolveSelf());
+        return startRegistration(userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO startRegistrationForStudent(UUID studentId) {
-        return startRegistration(userProfileResolverService.resolveForResponsible(studentId));
+        return startRegistration(userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO saveMineDraft(SaveDraftDTO saveDraftDTO) {
-        return saveDraft(userProfileResolverService.resolveSelf(), saveDraftDTO);
+        return saveDraft(userProfileResolver.resolveSelf(), saveDraftDTO);
     }
 
     @Transactional
     public TransportRegistrationResponseDTO saveDraftForStudent(UUID studentId, SaveDraftDTO saveDraftDTO) {
-        return saveDraft(userProfileResolverService.resolveForResponsible(studentId), saveDraftDTO);
+        return saveDraft(userProfileResolver.resolveForResponsible(studentId), saveDraftDTO);
     }
 
     @Transactional
     public TransportRegistrationResponseDTO uploadDocument(MultipartFile file, DocumentType documentType) {
-        return uploadDocument(file, documentType, userProfileResolverService.resolveSelf());
+        return uploadDocument(file, documentType, userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO uploadDocumentForStudent(UUID studentId, MultipartFile file, DocumentType documentType) {
-        return uploadDocument(file, documentType, userProfileResolverService.resolveForResponsible(studentId));
+        return uploadDocument(file, documentType, userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO uploadMinePhoto(MultipartFile file) {
-        return uploadPhoto(file, userProfileResolverService.resolveSelf());
+        return uploadPhoto(file, userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO uploadStudentPhoto(UUID studentId, MultipartFile file) {
-        return uploadPhoto(file, userProfileResolverService.resolveForResponsible(studentId));
+        return uploadPhoto(file, userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO submitMine() {
-        return submit(userProfileResolverService.resolveSelf());
+        return submit(userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO submitForStudent(UUID studentId) {
-        return submit(userProfileResolverService.resolveForResponsible(studentId));
+        return submit(userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO cancelMine() {
-        return cancel(userProfileResolverService.resolveSelf());
+        return cancel(userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO cancelForStudent(UUID studentId) {
-        return cancel(userProfileResolverService.resolveForResponsible(studentId));
+        return cancel(userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO startRenewalMine() {
-        return startRenewal(userProfileResolverService.resolveSelf());
+        return startRenewal(userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public TransportRegistrationResponseDTO startRenewalForStudent(UUID studentId) {
-        return startRenewal(userProfileResolverService.resolveForResponsible(studentId));
+        return startRenewal(userProfileResolver.resolveForResponsible(studentId));
     }
 
     // aluno maior ou motorista
     @Transactional
     public TransportRegistrationResponseDTO startUpdateMine() {
-        return startUpdate(userProfileResolverService.resolveSelf());
+        return startUpdate(userProfileResolver.resolveSelf());
     }
 
     // responsável por um aluno menor vinculado
     @Transactional
     public TransportRegistrationResponseDTO startUpdateForStudent(UUID studentId) {
-        return startUpdate(userProfileResolverService.resolveForResponsible(studentId));
+        return startUpdate(userProfileResolver.resolveForResponsible(studentId));
     }
 
     @Transactional
     public TransportRegistrationResponseDTO resubmitMine() {
-        return resubmitAfterRejection(userProfileResolverService.resolveSelf());
+        return resubmitAfterRejection(userProfileResolver.resolveSelf());
     }
 
     // responsável por um aluno menor vinculado
     @Transactional
     public TransportRegistrationResponseDTO resubmitForStudent(UUID studentId) {
-        return resubmitAfterRejection(userProfileResolverService.resolveForResponsible(studentId));
+        return resubmitAfterRejection(userProfileResolver.resolveForResponsible(studentId));
     }
 
     /*
@@ -285,6 +287,9 @@ public class TransportRegistrationService {
             throw new RegistrationNotUpdatableException(UpdateBlockReason.OPEN_REQUEST, "Já existe uma solicitação em andamento");
         }
 
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(registration.getCustomerId(), owner));
+
         return consult(owner);
     }
 
@@ -327,6 +332,9 @@ public class TransportRegistrationService {
             throw new RegistrationNotUpdatableException(UpdateBlockReason.OPEN_REQUEST, "Já existe uma solicitação em andamento");
         }
 
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(registration.getCustomerId(), owner));
+
         return consult(owner);
     }
 
@@ -355,6 +363,9 @@ public class TransportRegistrationService {
         } catch (DataIntegrityViolationException e) {
             throw new RegistrationNotRenewableException(RenewalBlockReason.OPEN_REQUEST, "Já existe uma solicitação em andamento");
         }
+
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(registration.getCustomerId(), owner));
 
         return consult(owner);
     }
@@ -533,7 +544,7 @@ public class TransportRegistrationService {
         request.setSubmittedAt(customerTimeService.instant());
 
         // notificação dos admins do customer
-        eventPublisher.publishEvent(new RegistrationSubmittedEvent(
+        eventPublisher.publishEvent(new SubmittedEvent(
                 request.getId(),
                 transportRegistration.getId(),
                 request.getCustomerId(),
@@ -606,6 +617,9 @@ public class TransportRegistrationService {
         }
 
         registrationDocumentLifecycleService.cancelRequest(request);
+
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(transportRegistration.getCustomerId(), owner));
 
         return consult(owner);
     }
@@ -798,6 +812,9 @@ public class TransportRegistrationService {
         } catch (DataIntegrityViolationException e) {
             throw new DataIntegrityViolationException("Ocorreu um erro ao salvar o registro");
         }
+
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(registration.getCustomerId(), ownerBuilt));
 
         registrationRequestRepository.save(request);
 

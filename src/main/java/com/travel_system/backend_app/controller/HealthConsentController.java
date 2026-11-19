@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.HealthConsentRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthConsentResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthConsentTermDTO;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/health/consent")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class HealthConsentController {
 
     private final HealthConsentService healthConsentService;

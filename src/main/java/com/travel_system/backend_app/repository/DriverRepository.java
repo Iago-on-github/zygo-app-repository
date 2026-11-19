@@ -2,6 +2,7 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.interfaces.mappers.response.CustomerResponseMapper;
 import com.travel_system.backend_app.model.Driver;
+import com.travel_system.backend_app.model.dtos.ProfileRef;
 import com.travel_system.backend_app.model.dtos.response.DriverCnhExpirationDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
 import com.travel_system.backend_app.model.enums.CnhCategory;
@@ -121,4 +122,10 @@ public interface DriverRepository extends JpaRepository<Driver, UUID> {
 
     @Query("SELECT d.userAccount.id FROM Driver d WHERE d.id = :driverId AND d.userAccount IS NOT NULL")
     Optional<UUID> findUserAccountIdById(@Param("driverId") UUID driverId);
+
+    @Query("SELECT d.id FROM Driver d WHERE d.userAccount.id = :userAccountId")
+    Optional<UUID> findIdByUserAccountId(@Param("userAccountId") UUID userAccountId);
+
+    @Query("SELECT d.id AS ownerId, d.customerId AS customerId FROM Driver d WHERE d.userAccount.id = :userAccountId")
+    Optional<ProfileRef> findProfileRefByUserId(@Param("userAccountId") UUID userAccountId);
 }

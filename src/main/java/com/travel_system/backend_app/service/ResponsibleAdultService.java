@@ -36,7 +36,7 @@ import java.util.UUID;
 
 import static com.travel_system.backend_app.config.constants.ResponsibleAdultConstants.MAX_STUDENTS_PER_RESPONSIBLE_ADULT;
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class ResponsibleAdultService {

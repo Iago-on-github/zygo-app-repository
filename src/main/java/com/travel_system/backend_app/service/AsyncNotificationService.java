@@ -1,8 +1,7 @@
 package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.exceptions.EtaDataStatesInvalidException;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
-import com.travel_system.backend_app.model.Travel;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.model.dtos.VelocityAnalysisDTO;
 import com.travel_system.backend_app.model.dtos.cache.TravelCacheDTO;
 import com.travel_system.backend_app.model.dtos.notifications.StudentProximityNotificationDTO;
@@ -11,7 +10,6 @@ import com.travel_system.backend_app.model.enums.MovementState;
 import com.travel_system.backend_app.model.enums.ShouldNotify;
 import com.travel_system.backend_app.repository.StudentTravelRepository;
 import com.travel_system.backend_app.repository.TravelRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;

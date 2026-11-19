@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.DocumentUploadRequest;
 import com.travel_system.backend_app.model.dtos.response.DocumentDownloadResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DocumentResponseDTO;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/documents")
+@RequireAccess(AccessScope.DOCUMENTS)
 public class HealthDocumentController {
 
     private final HealthDocumentService healthDocumentService;

@@ -19,7 +19,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
+
 
 @Component
 public class AdministratorLeaveCustomerStrategy implements LeaveCustomerStrategy {

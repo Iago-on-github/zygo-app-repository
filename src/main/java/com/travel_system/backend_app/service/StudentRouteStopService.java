@@ -12,6 +12,7 @@ import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.model.enums.TravelPeriod;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.travel_system.backend_app.config.constants.GlobalAppConstants.TOTAL_ROUTE_STOP_POINTS_PER_STUDENT;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class StudentRouteStopService {
@@ -33,18 +34,18 @@ public class StudentRouteStopService {
     private final StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository;
     private final AdministratorRepository administratorRepository;
 
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
     private final StudentRouteStopResponseMapper studentRouteStopResponseMapper;
 
-    public StudentRouteStopService(UserAccountRepository userAccountRepository, RouteStopRepository routeStopRepository, StudentRepository studentRepository, StandardRouteRepository standardRouteRepository, StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository, AdministratorRepository administratorRepository, UserProfileResolverService userProfileResolverService, StudentRouteStopResponseMapper studentRouteStopResponseMapper) {
+    public StudentRouteStopService(UserAccountRepository userAccountRepository, RouteStopRepository routeStopRepository, StudentRepository studentRepository, StandardRouteRepository standardRouteRepository, StudentRouteStopAssignmentRepository studentRouteStopAssignmentRepository, AdministratorRepository administratorRepository, UserProfileResolver userProfileResolver, StudentRouteStopResponseMapper studentRouteStopResponseMapper) {
         this.userAccountRepository = userAccountRepository;
         this.routeStopRepository = routeStopRepository;
         this.studentRepository = studentRepository;
         this.standardRouteRepository = standardRouteRepository;
         this.studentRouteStopAssignmentRepository = studentRouteStopAssignmentRepository;
         this.administratorRepository = administratorRepository;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.studentRouteStopResponseMapper = studentRouteStopResponseMapper;
     }
 

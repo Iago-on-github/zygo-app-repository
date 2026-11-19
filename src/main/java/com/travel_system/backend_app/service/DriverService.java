@@ -16,10 +16,7 @@ import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CnhResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverCnhExpirationDTO;
 import com.travel_system.backend_app.model.dtos.response.DriverResponseDTO;
-import com.travel_system.backend_app.model.enums.CnhCategory;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.SensitiveOperationType;
-import com.travel_system.backend_app.model.enums.Shift;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -32,13 +29,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class DriverService {
@@ -46,11 +40,8 @@ public class DriverService {
     private final DriverRepository driverRepository;
     private final UserAccountRepository userAccountRepository;
     private final CustomerRepository customerRepository;
-    private final CnhRepository cnhRepository;
-    private final PushNotificationDeviceTokenRepository pushNotificationDeviceTokenRepository;
+    private final TravelRepository travelRepository;
 
-    private final SetupAuthenticationService setupAuthenticationService;
-    private final ImageStorageService imageStorageService;
     private final CnhService cnhService;
 
     private final PasswordEncoder passwordEncoder;
@@ -58,14 +49,11 @@ public class DriverService {
     private final DriverResponseMapper driverResponseMapper;
     private final DriverRequestMapper driverRequestMapper;
 
-    public DriverService(DriverRepository driverRepository, UserAccountRepository userAccountRepository, CnhRepository cnhRepository, PushNotificationDeviceTokenRepository pushNotificationDeviceTokenRepository, SetupAuthenticationService setupAuthenticationService, S3StorageService s3StorageService, CustomerRepository customerRepository, ImageStorageService imageStorageService, CnhService cnhService, PasswordEncoder passwordEncoder, DriverResponseMapper driverResponseMapper, DriverRequestMapper driverRequestMapper) {
+    public DriverService(DriverRepository driverRepository, UserAccountRepository userAccountRepository, CustomerRepository customerRepository, TravelRepository travelRepository, CnhService cnhService, PasswordEncoder passwordEncoder, DriverResponseMapper driverResponseMapper, DriverRequestMapper driverRequestMapper) {
         this.driverRepository = driverRepository;
         this.userAccountRepository = userAccountRepository;
-        this.cnhRepository = cnhRepository;
-        this.pushNotificationDeviceTokenRepository = pushNotificationDeviceTokenRepository;
-        this.setupAuthenticationService = setupAuthenticationService;
         this.customerRepository = customerRepository;
-        this.imageStorageService = imageStorageService;
+        this.travelRepository = travelRepository;
         this.cnhService = cnhService;
         this.passwordEncoder = passwordEncoder;
         this.driverResponseMapper = driverResponseMapper;
@@ -243,6 +231,13 @@ public class DriverService {
 
         Driver driver = driverRepository.findByEmail(authenticatedUserEmail)
                 .orElseThrow(() -> new EntityNotFoundException("Motorista não encontrado para o email: " + authenticatedUserEmail));
+
+        // verifica se o motorista possui uma viagem agendada
+        if (travelRepository.existsByDriverIdAndScheduledTrip(driver.getId())) {
+            throw new BusinessRuleException(
+                    BusinessErrorCode.DRIVER_HAS_SCHEDULED_TRAVEL,
+                    Map.of());
+        }
 
         if (driver.getStatus() == driverStatus.status()) {
             throw new DuplicateResourceException("Motorista já com o status " + driverStatus);

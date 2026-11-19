@@ -1,7 +1,6 @@
 package com.travel_system.backend_app.listeners.documents;
 
 import com.travel_system.backend_app.events.documents.NextTermMissingEvent;
-import com.travel_system.backend_app.events.documents.RegistrationClosedEvent;
 import com.travel_system.backend_app.service.RegistrationDocumentNotificationService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;

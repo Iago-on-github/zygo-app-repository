@@ -2,8 +2,8 @@ package com.travel_system.backend_app.service;
 
 import com.travel_system.backend_app.config.DocumentStorageProperties;
 import com.travel_system.backend_app.events.documents.DocumentFilesDeletionRequestedEvent;
-import com.travel_system.backend_app.events.documents.RegistrationApprovedEvent;
-import com.travel_system.backend_app.events.documents.RegistrationRejectedEvent;
+import com.travel_system.backend_app.events.documents.ApprovedEvent;
+import com.travel_system.backend_app.events.documents.RejectedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
 import com.travel_system.backend_app.interfaces.PrivateStorageService;
@@ -17,24 +17,20 @@ import com.travel_system.backend_app.model.dtos.response.TransportRegistrationRe
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
 import com.travel_system.backend_app.utils.RegistrationNumberGenerator;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.ws.rs.core.Request;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 /*
 * responsável por gerenciar toda a parte dos registros no sistema
@@ -286,7 +282,7 @@ public class RegistrationReviewService {
 
         // evento para notificar o títular
         LocalDate endTerm = request.getTargetTerm() != null ? request.getTargetTerm().getEndTerm() : null;
-        eventPublisher.publishEvent(new RegistrationApprovedEvent(request.getId(), registrationNumber, request.getCustomerId(), ownerBuilt, request.getType(), endTerm));
+        eventPublisher.publishEvent(new ApprovedEvent(request.getId(), registrationNumber, request.getCustomerId(), ownerBuilt, request.getType(), endTerm));
 
         // verifica se já existe uma foto pendente e se a matricula ja tem uma
         boolean hasPendingPhoto = request.getPendingPhotoStorageKey() != null;
@@ -331,7 +327,7 @@ public class RegistrationReviewService {
         OwnerBuilt ownerBuilt = buildOwner(registration.getStudentId(), registration.getDriverId());
 
         // evento para notificação dos titulares/responsáveis
-        eventPublisher.publishEvent(new RegistrationRejectedEvent(request.getId(), registration.getId(), request.getCustomerId(), ownerBuilt, dto.rejectionReason()));
+        eventPublisher.publishEvent(new RejectedEvent(request.getId(), registration.getId(), request.getCustomerId(), ownerBuilt, dto.rejectionReason()));
 
         // sempre será pendente a foto nova pois foi apagada. A atual, se houver, nao muda
         boolean hasPendingPhoto = false;

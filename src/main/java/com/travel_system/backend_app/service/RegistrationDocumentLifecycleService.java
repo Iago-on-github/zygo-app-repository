@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.events.StatusCacheInvalidationEvent;
 import com.travel_system.backend_app.events.documents.*;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
@@ -8,6 +9,8 @@ import com.travel_system.backend_app.model.dtos.ownApi.RegistrationDeadlines;
 import com.travel_system.backend_app.model.dtos.ownApi.RegistrationSettings;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.*;
+import com.travel_system.backend_app.policy.RegistrationClosurePolicy;
+import com.travel_system.backend_app.projections.LastRenewalRejectionView;
 import com.travel_system.backend_app.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
@@ -127,6 +131,11 @@ public class RegistrationDocumentLifecycleService {
     public void cancelRequest(RegistrationRequest request) {
         discardRequestDocuments(request.getId());
 
+        OwnerBuilt ownerBuilt = buildOwner(request.getTransportRegistration());
+
+        // publica evento para limpar cache remanescente
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(request.getCustomerId(), ownerBuilt));
+
         String pendingPhotoKey = request.getPendingPhotoStorageKey();
 
         if (pendingPhotoKey != null) {
@@ -222,7 +231,7 @@ public class RegistrationDocumentLifecycleService {
         RegistrationSettings settings = RegistrationSettings.from(customer);
 
         // apenas as matrículas ativas, já com o período carregado
-        List<TransportRegistration> registrations = transportRegistrationRepository.findActiveWithTermByCustomerId(customerId, TransportRegistrationStatus.ACTIVE);
+        List<TransportRegistration> registrations = transportRegistrationRepository.findWithTermByCustomerIdAndStatuses(customerId, List.of(TransportRegistrationStatus.ACTIVE, TransportRegistrationStatus.INACTIVE));
 
         if (registrations.isEmpty()) {
             return new CustomerLifecycleData(settings, List.of(), 0);
@@ -255,6 +264,17 @@ public class RegistrationDocumentLifecycleService {
 
             RegistrationRequest openRequest = openRequests.get(registration.getId());
 
+            // data da última rejeição de renovação por matrícula, no fuso do Customer
+            ZoneId zone = customerTimeService.zoneOf(customerId);
+
+            Map<UUID, LocalDate> lastRenewalRejections = registrationRequestRepository
+                    .findLastRejectionByRegistrationIds(registrationIds, RegistrationRequestType.RENEWAL, RegistrationRequestStatus.REJECTED)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            LastRenewalRejectionView::getRegistrationId,
+                            view -> LocalDate.ofInstant(view.getRejectedAt(), zone)
+                    ));
+
             snapshots.add(new RegistrationSnapshot(
                     registration.getId(),
                     registration.getLastReminderStage(),
@@ -262,6 +282,7 @@ public class RegistrationDocumentLifecycleService {
                     termEnd,
                     openRequest != null ? openRequest.getType() : null,
                     openRequest != null ? openRequest.getStatus() : null,
+                    lastRenewalRejections.get(registration.getId()),
                     hasNextTerm
             ));
         }
@@ -276,13 +297,20 @@ public class RegistrationDocumentLifecycleService {
      * - se sem próximo período o usuário não consegue renovar e apenas o admin é alertado posteriormente
      * */
     private RegistrationLifecycleAction decideAction(RegistrationSnapshot snapshot, RegistrationSettings settings, LocalDate today) {
-        if (snapshot.openRequestStatus() == RegistrationRequestStatus.UNDER_REVIEW || !snapshot.hasNextTerm()) {
-            return RegistrationLifecycleAction.NONE;
-        }
-
         LocalDate termEnd = snapshot.termEnd();
 
         RegistrationDeadlines registrationDeadlines = RegistrationDeadlines.of(termEnd, settings);
+
+        // mesmas suspensões do provider (sem próximo período, renovação em análise, prazo após rejeição)
+        if (RegistrationClosurePolicy.evaluate(
+                snapshot.hasNextTerm(),
+                snapshot.openRequestType(),
+                snapshot.openRequestStatus(),
+                snapshot.lastRenewalRejectedOn(),
+                registrationDeadlines,
+                today).isPresent()) {
+            return RegistrationLifecycleAction.NONE;
+        }
 
         int stage = snapshot.reminderStage();
 
@@ -367,7 +395,7 @@ public class RegistrationDocumentLifecycleService {
                 registration.setClosedAt(instant());
 
                 // evento para notificação
-                eventPublisher.publishEvent(new RegistrationClosedEvent(registration.getId(), customerId, owner, registration.getRegistrationNumber()));
+                eventPublisher.publishEvent(new ClosedEvent(registration.getId(), customerId, owner, registration.getRegistrationNumber()));
             }
 
             case BLOCK_WARNING -> {
@@ -490,6 +518,7 @@ public class RegistrationDocumentLifecycleService {
             LocalDate termEnd,
             RegistrationRequestType openRequestType,       // null se não houver solicitação aberta
             RegistrationRequestStatus openRequestStatus,   // null se não houver solicitação aberta
+            LocalDate lastRenewalRejectedOn,
             boolean hasNextTerm
     ) { }
 

@@ -1,6 +1,8 @@
 package com.travel_system.backend_app.exceptions.catchException;
 
 import com.travel_system.backend_app.exceptions.*;
+import com.travel_system.backend_app.exceptions.standardError.AccessRestrictedError;
+import com.travel_system.backend_app.exceptions.standardError.BusinessRuleError;
 import com.travel_system.backend_app.exceptions.standardError.StandardError;
 import com.travel_system.backend_app.service.CustomerTimeService;
 import jakarta.persistence.EntityNotFoundException;
@@ -528,6 +530,36 @@ public class CapturedAndCustomizedExceptions {
     @ExceptionHandler(StorageException.class)
     public final ResponseEntity<StandardError> StorageException (StorageException  ex, WebRequest webRequest) {
         return buildErrorCustomerResponse(ex, webRequest, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(AccessRestrictedException.class)
+    public final ResponseEntity<AccessRestrictedError> AccessRestrictedException(AccessRestrictedException ex, WebRequest webRequest) {
+        AccessRestrictedError accessRestricted = new AccessRestrictedError(
+                LocalDate.now(),
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage(),
+                webRequest.getDescription(false),
+                "ACCESS_RESTRICTED",
+                ex.getScope(),
+                ex.getRestrictionLevel(),
+                ex.getRestrictions()
+        );
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(accessRestricted);
+    }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    public final ResponseEntity<StandardError> BusinessRuleException(BusinessRuleException ex, WebRequest webRequest) {
+        BusinessRuleError businessRuleError = new BusinessRuleError(
+                customerTimeService.today(),
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage(),
+                webRequest.getDescription(false),
+                ex.getErrorCode(),
+                ex.getDetails()
+        );
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(businessRuleError);
     }
 
     private ResponseEntity<StandardError> buildErrorCustomerResponse(Exception ex, WebRequest webRequest, HttpStatus httpStatus) {

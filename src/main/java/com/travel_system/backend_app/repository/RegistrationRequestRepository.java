@@ -278,4 +278,19 @@ public interface RegistrationRequestRepository extends JpaRepository<Registratio
                                               @Param("draft") RegistrationRequestStatus draft,
                                               @Param("rejected") RegistrationRequestStatus rejected,
                                               @Param("cutoff") Instant cutoff,
-                                              Pageable pageable);}
+                                              Pageable pageable);
+
+    @Query("""
+        SELECT rr.transportRegistration.id AS registrationId,
+               MAX(rr.reviewedAt) AS rejectedAt
+        FROM RegistrationRequest rr
+        WHERE rr.transportRegistration.id IN :registrationIds
+          AND rr.type = :type
+          AND rr.status = :status
+        GROUP BY rr.transportRegistration.id
+        """)
+    List<LastRenewalRejectionView> findLastRejectionByRegistrationIds(@Param("registrationIds") Collection<UUID> registrationIds,
+                                                                      @Param("type") RegistrationRequestType type,
+                                                                      @Param("status") RegistrationRequestStatus status);
+
+}

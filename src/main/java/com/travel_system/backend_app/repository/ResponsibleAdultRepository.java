@@ -4,6 +4,7 @@ import com.travel_system.backend_app.interfaces.StudentEmergencyContactView;
 import com.travel_system.backend_app.model.Administrator;
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
+import com.travel_system.backend_app.model.dtos.ProfileRef;
 import com.travel_system.backend_app.model.dtos.response.StudentResponsibleAdultDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -96,4 +97,6 @@ public interface ResponsibleAdultRepository extends JpaRepository<ResponsibleAdu
         """)
     List<StudentEmergencyContactView> findEmergencyContactsByStudentIdIn(@Param("studentIds") Collection<UUID> studentIds);
 
+    @Query("SELECT ra.id AS ownerId, ra.customerId AS customerId FROM ResponsibleAdult ra WHERE ra.userAccount.id = :userAccountId")
+    Optional<ProfileRef> findProfileRefByUserId(@Param("userAccountId") UUID userAccountId);
 }

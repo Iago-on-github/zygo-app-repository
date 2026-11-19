@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.RejectRegistrationDTO;
 import com.travel_system.backend_app.model.dtos.response.DocumentDownloadResponseDTO;
 import com.travel_system.backend_app.model.dtos.response.RequestPhotoResponseDTO;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/registration/review")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class RegistrationReviewController {
 
     private final RegistrationReviewService registrationReviewService;

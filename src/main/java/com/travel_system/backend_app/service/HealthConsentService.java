@@ -14,6 +14,7 @@ import com.travel_system.backend_app.model.dtos.response.HealthConsentTermDTO;
 import com.travel_system.backend_app.model.enums.DocumentCategory;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,7 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 /*
 * Responsável por coletar a autorização do titular (ou dos responsável no caso de alunos menores de idade)
@@ -37,7 +38,7 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 public class HealthConsentService {
 
     private final HealthConsentProperties consentProperties;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
     private final CustomerRepository customerRepository;
     private final ResponsibleAdultRepository responsibleAdultRepository;
@@ -53,9 +54,9 @@ public class HealthConsentService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public HealthConsentService(HealthConsentProperties consentProperties, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, ResponsibleAdultRepository responsibleAdultRepository, StudentRepository studentRepository, UserAccountRepository userAccountRepository, HealthConsentRepository healthConsentRepository, DocumentRepository documentRepository, HealthDeclarationRepository healthDeclarationRepository, CustomerTimeService customerTimeService, HealthConsentResponseMapper healthConsentResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthConsentService(HealthConsentProperties consentProperties, UserProfileResolver userProfileResolver, CustomerRepository customerRepository, ResponsibleAdultRepository responsibleAdultRepository, StudentRepository studentRepository, UserAccountRepository userAccountRepository, HealthConsentRepository healthConsentRepository, DocumentRepository documentRepository, HealthDeclarationRepository healthDeclarationRepository, CustomerTimeService customerTimeService, HealthConsentResponseMapper healthConsentResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.consentProperties = consentProperties;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.customerRepository = customerRepository;
         this.responsibleAdultRepository = responsibleAdultRepository;
         this.studentRepository = studentRepository;
@@ -78,25 +79,25 @@ public class HealthConsentService {
 
     @Transactional
     public HealthConsentResponseDTO registerMyConsent(HealthConsentRequestDTO request) {
-        System.out.println("consent: " + userProfileResolverService.resolveSelf().id() );
-        return register(userProfileResolverService.resolveSelf(), request);
+        System.out.println("consent: " + userProfileResolver.resolveSelf().id() );
+        return register(userProfileResolver.resolveSelf(), request);
     }
 
     @Transactional
     public HealthConsentResponseDTO registerMinorStudentConsent(UUID studentId, HealthConsentRequestDTO request) {
-        return register(userProfileResolverService.resolveForResponsible(studentId), request);
+        return register(userProfileResolver.resolveForResponsible(studentId), request);
     }
 
     @Transactional(readOnly = true)
     public HealthConsentResponseDTO getMyConsent() {
-        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolver.resolveSelf();
 
         return healthConsentResponseMapper.toDTO(healthConsentRepository.findByOwnerId(healthOwner.id()).orElseThrow(() -> new EntityNotFoundException("Entidade não encontrada")));
     }
 
     @Transactional(readOnly = true)
     public HealthConsentResponseDTO getMinorStudentConsent(UUID studentId) {
-        OwnerBuilt healthOwner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt healthOwner = userProfileResolver.resolveForResponsible(studentId);
 
         ResponsibleAdult responsibleAdult = responsibleAdultRepository.findByEmail(getAuthenticatedUserEmail())
                 .orElseThrow(() -> new AccessDeniedException("Responsável não encontrado"));
@@ -113,12 +114,12 @@ public class HealthConsentService {
 
     @Transactional
     public void revokeMyConsent() {
-        revoke(userProfileResolverService.resolveSelf());
+        revoke(userProfileResolver.resolveSelf());
     }
 
     @Transactional
     public void revokeMinorStudentConsent(UUID studentId) {
-        revoke(userProfileResolverService.resolveForResponsible(studentId));
+        revoke(userProfileResolver.resolveForResponsible(studentId));
     }
 
     /*

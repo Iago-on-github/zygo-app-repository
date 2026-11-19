@@ -14,6 +14,7 @@ import com.travel_system.backend_app.model.enums.HealthDeclarationStatus;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.ResourceType;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,12 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.*;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 /*
  * "ficha" de saúde do aluno ou motorista
@@ -39,7 +38,7 @@ import static com.travel_system.backend_app.service.CurrentUserService.getAuthen
 public class HealthDeclarationService {
 
     private final CustomerTimeService customerTimeService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final HealthConsentService healthConsentService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
 
@@ -56,9 +55,9 @@ public class HealthDeclarationService {
     private final ApplicationEventPublisher eventPublisher;
 
 
-    public HealthDeclarationService(CustomerTimeService customerTimeService, UserProfileResolverService userProfileResolverService, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationRequestMapper healthDeclarationRequestMapper, HealthConditionRequestMapper healthConditionRequestMapper, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
+    public HealthDeclarationService(CustomerTimeService customerTimeService, UserProfileResolver userProfileResolver, HealthConsentService healthConsentService, SensitiveDataAccessLogService sensitiveDataAccessLogService, UserAccountRepository userAccountRepository, CustomerTermRepository customerTermRepository, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthDeclarationRequestMapper healthDeclarationRequestMapper, HealthConditionRequestMapper healthConditionRequestMapper, HealthDeclarationResponseMapper healthDeclarationResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.customerTimeService = customerTimeService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.healthConsentService = healthConsentService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
         this.userAccountRepository = userAccountRepository;
@@ -354,12 +353,12 @@ public class HealthDeclarationService {
 
     // contexto do aluno maior ou motorista agindo sobre os próprios dados
     private HealthAccessContext selfContext() {
-        return new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolverService.resolveSelf());
+        return new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolver.resolveSelf());
     }
 
     // contexto do responsável agindo sobre um aluno menor vinculado (vínculo e idade validados no resolver)
     private HealthAccessContext responsibleContext(UUID studentId) {
-        return new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolverService.resolveForResponsible(studentId));
+        return new HealthAccessContext(getAuthenticatedUserAccountId(), userProfileResolver.resolveForResponsible(studentId));
     }
 
     // sem consentimento ativo nenhum dado de saúde pode ser criado ou alterado

@@ -1,15 +1,14 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.HealthConditionRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.HealthConditionUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.HealthDeclarationRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.HealthDeclarationUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthDeclarationResponseDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.HealthDeclarationService;
 import jakarta.validation.Valid;
-import org.simpleframework.xml.Path;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/declarations")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class HealthDeclarationController {
 
     private final HealthDeclarationService healthDeclarationService;
@@ -29,6 +29,7 @@ public class HealthDeclarationController {
     * endopoints para alunos e motoristas
     * */
 
+    @RequireAccess(AccessScope.DOCUMENTS)
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @PostMapping("/me/declare")
     public ResponseEntity<HealthDeclarationResponseDTO> myDeclaration(@Valid @RequestBody HealthDeclarationRequestDTO dto) {
@@ -66,6 +67,7 @@ public class HealthDeclarationController {
     /*
     * endpoints para alunos menores de idade e responsáveis operando com eles
     * */
+    @RequireAccess(AccessScope.DOCUMENTS)
     @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
     @PostMapping("/students/{studentId}/declare")
     public ResponseEntity<HealthDeclarationResponseDTO> minorStudentDeclaration(@PathVariable UUID studentId, @Valid @RequestBody HealthDeclarationRequestDTO dto) {
@@ -101,6 +103,7 @@ public class HealthDeclarationController {
     }
 
     // getDeclarationById (admin)
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/{healthDeclarationId}")
     public ResponseEntity<HealthDeclarationResponseDTO> getDeclarationById(@PathVariable UUID healthDeclarationId) {
         return ResponseEntity.ok().body(healthDeclarationService.getDeclarationById(healthDeclarationId));

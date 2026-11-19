@@ -3,7 +3,6 @@ package com.travel_system.backend_app.service;
 import com.travel_system.backend_app.events.TravelStartedEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.infrastructure.TenantContext;
-import com.travel_system.backend_app.interfaces.StudentEmergencyContactView;
 import com.travel_system.backend_app.interfaces.mappers.response.RouteStopResponseMapper;
 import com.travel_system.backend_app.interfaces.mappers.response.StandardRouteResponseMapper;
 import com.travel_system.backend_app.model.*;
@@ -17,6 +16,7 @@ import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.dtos.mapboxApi.RouteDetailsDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import com.travel_system.backend_app.utils.CollectTravelReportsMetrics;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -32,11 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.travel_system.backend_app.config.constants.GlobalAppConstants.MONITORING_THRESHOLD;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class TravelService {
@@ -57,7 +55,7 @@ public class TravelService {
     private final HealthDeclarationRepository healthDeclarationRepository;
     private final MapboxAPIService mapboxAPIService;
     private final RedisTrackingService redisTrackingService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final PolylineService polylineService;
     private final TravelCacheService travelCacheService;
     private final TravelStudentStateCacheService travelStudentStateCacheService;
@@ -77,7 +75,7 @@ public class TravelService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, HealthConditionRepository healthConditionRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, HealthDeclarationRepository healthDeclarationRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, UserProfileResolverService userProfileResolverService, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
+    public TravelService(TravelRepository travelRepository, StudentTravelRepository studentTravelRepository, StudentRepository studentRepository, DriverRepository driverRepository, TravelReportsRepository travelReportsRepository, TravelLocationHistoryRepository travelLocationHistoryRepository, StandardRouteRepository standardRouteRepository, VehicleRepository vehicleRepository, HealthConditionRepository healthConditionRepository, UserAccountRepository userAccountRepository, ResponsibleAdultRepository responsibleAdultRepository, HealthDeclarationRepository healthDeclarationRepository, MapboxAPIService mapboxAPIService, RedisTrackingService redisTrackingService, UserProfileResolver userProfileResolver, PolylineService polylineService, TravelCacheService travelCacheService, TravelStudentStateCacheService travelStudentStateCacheService, TravelNotificationService travelNotificationService, StudentTravelRouteStopService studentTravelRouteStopService, TravelTrackingStaticCacheService travelTrackingStaticCacheService, StudentTravelCooldownService studentTravelCooldownService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, CollectTravelReportsMetrics collectTravelReportsMetrics, RouteStopResponseMapper routeStopResponseMapper, StandardRouteResponseMapper standardRouteResponseMapper, RedisTemplate<String, Object> redisTemplate, ApplicationEventPublisher eventPublisher) {
         this.travelRepository = travelRepository;
         this.studentTravelRepository = studentTravelRepository;
         this.studentRepository = studentRepository;
@@ -92,7 +90,7 @@ public class TravelService {
         this.healthDeclarationRepository = healthDeclarationRepository;
         this.mapboxAPIService = mapboxAPIService;
         this.redisTrackingService = redisTrackingService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.polylineService = polylineService;
         this.travelCacheService = travelCacheService;
         this.travelStudentStateCacheService = travelStudentStateCacheService;

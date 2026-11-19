@@ -1,8 +1,7 @@
 package com.travel_system.backend_app.utils;
 
 import com.travel_system.backend_app.config.RabbitMQConfig;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
-import com.travel_system.backend_app.model.dtos.mensageria.StudentProximityNotificationMessage;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.model.dtos.route.GpsPayload;
 import com.travel_system.backend_app.service.CustomerTimeService;

@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.listeners.routestops_algorithm;
 
 import com.travel_system.backend_app.events.routestops_algorithm.CancelledStudentTravelRouteStopEvent;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.repository.StudentTravelRouteStopRepository;
 import com.travel_system.backend_app.service.TravelTrackingNotificationService;
 import com.travel_system.backend_app.service.TravelTrackingStaticCacheService;

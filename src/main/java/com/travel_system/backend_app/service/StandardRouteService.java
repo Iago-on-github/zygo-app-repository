@@ -26,7 +26,8 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
+
 
 @Service
 public class StandardRouteService {
@@ -40,10 +41,9 @@ public class StandardRouteService {
     private final StandardRouteResponseMapper standardRouteResponseMapper;
 
     private final CustomerTimeService customerTimeService;
-    private final CurrentUserService currentUserService;
     private final MapboxAPIService mapboxAPIService;
 
-    public StandardRouteService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, StudentRepository studentRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CustomerTimeService customerTimeService, CurrentUserService currentUserService, MapboxAPIService mapboxAPIService) {
+    public StandardRouteService(StandardRouteRepository standardRouteRepository, RouteStopRepository routeStopRepository, UserAccountRepository userAccountRepository, AdministratorRepository administratorRepository, StudentRepository studentRepository, StandardRouteRequestMapper standardRouteRequestMapper, StandardRouteResponseMapper standardRouteResponseMapper, CustomerTimeService customerTimeService, MapboxAPIService mapboxAPIService) {
         this.standardRouteRepository = standardRouteRepository;
         this.routeStopRepository = routeStopRepository;
         this.userAccountRepository = userAccountRepository;
@@ -52,7 +52,6 @@ public class StandardRouteService {
         this.standardRouteRequestMapper = standardRouteRequestMapper;
         this.standardRouteResponseMapper = standardRouteResponseMapper;
         this.customerTimeService = customerTimeService;
-        this.currentUserService = currentUserService;
         this.mapboxAPIService = mapboxAPIService;
     }
 

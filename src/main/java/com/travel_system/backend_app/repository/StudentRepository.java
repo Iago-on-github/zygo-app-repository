@@ -2,6 +2,7 @@ package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.ResponsibleAdult;
 import com.travel_system.backend_app.model.Student;
+import com.travel_system.backend_app.model.dtos.ProfileRef;
 import com.travel_system.backend_app.model.dtos.StudentTokensDTO;
 import com.travel_system.backend_app.model.dtos.response.StudentResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
@@ -167,4 +168,9 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     """)
     List<UUID> findResponsibleUserAccountIds(@Param("studentId") UUID studentId);
 
+    @Query("SELECT s.id FROM Student s WHERE s.userAccount.id = :userAccountId")
+    Optional<UUID> findIdByUserAccountId(@Param("userAccountId") UUID userAccountId);
+
+    @Query("SELECT s.id AS ownerId, s.customerId AS customerId FROM Student s WHERE s.userAccount.id = :userAccountId")
+    Optional<ProfileRef> findProfileRefByUserId(@Param("userAccountId") UUID userAccountId);
 }

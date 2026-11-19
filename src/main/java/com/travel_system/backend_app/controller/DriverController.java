@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.CnhNumberSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CpfSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.DriverUpdateDTO;
@@ -35,6 +36,9 @@ public class DriverController {
         this.driverService = driverService;
     }
 
+    // requisições do admin para drivers
+
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/all")
     public ResponseEntity<Page<DriverResponseDTO>> getAllDrivers(
             @RequestParam(required = false) String email,
@@ -48,21 +52,25 @@ public class DriverController {
         return ResponseEntity.ok(driverService.getAllDrivers(email, name, lastName, neighborhood, areaOfActivity, shifts, pageable));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/{driverId}")
     public ResponseEntity<DriverResponseDTO> getDriverById(@PathVariable UUID driverId) {
         return ResponseEntity.ok(driverService.getDriverById(driverId));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @PostMapping("/search-by-cpf")
     public ResponseEntity<DriverResponseDTO> getDriverByCpf(@Valid @RequestBody CpfSearchRequestDTO dto) {
         return ResponseEntity.ok(driverService.getDriverByCpf(dto));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @PostMapping("/search-by-cnh")
     public ResponseEntity<DriverResponseDTO> getDriverByCnhNumber(@Valid @RequestBody CnhNumberSearchRequestDTO dto) {
         return ResponseEntity.ok(driverService.getDriverByCnhNumber(dto));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/cnh-expiring")
     public ResponseEntity<List<DriverCnhExpirationDTO>> getDriversWithCnhExpiringSoon(@RequestParam Set<CnhCategory> cnhCategories, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate thresholdDate) {
 
@@ -72,11 +80,15 @@ public class DriverController {
         return ResponseEntity.ok(driverService.getDriversWithCnhExpiringSoon(categories, thresholdDate));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/status")
     public ResponseEntity<Page<DriverResponseDTO>> getDriversByStatus(@RequestParam(required = false) GeneralStatus status, @PageableDefault(size = 15) @SortDefault(sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok().body(driverService.getDriversByStatus(status,pageable));
     }
 
+    // requisições próprias do driver
+
+    @RequireAccess(AccessScope.REGULARIZATION)
     @GetMapping("/me")
     public ResponseEntity<DriverResponseDTO> getCurrentDriver() {
         DriverResponseDTO loggedDriver = driverService.getCurrentDriver();
@@ -84,6 +96,7 @@ public class DriverController {
         return ResponseEntity.ok().body(loggedDriver);
     }
 
+    @RequireAccess(AccessScope.DOCUMENTS)
     @PatchMapping("/me")
     public ResponseEntity<DriverResponseDTO> updateCurrentDriver(@Valid @RequestBody DriverUpdateDTO driverUpdateDTO) {
         DriverResponseDTO loggedDriver = driverService.updateCurrentDriver(driverUpdateDTO);
@@ -91,6 +104,7 @@ public class DriverController {
         return ResponseEntity.ok().body(loggedDriver);
     }
 
+    @RequireAccess(AccessScope.REGULARIZATION)
     @PatchMapping("/update/status")
     public ResponseEntity<Void> updateDriver(@Valid @RequestBody UpdateStatusDTO entityStatusDTO) {
         driverService.updateDriver(entityStatusDTO);

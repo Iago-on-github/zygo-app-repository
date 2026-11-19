@@ -1,14 +1,17 @@
-package com.travel_system.backend_app.service;
+package com.travel_system.backend_app.resolvers;
 
 import com.travel_system.backend_app.exceptions.CustomerMismatchException;
 import com.travel_system.backend_app.exceptions.CustomerNotFoundException;
 import com.travel_system.backend_app.exceptions.DocumentNotFoundException;
 import com.travel_system.backend_app.exceptions.MinorStudentNotAllowedException;
+import com.travel_system.backend_app.infrastructure.BaseTenantEntity;
 import com.travel_system.backend_app.model.*;
+import com.travel_system.backend_app.model.dtos.ProfileRef;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
 import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.service.CustomerTimeService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -20,14 +23,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 /*
 * operações com base na decisão do tipo de accountUser
 * */
 
 @Service
-public class UserProfileResolverService {
+public class UserProfileResolver {
 
     private final UserAccountRepository userAccountRepository;
     private final StudentRepository studentRepository;
@@ -38,7 +41,7 @@ public class UserProfileResolverService {
 
     private final CustomerTimeService customerTimeService;
 
-    public UserProfileResolverService(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository, DocumentRepository documentRepository, CustomerTimeService customerTimeService) {
+    public UserProfileResolver(UserAccountRepository userAccountRepository, StudentRepository studentRepository, DriverRepository driverRepository, AdministratorRepository administratorRepository, ResponsibleAdultRepository responsibleAdultRepository, DocumentRepository documentRepository, CustomerTimeService customerTimeService) {
         this.userAccountRepository = userAccountRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
@@ -166,13 +169,36 @@ public class UserProfileResolverService {
         return names;
     }
 
+    // monta projeção para retornar o id da conta e o seu customer
+    public Optional<ProfileRef> resolveEligibleEntitiesForRestriction(UserAccount userAccount) {
+        if (userAccount == null) {
+            return Optional.empty();
+        }
+
+        switch (userAccount.getUserAccountType()) {
+            case DRIVER -> {
+                return driverRepository.findProfileRefByUserId(userAccount.getId());
+            }
+
+            case STUDENT -> {
+                return studentRepository.findProfileRefByUserId(userAccount.getId());
+            }
+
+            case RESPONSIBLE_ADULT -> {
+                return responsibleAdultRepository.findProfileRefByUserId(userAccount.getId());
+            }
+        }
+        // caso não seja elegível só retorna empty
+        return Optional.empty();
+    }
+
     private String fullName(String name, String lastName) {
         return Stream.of(name, lastName)
                 .filter(Objects::nonNull)
                 .collect(Collectors.joining(" "));
     }
 
-    protected boolean isMinor(LocalDate d1) {
+    public boolean isMinor(LocalDate d1) {
         return Period.between(d1, customerTimeService.today()).getYears() < 18;
     }
 

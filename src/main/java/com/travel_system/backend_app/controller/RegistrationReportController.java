@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.response.GraceRegistrationItemDTO;
 import com.travel_system.backend_app.model.dtos.response.RegistrationDistributionDTO;
 import com.travel_system.backend_app.model.dtos.response.RegistrationSummaryDTO;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/registrations/reports")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class RegistrationReportController {
 
     private final RegistrationReportService registrationReportService;

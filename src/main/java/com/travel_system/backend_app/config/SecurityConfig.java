@@ -3,10 +3,10 @@ package com.travel_system.backend_app.config;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
 import com.travel_system.backend_app.security.JwtAuthenticationFilter;
-import com.travel_system.backend_app.service.CurrentUserService;
-import com.travel_system.backend_app.service.UserProfileResolverService;
+import com.travel_system.backend_app.security.UserActivityFilter;
+import com.travel_system.backend_app.service.UserActivityService;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.commons.compress.archivers.dump.DumpArchiveEntry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,10 +22,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.RequestMatchers;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -33,8 +29,13 @@ public class SecurityConfig {
 
     private final CorsSourceConfig corsSourceConfig;
 
-    public SecurityConfig(CorsSourceConfig corsSourceConfig) {
+    private final TokenConfig tokenConfig;
+    private final UserActivityService userActivityService;
+
+    public SecurityConfig(CorsSourceConfig corsSourceConfig, TokenConfig tokenConfig, UserActivityService userActivityService) {
         this.corsSourceConfig = corsSourceConfig;
+        this.tokenConfig = tokenConfig;
+        this.userActivityService = userActivityService;
     }
 
     final String ROLE_ADMIN = "ADMIN";
@@ -44,8 +45,8 @@ public class SecurityConfig {
     final String ROLE_RESPONSIBLE_ADULT = "RESPONSIBLE_ADULT";
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(TokenConfig tokenConfig, CurrentUserService currentUserService, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, UserAccountRepository userAccountRepository) {
-        return new JwtAuthenticationFilter(tokenConfig, currentUserService, userProfileResolverService, customerRepository, userAccountRepository);
+    public JwtAuthenticationFilter jwtAuthenticationFilter(TokenConfig tokenConfig, UserProfileResolver userProfileResolver, CustomerRepository customerRepository, UserAccountRepository userAccountRepository) {
+        return new JwtAuthenticationFilter(tokenConfig, userProfileResolver, customerRepository, userAccountRepository);
     }
 
     @Bean
@@ -85,7 +86,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // registro de atividade
+                // nao roda na rota de refresh e nem nas rotas do rabbitmq
+                .addFilterAfter(new UserActivityFilter(tokenConfig, userActivityService), JwtAuthenticationFilter.class);
 
         return http.build();
     }

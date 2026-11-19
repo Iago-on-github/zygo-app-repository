@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.CpfSearchRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.ResponsibleAdultUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/responsibles")
+@RequireAccess(AccessScope.REGULARIZATION) // sobrescrito no método para os endpoints gerenciados pelo adm
 public class ResponsibleAdultController {
 
     private final ResponsibleAdultService responsibleAdultService;
@@ -28,6 +30,7 @@ public class ResponsibleAdultController {
         this.responsibleAdultService = responsibleAdultService;
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/all")
     public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getAllResponsibleAdults(
             @RequestParam(required = false) String email,
@@ -39,30 +42,37 @@ public class ResponsibleAdultController {
         return ResponseEntity.ok().body(responsibleAdultService.getAllResponsibleAdults(email, name, lastName, neighborhood, pageable));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/{responsibleAdultId}")
     public ResponseEntity<ResponsibleAdultResponseDTO> getResponsibleAdultById(@PathVariable UUID responsibleAdultId) {
         return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultById(responsibleAdultId));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/name")
     public ResponseEntity<Page<ResponsibleAdultResponseDTO>> getResponsibleAdultByName(@RequestParam String name, @PageableDefault(size = 15) @SortDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByName(name, pageable));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/search-by-cpf")
     public ResponseEntity<ResponsibleAdultResponseDTO> getResponsibleAdultByCpf(@Valid @RequestBody CpfSearchRequestDTO dto) {
         return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByCpf(dto));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/student/{studentId}")
     public ResponseEntity<ResponsibleAdultResponseDTO> getResponsibleAdultByStudentId(@PathVariable UUID studentId) {
         return ResponseEntity.ok().body(responsibleAdultService.getResponsibleAdultByStudentId(studentId));
     }
 
+    @RequireAccess(AccessScope.UNRESTRICTED)
     @GetMapping("/students/{responsibleAdultId}")
     public ResponseEntity<Set<StudentResponsibleAdultDTO>> getStudentsByResponsibleAdult(@PathVariable UUID responsibleAdultId) {
         return ResponseEntity.ok().body(responsibleAdultService.getStudentsByResponsibleAdult(responsibleAdultId));
     }
+
+    // requisições do próprio responsável e gerenciamento do aluno vinculado
 
     @GetMapping("/me")
     public ResponseEntity<ResponsibleAdultResponseDTO> getCurrentResponsibleAdult() {

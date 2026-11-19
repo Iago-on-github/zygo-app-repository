@@ -1,6 +1,6 @@
 package com.travel_system.backend_app.listeners.documents;
 
-import com.travel_system.backend_app.events.documents.RegistrationSubmittedEvent;
+import com.travel_system.backend_app.events.documents.SubmittedEvent;
 import com.travel_system.backend_app.service.RegistrationDocumentNotificationService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,7 @@ public class RegistrationSubmittedListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("documentNotificationTaskExecutor")
-    public void notifyAdminsOnUserRegistrationUpload(RegistrationSubmittedEvent event) {
+    public void notifyAdminsOnUserRegistrationUpload(SubmittedEvent event) {
         registrationDocumentNotificationService.sendNotifyAdminsOnRegistrationUploaded(event);
     }
 }

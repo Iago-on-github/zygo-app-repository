@@ -1,13 +1,11 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.InstitutionResponseDTO;
 import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.service.InstitutionService;
 import com.travel_system.backend_app.model.enums.InstitutionType;
-import org.apache.coyote.Response;
-import org.bouncycastle.asn1.ocsp.ResponderID;
-import org.simpleframework.xml.Path;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,11 +18,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import javax.validation.Valid;
 import java.net.URI;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @RequestMapping("/v1/institution")
 @RestController
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class InstitutionController {
 
     private final InstitutionService institutionService;

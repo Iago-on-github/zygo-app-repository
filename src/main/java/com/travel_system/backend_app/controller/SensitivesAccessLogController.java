@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.response.SensitiveDataAccessLogResponseDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.SensitiveDataAccessLogService;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1/sensitive-access-logs")
 @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class SensitivesAccessLogController {
 
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;

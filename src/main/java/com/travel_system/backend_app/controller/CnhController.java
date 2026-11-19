@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.CnhNumberSearchRequestDTO;
-import com.travel_system.backend_app.model.dtos.request.CnhRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CnhUpdateDTO;
 import com.travel_system.backend_app.model.dtos.response.CnhResponseDTO;
 import com.travel_system.backend_app.model.enums.CnhCategory;
@@ -13,16 +13,15 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
-import java.net.URI;
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/cnh")
+@RequireAccess(AccessScope.DOCUMENTS)
 public class CnhController {
 
     private final CnhService cnhService;

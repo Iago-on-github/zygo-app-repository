@@ -5,7 +5,6 @@ import com.travel_system.backend_app.events.send_emails.EmailVerificationRequest
 import com.travel_system.backend_app.exceptions.DuplicateResourceException;
 import com.travel_system.backend_app.exceptions.EmailAlreadyVerifiedException;
 import com.travel_system.backend_app.exceptions.ErrorWithEmailProcessVerificationException;
-import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.EmailVerificationToken;
 import com.travel_system.backend_app.model.Permissions;
 import com.travel_system.backend_app.model.UserAccount;
@@ -13,7 +12,10 @@ import com.travel_system.backend_app.model.dtos.security.*;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.EmailVerificationTokenRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,14 +28,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class AuthService {
+    private final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserAccountRepository userAccountRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
@@ -41,20 +43,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     private final CustomerTimeService customerTimeService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final AuthenticationManager authenticationManager;
     private final TokenConfig tokenConfig;
+    private final UserActivityService userActivityService;
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public AuthService(UserAccountRepository userAccountRepository, EmailVerificationTokenRepository emailVerificationTokenRepository, PasswordEncoder passwordEncoder, CustomerTimeService customerTimeService, UserProfileResolverService userProfileResolverService, AuthenticationManager authenticationManager, TokenConfig tokenConfig, ApplicationEventPublisher eventPublisher) {
+    public AuthService(UserAccountRepository userAccountRepository, EmailVerificationTokenRepository emailVerificationTokenRepository, PasswordEncoder passwordEncoder, CustomerTimeService customerTimeService, UserProfileResolver userProfileResolver, AuthenticationManager authenticationManager, TokenConfig tokenConfig, UserActivityService userActivityService, ApplicationEventPublisher eventPublisher) {
         this.userAccountRepository = userAccountRepository;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.customerTimeService = customerTimeService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.authenticationManager = authenticationManager;
         this.tokenConfig = tokenConfig;
+        this.userActivityService = userActivityService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -74,6 +78,7 @@ public class AuthService {
         userAccount.setTermsAcceptedAt(customerTimeService.today());
         userAccount.setUserAccountType(UserAccountType.UNASSIGNED);
         userAccount.setEmailVerified(false);
+        userAccount.setLastActivityAt(Instant.now());
 
         try {
             userAccountRepository.saveAndFlush(userAccount);
@@ -136,7 +141,7 @@ public class AuthService {
         sendVerificationEmail(user);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponseDTO signing(LoginRequestDTO loginRequestDto) {
         // valdiações
         if (loginRequestDto == null || loginRequestDto.email() == null || loginRequestDto.password() == null) {
@@ -161,14 +166,17 @@ public class AuthService {
         /*
         * service realiza a validação de quem exatamente está realizando o login e recupera o customerId dela
         * */
-        UUID customerId = userProfileResolverService.resolveCustomerId(userAccount);
+        UUID customerId = userProfileResolver.resolveCustomerId(userAccount);
 
         // extrai as ROLES
         List<String> roles = userAccount.getPermissions().stream()
                 .map(Permissions::getDescription).toList();
 
+        // realiza o registro de atividade
+        userActivityService.recordActivity(userAccount.getId());
+
         // retorna o token
-        return tokenConfig.createAccessToken(email, roles, customerId, userAccount.getUserAccountType());
+        return tokenConfig.createAccessToken(userAccount.getId(), email, roles, customerId, userAccount.getUserAccountType());
     }
 
     @Transactional(readOnly = true)
@@ -214,5 +222,9 @@ public class AuthService {
     
     private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase();
+    }
+
+    public Logger getLog() {
+        return log;
     }
 }

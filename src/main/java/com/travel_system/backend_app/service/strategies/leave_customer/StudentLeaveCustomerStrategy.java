@@ -1,5 +1,7 @@
 package com.travel_system.backend_app.service.strategies.leave_customer;
 
+import com.travel_system.backend_app.events.ClearRestrictionCacheEvent;
+import com.travel_system.backend_app.events.StatusCacheInvalidationEvent;
 import com.travel_system.backend_app.exceptions.ResourceInUseException;
 import com.travel_system.backend_app.interfaces.LeaveCustomerStrategy;
 import com.travel_system.backend_app.model.Student;
@@ -15,13 +17,13 @@ import com.travel_system.backend_app.repository.TravelRepository;
 import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.RegistrationDataCleanupService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.List;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Component
 public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
@@ -34,15 +36,18 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final RegistrationDataCleanupService registrationDataCleanupService;
     private final HealthDataCleanupService healthDataCleanupService;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
+    public StudentLeaveCustomerStrategy(StudentRepository studentRepository, TravelRepository travelRepository, StudentRouteStopAssignmentRepository routeStopAssignmentRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService, ApplicationEventPublisher eventPublisher) {
         this.studentRepository = studentRepository;
         this.travelRepository = travelRepository;
         this.routeStopAssignmentRepository = routeStopAssignmentRepository;
         this.customerTimeService = customerTimeService;
         this.registrationDataCleanupService = registrationDataCleanupService;
         this.healthDataCleanupService = healthDataCleanupService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -85,6 +90,12 @@ public class StudentLeaveCustomerStrategy implements LeaveCustomerStrategy {
         student.setCpf(null);
         student.setBirthdate(null);
         student.setAddress(null);
+
+        // publica evento para limpar cache remanescente de registro
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(student.getCustomerId(), new OwnerBuilt(OwnerType.STUDENT, student.getId())));
+
+        // publica evento para limpar cache de restrições
+        eventPublisher.publishEvent(new ClearRestrictionCacheEvent(account.getId()));
     }
 
     private Student findStudent() {

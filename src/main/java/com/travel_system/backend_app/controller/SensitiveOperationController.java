@@ -1,22 +1,20 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationReviewDTO;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationTokenDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.SensitiveOperationApprovalService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.simpleframework.xml.Path;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/security/sensitive-operations")
 @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class SensitiveOperationController {
 
     private final SensitiveOperationApprovalService sensitiveOperationApprovalService;

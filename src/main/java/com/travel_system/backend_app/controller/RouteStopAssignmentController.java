@@ -1,17 +1,11 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.RouteStopReorderRequestDTO;
 import com.travel_system.backend_app.model.dtos.response.StandardRouteResponseDTO;
 import com.travel_system.backend_app.model.dtos.route.AssociateRouteStopToStandardRouteDTO;
 import com.travel_system.backend_app.model.enums.TravelDirection;
 import com.travel_system.backend_app.service.RouteStopAssignmentService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/route-assignment")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class RouteStopAssignmentController {
     private final RouteStopAssignmentService routeStopAssignmentService;
 

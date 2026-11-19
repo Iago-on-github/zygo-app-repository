@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service.strategies.leave_customer;
 
+import com.travel_system.backend_app.events.ClearRestrictionCacheEvent;
 import com.travel_system.backend_app.exceptions.MinorStudentResponsibleAdultTransferRequiredException;
 import com.travel_system.backend_app.interfaces.LeaveCustomerStrategy;
 import com.travel_system.backend_app.model.ResponsibleAdult;
@@ -9,6 +10,7 @@ import com.travel_system.backend_app.model.enums.GeneralStatus;
 import com.travel_system.backend_app.model.enums.UserAccountType;
 import com.travel_system.backend_app.repository.ResponsibleAdultRepository;
 import com.travel_system.backend_app.service.CustomerTimeService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +19,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Component
 public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrategy {
@@ -26,9 +28,12 @@ public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrat
 
     private final CustomerTimeService customerTimeService;
 
-    public ResponsibleAdultLeaveCustomerStrategy(ResponsibleAdultRepository responsibleAdultRepository, CustomerTimeService customerTimeService) {
+    private final ApplicationEventPublisher eventPublisher;
+
+    public ResponsibleAdultLeaveCustomerStrategy(ResponsibleAdultRepository responsibleAdultRepository, CustomerTimeService customerTimeService, ApplicationEventPublisher eventPublisher) {
         this.responsibleAdultRepository = responsibleAdultRepository;
         this.customerTimeService = customerTimeService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -72,6 +77,9 @@ public class ResponsibleAdultLeaveCustomerStrategy implements LeaveCustomerStrat
         responsible.setTelephone(null);
         responsible.setBirthdate(null);
         responsible.setAddress(null);
+
+        // publica evento para limpar cache de restrições
+        eventPublisher.publishEvent(new ClearRestrictionCacheEvent(account.getId()));
     }
 
     private ResponsibleAdult findResponsible() {

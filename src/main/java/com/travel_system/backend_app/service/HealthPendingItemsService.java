@@ -9,6 +9,7 @@ import com.travel_system.backend_app.model.dtos.response.HealthPendingItemDTO;
 import com.travel_system.backend_app.model.dtos.response.HealthPendingItemsResponseDTO;
 import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.repository.*;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class HealthPendingItemsService {
 
     private final CustomerTimeService customerTimeService;
     private final HealthConsentService healthConsentService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -54,7 +55,7 @@ public class HealthPendingItemsService {
     // status em que um documento ainda pode comprovar a condição
     private static final Set<DocumentStatus> ACTIVE_STATUSES = EnumSet.of(DocumentStatus.PENDING_REVIEW, DocumentStatus.APPROVED);
 
-    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, PlatformTransactionManager transactionManager, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolverService userProfileResolverService, ApplicationEventPublisher eventPublisher, TransactionTemplate readOnlyTransactionTemplate, CustomerTimeService customerTimeService) {
+    public HealthPendingItemsService(CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, PlatformTransactionManager transactionManager, HealthDeclarationRepository healthDeclarationRepository, DocumentRepository documentRepository, HealthConsentRepository healthConsentRepository, StudentRepository studentRepository, DriverRepository driverRepository, HealthConsentService healthConsentService, UserProfileResolver userProfileResolver, ApplicationEventPublisher eventPublisher, TransactionTemplate readOnlyTransactionTemplate, CustomerTimeService customerTimeService) {
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
         this.healthDeclarationRepository = healthDeclarationRepository;
@@ -63,7 +64,7 @@ public class HealthPendingItemsService {
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
         this.healthConsentService = healthConsentService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.eventPublisher = eventPublisher;
         this.readOnlyTransactionTemplate = new TransactionTemplate(transactionManager);
         this.customerTimeService = customerTimeService;
@@ -72,7 +73,7 @@ public class HealthPendingItemsService {
 
     @Transactional(readOnly = true)
     public HealthPendingItemsResponseDTO getMyPendingItems() {
-        OwnerBuilt healthOwner = userProfileResolverService.resolveSelf();
+        OwnerBuilt healthOwner = userProfileResolver.resolveSelf();
 
         return calculate(healthOwner, getCurrentCustomer());
     }
@@ -80,7 +81,7 @@ public class HealthPendingItemsService {
     // usado pelo responsável p/ ver pendências de um aluno menor vinculado
     @Transactional(readOnly = true)
     public HealthPendingItemsResponseDTO getStudentPendingItems(UUID studentId) {
-        OwnerBuilt owner = userProfileResolverService.resolveForResponsible(studentId);
+        OwnerBuilt owner = userProfileResolver.resolveForResponsible(studentId);
         return calculate(owner, getCurrentCustomer());
     }
 

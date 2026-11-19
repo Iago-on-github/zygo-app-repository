@@ -19,6 +19,7 @@ import com.travel_system.backend_app.model.enums.ResourceType;
 import com.travel_system.backend_app.repository.DocumentRepository;
 import com.travel_system.backend_app.repository.DriverRepository;
 import com.travel_system.backend_app.repository.StudentRepository;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,7 +38,7 @@ public class HealthDocumentReviewService {
     private final StudentRepository studentRepository;
     private final DriverRepository driverRepository;
 
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
     private final PrivateStorageService privateStorageService;
     private final SensitiveDataAccessLogService sensitiveDataAccessLogService;
 
@@ -49,11 +49,11 @@ public class HealthDocumentReviewService {
 
     private final DocumentResponseMapper documentResponseMapper;
 
-    public HealthDocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolverService userProfileResolverService, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
+    public HealthDocumentReviewService(DocumentRepository documentRepository, StudentRepository studentRepository, DriverRepository driverRepository, UserProfileResolver userProfileResolver, PrivateStorageService privateStorageService, SensitiveDataAccessLogService sensitiveDataAccessLogService, CustomerTimeService customerTimeService, DocumentStorageProperties documentStorageProperties, ApplicationEventPublisher eventPublisher, DocumentResponseMapper documentResponseMapper) {
         this.documentRepository = documentRepository;
         this.studentRepository = studentRepository;
         this.driverRepository = driverRepository;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.privateStorageService = privateStorageService;
         this.sensitiveDataAccessLogService = sensitiveDataAccessLogService;
         this.customerTimeService = customerTimeService;
@@ -74,7 +74,7 @@ public class HealthDocumentReviewService {
 
     @Transactional(readOnly = true)
     public DocumentDownloadResponseDTO downloadDocument(UUID documentId) {
-        UUID admId = userProfileResolverService.resolveAdminForDocuments(documentId);
+        UUID admId = userProfileResolver.resolveAdminForDocuments(documentId);
 
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));
@@ -101,7 +101,7 @@ public class HealthDocumentReviewService {
 
     @Transactional
     public void approveDocument(UUID documentId) {
-        UUID adminId = userProfileResolverService.resolveAdminForDocuments(documentId);
+        UUID adminId = userProfileResolver.resolveAdminForDocuments(documentId);
 
         Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));
@@ -136,7 +136,7 @@ public class HealthDocumentReviewService {
 
     @Transactional
     public void rejectDocument(UUID documentId, DocumentRejectDTO dto) {
-        UUID adminId = userProfileResolverService.resolveAdminForDocuments(documentId);
+        UUID adminId = userProfileResolver.resolveAdminForDocuments(documentId);
 
         Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new DocumentNotFoundException("Documento não encontrado"));

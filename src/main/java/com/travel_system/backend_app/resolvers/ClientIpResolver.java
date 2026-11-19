@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.infrastructure;
+package com.travel_system.backend_app.resolvers;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;

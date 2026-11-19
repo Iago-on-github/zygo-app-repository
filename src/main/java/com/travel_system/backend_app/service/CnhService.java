@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
 
 @Service
 public class CnhService {

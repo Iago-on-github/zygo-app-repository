@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.model.dtos.security.LoginRequestDTO;
 import com.travel_system.backend_app.model.dtos.security.LoginResponseDTO;
@@ -8,32 +9,25 @@ import com.travel_system.backend_app.model.dtos.security.RefreshTokenResponseDTO
 import com.travel_system.backend_app.model.dtos.security.UserAccountRegisterDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.AuthService;
-import com.travel_system.backend_app.service.CurrentUserService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.isPlatformAdmin;
+
 @RestController
 @RequestMapping("/v1/auth")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class AuthController {
 
     private final AuthService authService;
     private final TokenConfig tokenConfig;
-    private final CurrentUserService currentUserService;
 
-    public AuthController(AuthService authService, TokenConfig tokenConfig, CurrentUserService currentUserService) {
+    public AuthController(AuthService authService, TokenConfig tokenConfig) {
         this.authService = authService;
         this.tokenConfig = tokenConfig;
-        this.currentUserService = currentUserService;
     }
 
     @RateLimited(RateLimitPolicy.REGISTER)
@@ -66,7 +60,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<RefreshTokenResponseDTO> refreshToken(@RequestHeader("X-Refresh-Token") String refreshToken) {
-        boolean isPlatformAdmin = currentUserService.isPlatformAdmin();
+        boolean isPlatformAdmin = isPlatformAdmin();
 
         UUID customerId = null;
         if (!isPlatformAdmin) {

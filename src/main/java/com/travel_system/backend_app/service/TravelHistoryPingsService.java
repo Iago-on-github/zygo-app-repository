@@ -1,6 +1,6 @@
 package com.travel_system.backend_app.service;
 
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.model.TravelLocationHistory;
 import com.travel_system.backend_app.model.dtos.request.VehicleLocationRequestDTO;
 import com.travel_system.backend_app.repository.TravelLocationHistoryRepository;

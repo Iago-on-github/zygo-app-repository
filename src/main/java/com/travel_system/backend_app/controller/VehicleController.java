@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.VehicleUpdateDTO;
@@ -10,12 +11,9 @@ import com.travel_system.backend_app.service.VehicleService;
 import com.travel_system.backend_app.service.profilePicture.VehicleProfilePictureService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.data.web.SortDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -27,6 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/vehicle")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class VehicleController {
 
     private final VehicleService vehicleService;

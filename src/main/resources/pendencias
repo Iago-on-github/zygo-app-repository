@@ -281,9 +281,14 @@ PENDÊNCIAS DA MINHA PARTE PARA COM A API
 - AINDA FALTA FAZER A FEATURE DE BLOQUEIO DE ACESSO DO SISTEMA ()
 
 - FALTA FAZER OS MÉTODOS DE DELETAR CONTA PARA AS ENTIDADES DE DOMÍNIO ()
+ - anonimação, jaq muitos usuários fazem parte de logs e isso quebraria tudo.
+
+- ORGANIZAR MELHOR AS PASTAS E CLASSES ()
 
 ------------------------------
 FEATURES QUE EU ESTOU TRABALHANDO NO MOMENTO
 - organização de data por zoneId (X)
-- RegistrationDeadlines ()
+- RegistrationDeadlines (X)
 - Restrições de acesso ()
+
+(ver ainda o RegistrationStatusProvider)

@@ -2,7 +2,7 @@ package com.travel_system.backend_app.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.travel_system.backend_app.annotations.RateLimited;
-import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorCreationPayload;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.PlatformAdministratorCreationRequestDTO;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationResponseDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
@@ -18,6 +18,7 @@ import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/v1/internal/platform-admin")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class PlatformAdministratorController {
     private final PlatformAdministratorService platformAdministratorService;
 

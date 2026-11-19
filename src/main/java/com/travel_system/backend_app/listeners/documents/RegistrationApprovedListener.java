@@ -1,6 +1,6 @@
 package com.travel_system.backend_app.listeners.documents;
 
-import com.travel_system.backend_app.events.documents.RegistrationApprovedEvent;
+import com.travel_system.backend_app.events.documents.ApprovedEvent;
 import com.travel_system.backend_app.service.RegistrationDocumentNotificationService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,7 @@ public class RegistrationApprovedListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("documentNotificationTaskExecutor")
-    public void notifyOwnerWhenRegistrationApproved(RegistrationApprovedEvent event) {
+    public void notifyOwnerWhenRegistrationApproved(ApprovedEvent event) {
         registrationDocumentNotificationService.sendNotifyOwnerWhenRegistrationApproved(event);
     }
 }

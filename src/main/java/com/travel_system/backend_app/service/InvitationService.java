@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.config.constants.GlobalAppConstants;
+import com.travel_system.backend_app.events.ClearRestrictionCacheEvent;
 import com.travel_system.backend_app.events.invitations.InvitationDeclinedEvent;
 import com.travel_system.backend_app.events.invitations.InvitationAcceptedEvent;
 import com.travel_system.backend_app.events.invitations.InvitationCreatedEvent;
@@ -42,7 +43,8 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
+
 
 @Service
 public class InvitationService {
@@ -61,7 +63,6 @@ public class InvitationService {
     private final InvitationResponseMapper invitationResponseMapper;
 
     private final ObjectMapper objectMapper;
-
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -279,6 +280,12 @@ public class InvitationService {
 
         // publica evento para notificar aqueles quem convidou (apenas rodando after commit)
         eventPublisher.publishEvent(new InvitationAcceptedEvent(invitation.getId(), invitation.getCustomerId(), invitation.getInvitedBy(), userAccount.getId(), now));
+
+        /*
+        * publica evento after commit para limpar cache remanescente de quando o usuário nao tinha perms para nada
+        * se a entidade não for elegível (ex. admin), limpar é barato e reduz complexidade de verificação de tipo em constante
+        * */
+        eventPublisher.publishEvent(new ClearRestrictionCacheEvent(userAccount.getId()));
 
         return new InvitationAcceptResponseDTO(
                 authTokens.accessToken(),

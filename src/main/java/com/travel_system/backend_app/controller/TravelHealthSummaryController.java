@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.controller;
 
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.response.StudentHealthSummaryDTO;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
 import com.travel_system.backend_app.service.TravelHealthSummaryService;
@@ -14,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/v1/travel-summary")
 @RateLimited(RateLimitPolicy.SENSITIVE_OPERATION)
+@RequireAccess(AccessScope.ON_GOING)
 public class TravelHealthSummaryController {
 
     private final TravelHealthSummaryService travelHealthSummaryService;

@@ -1,30 +1,23 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.TravelPreviewDTO;
 import com.travel_system.backend_app.model.dtos.request.*;
 import com.travel_system.backend_app.model.dtos.response.*;
 import com.travel_system.backend_app.model.enums.StudentTravelStatus;
 import com.travel_system.backend_app.service.TravelService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.headers.Header;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/travel")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class TravelController {
 
     private final TravelService travelService;
@@ -63,6 +56,7 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @RequireAccess(AccessScope.TRAVEL_PARTICIPATION)
     @PostMapping("/{travelId}/join")
     public ResponseEntity<JoinTravelResponseDTO> joinTravel(@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
@@ -81,6 +75,7 @@ public class TravelController {
         return ResponseEntity.ok().body(travelService.cancelTravel(dto));
     }
 
+    @RequireAccess(AccessScope.ON_GOING)
     @PostMapping("/{travelId}/leave")
     public ResponseEntity<Void> leaveTravel (@PathVariable UUID travelId, Authentication authentication) {
         String studentEmail = authentication.getName(); // email do student logado
@@ -89,6 +84,7 @@ public class TravelController {
         return ResponseEntity.noContent().build();
     }
 
+    @RequireAccess(AccessScope.ON_GOING)
     @GetMapping("/activeTrips")
     public ResponseEntity<ActiveStudentTravelDTO> getActiveTravelByStudent(Authentication auth) {
         String studentEmail = auth.getName();

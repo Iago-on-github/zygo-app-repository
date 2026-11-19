@@ -1,9 +1,9 @@
-package com.travel_system.backend_app.infrastructure;
+package com.travel_system.backend_app.infrastructure.aspects;
 
+import com.travel_system.backend_app.infrastructure.TenantContext;
 import jakarta.persistence.EntityManager;
 import org.hibernate.Session;
 import jakarta.persistence.PersistenceContext;
-import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;

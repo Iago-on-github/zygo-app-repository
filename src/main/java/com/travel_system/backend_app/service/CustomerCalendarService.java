@@ -1,5 +1,6 @@
 package com.travel_system.backend_app.service;
 
+import com.travel_system.backend_app.events.CustomerTermCacheInvalidationEvent;
 import com.travel_system.backend_app.exceptions.*;
 import com.travel_system.backend_app.interfaces.mappers.CustomerHolidayRequestMapper;
 import com.travel_system.backend_app.interfaces.mappers.CustomerTermRequestMapper;
@@ -17,6 +18,7 @@ import com.travel_system.backend_app.repository.CustomerHolidayRepository;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.CustomerTermRepository;
 import com.travel_system.backend_app.utils.DateTimeFormats;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,7 +30,7 @@ import java.time.ZoneId;
 import java.util.*;
 
 import static com.travel_system.backend_app.infrastructure.TenantContext.getCurrentTenant;
-import static com.travel_system.backend_app.service.CurrentUserService.getAuthenticatedUserEmail;
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.getAuthenticatedUserEmail;
 
 @Service
 public class CustomerCalendarService {
@@ -38,14 +40,15 @@ public class CustomerCalendarService {
     private final CustomerTermRepository customerTermRepository;
     private final CustomerHolidayRepository customerHolidayRepository;
 
-
     private final CustomerHolidayRequestMapper customerHolidayRequestMapper;
     private final CustomerHolidayResponseMapper customerHolidayResponseMapper;
 
     private final CustomerTermRequestMapper customerTermRequestMapper;
     private final CustomerTermResponseMapper customerTermResponseMapper;
 
-    public CustomerCalendarService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, CustomerHolidayRepository customerHolidayRepository, DateTimeFormats dateTimeFormats, CustomerHolidayRequestMapper customerHolidayRequestMapper, CustomerTermRequestMapper customerTermRequestMapper, CustomerHolidayResponseMapper customerHolidayResponseMapper, CustomerTermResponseMapper customerTermResponseMapper) {
+    private final ApplicationEventPublisher eventPublisher;
+
+    public CustomerCalendarService(AdministratorRepository administratorRepository, CustomerRepository customerRepository, CustomerTermRepository customerTermRepository, CustomerHolidayRepository customerHolidayRepository, DateTimeFormats dateTimeFormats, CustomerHolidayRequestMapper customerHolidayRequestMapper, CustomerTermRequestMapper customerTermRequestMapper, CustomerHolidayResponseMapper customerHolidayResponseMapper, CustomerTermResponseMapper customerTermResponseMapper, ApplicationEventPublisher eventPublisher) {
         this.administratorRepository = administratorRepository;
         this.customerRepository = customerRepository;
         this.customerTermRepository = customerTermRepository;
@@ -54,6 +57,7 @@ public class CustomerCalendarService {
         this.customerTermRequestMapper = customerTermRequestMapper;
         this.customerHolidayResponseMapper = customerHolidayResponseMapper;
         this.customerTermResponseMapper = customerTermResponseMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     /* FERIADOS */
@@ -149,6 +153,9 @@ public class CustomerCalendarService {
 
         CustomerTerm customerTerm = customerTermRequestMapper.toEntity(dto);
 
+        // publica evento de mudança no período
+        eventPublisher.publishEvent(new CustomerTermCacheInvalidationEvent(findCustomer().getId()));
+
         return customerTermResponseMapper.toDTO(customerTermRepository.save(customerTerm));
     }
 
@@ -168,12 +175,18 @@ public class CustomerCalendarService {
 
         customerTermRequestMapper.updateFromDTO(dto, customerTerm);
 
+        // publica evento de mudança no período
+        eventPublisher.publishEvent(new CustomerTermCacheInvalidationEvent(findCustomer().getId()));
+
         return customerTermResponseMapper.toDTO(customerTerm);
     }
 
     @Transactional
     public void deleteCustomerTerm(UUID customerTermId) {
         customerTermRepository.delete(findTerm(customerTermId));
+
+        // publica evento de mudança no período
+        eventPublisher.publishEvent(new CustomerTermCacheInvalidationEvent(findCustomer().getId()));
     }
 
     private CustomerTerm findTerm(UUID customerTermId) {

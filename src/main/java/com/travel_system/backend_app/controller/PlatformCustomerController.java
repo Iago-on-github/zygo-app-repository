@@ -1,17 +1,14 @@
 package com.travel_system.backend_app.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.travel_system.backend_app.annotations.RateLimited;
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.ChangeCustomerPlanPayload;
 import com.travel_system.backend_app.model.dtos.request.CustomerOperationDataRequestDTO;
 import com.travel_system.backend_app.model.dtos.request.CustomerUpdateDTO;
 import com.travel_system.backend_app.model.dtos.request.UpdateStatusDTO;
 import com.travel_system.backend_app.model.dtos.response.CustomerOperationDataResponseDTO;
 import com.travel_system.backend_app.model.dtos.security.SensitiveOperationResponseDTO;
-import com.travel_system.backend_app.model.enums.ClientSector;
-import com.travel_system.backend_app.model.enums.CustomerPlan;
-import com.travel_system.backend_app.model.enums.GeneralStatus;
-import com.travel_system.backend_app.model.enums.RateLimitPolicy;
+import com.travel_system.backend_app.model.enums.*;
 import com.travel_system.backend_app.service.CustomerService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -20,7 +17,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -30,6 +26,7 @@ import java.util.UUID;
 //@PreAuthorize("hasRole('PLATFORM_ADMIN')")
 @RestController
 @RequestMapping("/v1/platform/customers")
+@RequireAccess(AccessScope.UNRESTRICTED)
 public class PlatformCustomerController {
 
     private final CustomerService customerService;

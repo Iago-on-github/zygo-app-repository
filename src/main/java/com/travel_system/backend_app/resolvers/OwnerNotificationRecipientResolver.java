@@ -1,4 +1,4 @@
-package com.travel_system.backend_app.service;
+package com.travel_system.backend_app.resolvers;
 
 import com.travel_system.backend_app.model.Student;
 import com.travel_system.backend_app.model.dtos.request.OwnerBuilt;
@@ -21,12 +21,12 @@ public class OwnerNotificationRecipientResolver {
     private final DriverRepository driverRepository;
     private final StudentRepository studentRepository;
 
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
-    public OwnerNotificationRecipientResolver(DriverRepository driverRepository, StudentRepository studentRepository, UserProfileResolverService userProfileResolverService) {
+    public OwnerNotificationRecipientResolver(DriverRepository driverRepository, StudentRepository studentRepository, UserProfileResolver userProfileResolver) {
         this.driverRepository = driverRepository;
         this.studentRepository = studentRepository;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
     }
 
     // usados nas notificações para mandar aos users corretos
@@ -44,7 +44,7 @@ public class OwnerNotificationRecipientResolver {
         }
 
         // aluno menor: notifica os responsáveis vinculados
-        if (userProfileResolverService.isMinor(student.getBirthdate())) {
+        if (userProfileResolver.isMinor(student.getBirthdate())) {
             return studentRepository.findResponsibleUserAccountIds(owner.id());
         }
 

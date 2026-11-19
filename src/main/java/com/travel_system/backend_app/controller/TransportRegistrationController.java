@@ -1,11 +1,11 @@
 package com.travel_system.backend_app.controller;
 
+import com.travel_system.backend_app.annotations.RequireAccess;
 import com.travel_system.backend_app.model.dtos.request.SaveDraftDTO;
 import com.travel_system.backend_app.model.dtos.response.TransportRegistrationResponseDTO;
 import com.travel_system.backend_app.model.enums.DocumentType;
 import com.travel_system.backend_app.service.TransportRegistrationService;
 import jakarta.validation.Valid;
-import org.apache.coyote.Response;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +17,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/transport/registration")
+@RequireAccess(AccessScope.REGULARIZATION)
 public class TransportRegistrationController {
 
     private final TransportRegistrationService transportRegistrationService;
@@ -28,6 +29,7 @@ public class TransportRegistrationController {
     /*
     * operações para estudantes e motoristas maiores de idade
     * */
+    @RequireAccess(AccessScope.REGULARIZATION)
     @GetMapping("/me")
     public ResponseEntity<TransportRegistrationResponseDTO> consultMine() {
         return ResponseEntity.ok().body(transportRegistrationService.consultMine());

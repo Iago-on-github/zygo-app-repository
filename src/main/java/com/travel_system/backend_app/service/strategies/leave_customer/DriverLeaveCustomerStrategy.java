@@ -1,5 +1,7 @@
 package com.travel_system.backend_app.service.strategies.leave_customer;
 
+import com.travel_system.backend_app.events.ClearRestrictionCacheEvent;
+import com.travel_system.backend_app.events.StatusCacheInvalidationEvent;
 import com.travel_system.backend_app.exceptions.ResourceInUseException;
 import com.travel_system.backend_app.interfaces.LeaveCustomerStrategy;
 import com.travel_system.backend_app.model.Cnh;
@@ -14,10 +16,10 @@ import com.travel_system.backend_app.service.CustomerTimeService;
 import com.travel_system.backend_app.service.HealthDataCleanupService;
 import com.travel_system.backend_app.service.RegistrationDataCleanupService;
 import com.travel_system.backend_app.service.SetupAuthenticationService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -31,15 +33,18 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
     private final RegistrationDataCleanupService registrationDataCleanupService;
     private final HealthDataCleanupService healthDataCleanupService;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     private static final List<TravelStatus> BLOCKING_STATUSES = List.of(TravelStatus.SCHEDULED, TravelStatus.PENDING, TravelStatus.TRAVELLING);
 
-    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService) {
+    public DriverLeaveCustomerStrategy(DriverRepository driverRepository, SetupAuthenticationService setupAuthenticationService, TravelRepository travelRepository, CnhRepository cnhRepository, CustomerTimeService customerTimeService, RegistrationDataCleanupService registrationDataCleanupService, HealthDataCleanupService healthDataCleanupService, ApplicationEventPublisher eventPublisher) {
         this.driverRepository = driverRepository;
         this.travelRepository = travelRepository;
         this.cnhRepository = cnhRepository;
         this.customerTimeService = customerTimeService;
         this.registrationDataCleanupService = registrationDataCleanupService;
         this.healthDataCleanupService = healthDataCleanupService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -77,6 +82,13 @@ public class DriverLeaveCustomerStrategy implements LeaveCustomerStrategy {
         if (cnh != null) {
             cnhRepository.delete(cnh);
         }
+
+        // publica evento para limpar cache remanescente de registro
+        eventPublisher.publishEvent(new StatusCacheInvalidationEvent(driver.getCustomerId(), new OwnerBuilt(OwnerType.DRIVER, driver.getId())));
+
+        // publica evento para limpar cache de restrições
+        eventPublisher.publishEvent(new ClearRestrictionCacheEvent(account.getId()));
+
     }
 
     private Driver findDriver(UserAccount account) {

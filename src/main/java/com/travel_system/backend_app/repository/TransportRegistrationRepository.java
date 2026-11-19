@@ -1,6 +1,7 @@
 package com.travel_system.backend_app.repository;
 
 import com.travel_system.backend_app.model.TransportRegistration;
+import com.travel_system.backend_app.model.enums.OwnerType;
 import com.travel_system.backend_app.model.enums.RegistrationRequestStatus;
 import com.travel_system.backend_app.model.enums.RegistrationRequestType;
 import com.travel_system.backend_app.model.enums.TransportRegistrationStatus;
@@ -41,8 +42,8 @@ public interface TransportRegistrationRepository extends JpaRepository<Transport
         """)
     List<TransportRegistration> findLatestByOwnerIdAndStatus(@Param("ownerId") UUID ownerId, @Param("status") TransportRegistrationStatus status);
 
-    @Query("SELECT r FROM TransportRegistration r JOIN FETCH r.customerTerm WHERE r.status = :status AND r.customerId = :customerId")
-    List<TransportRegistration> findActiveWithTermByCustomerId(@Param("customerId") UUID customerId, @Param("status") TransportRegistrationStatus status );
+    @Query("SELECT r FROM TransportRegistration r JOIN FETCH r.customerTerm WHERE r.status IN :statuses AND r.customerId = :customerId")
+    List<TransportRegistration> findWithTermByCustomerIdAndStatuses(@Param("customerId") UUID customerId, @Param("statuses") List<TransportRegistrationStatus> statuses );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM TransportRegistration r JOIN FETCH r.customerTerm WHERE r.id = :id")
@@ -161,4 +162,86 @@ public interface TransportRegistrationRepository extends JpaRepository<Transport
                                             @Param("graceLimit") LocalDate graceLimit,
                                             @Param("today") LocalDate today,
                                             @Param("blockingSoonLimit") LocalDate blockingSoonLimit,
-                                            Pageable pageable);}
+                                            Pageable pageable);
+
+
+    @Query("""
+        SELECT COALESCE(r.studentId, r.driverId) AS ownerId,
+               r.status AS status,
+               t.endTerm AS termEnd,
+               CASE WHEN EXISTS (
+                   SELECT 1 FROM CustomerTerm nt
+                   WHERE nt.customerId = r.customerId
+                     AND nt.startTerm > t.endTerm
+               ) THEN true ELSE false END AS hasNextTerm,
+               o.type AS openRequestType,
+               o.status AS openRequestStatus,
+               (SELECT MAX(rj.reviewedAt) FROM RegistrationRequest rj
+                WHERE rj.transportRegistration = r
+                  AND rj.type = :renewal
+                  AND rj.status = :rejected) AS lastRenewalRejectedAt
+        FROM TransportRegistration r
+        LEFT JOIN r.customerTerm t
+        LEFT JOIN RegistrationRequest o
+               ON o.transportRegistration = r AND o.status IN :openStatuses
+        WHERE r.customerId = :customerId
+          AND r.status <> :closed
+          AND ((:student = true AND r.studentId IN :ownerIds)
+               OR (:student = false AND r.driverId IN :ownerIds))
+        """)
+    List<RegistrationStatusView> findStatusViews(@Param("customerId") UUID customerId,
+                                                 @Param("student") boolean student,
+                                                 @Param("ownerIds") Collection<UUID> ownerIds,
+                                                 @Param("openStatuses") Collection<RegistrationRequestStatus> openStatuses,
+                                                 @Param("renewal") RegistrationRequestType renewal,
+                                                 @Param("rejected") RegistrationRequestStatus rejected,
+                                                 @Param("closed") TransportRegistrationStatus closed);
+
+    default List<RegistrationStatusView> findStatusViews(UUID customerId, OwnerType ownerType, Collection<UUID> ownerIds) {
+        return findStatusViews(
+                customerId,
+                ownerType == OwnerType.STUDENT,
+                ownerIds,
+                List.of(RegistrationRequestStatus.DRAFT, RegistrationRequestStatus.UNDER_REVIEW),
+                RegistrationRequestType.RENEWAL,
+                RegistrationRequestStatus.REJECTED,
+                TransportRegistrationStatus.CLOSED
+        );
+    }
+
+    @Query("""
+        SELECT DISTINCT r.studentId FROM TransportRegistration r
+        WHERE r.customerId = :customerId AND r.studentId IN :ownerIds AND r.status = :closed
+        """)
+    List<UUID> findClosedStudentIds(@Param("customerId") UUID customerId,
+                                    @Param("ownerIds") Collection<UUID> ownerIds,
+                                    @Param("closed") TransportRegistrationStatus closed);
+
+    @Query("""
+        SELECT DISTINCT r.driverId FROM TransportRegistration r
+        WHERE r.customerId = :customerId AND r.driverId IN :ownerIds AND r.status = :closed
+        """)
+    List<UUID> findClosedDriverIds(@Param("customerId") UUID customerId,
+                                   @Param("ownerIds") Collection<UUID> ownerIds,
+                                   @Param("closed") TransportRegistrationStatus closed);
+
+    default List<UUID> findClosedOwnerIds(UUID customerId, OwnerType ownerType, Collection<UUID> ownerIds) {
+        return ownerType == OwnerType.STUDENT ? findClosedStudentIds(customerId, ownerIds, TransportRegistrationStatus.CLOSED) : findClosedDriverIds(customerId, ownerIds, TransportRegistrationStatus.CLOSED);
+    }
+
+    @Modifying
+    @Query("""
+        UPDATE TransportRegistration tr
+            SET tr.status = :activeStatus, tr.version = tr.version + 1, tr.inactiveAt = NULL
+        WHERE (tr.studentId = :ownerId OR tr.driverId = :ownerId)
+            AND tr.status = :inactiveStatus
+        """)
+    int reactivateByOwnerId(@Param("ownerId") UUID ownerId, @Param("activeStatus") TransportRegistrationStatus activeStatus, @Param("inactiveStatus") TransportRegistrationStatus inactiveStatus);
+
+    @Query("""
+        SELECT r.customerId FROM TransportRegistration r
+        WHERE (r.studentId = :ownerId OR r.driverId = :ownerId)
+          AND r.status <> :closed
+        """)
+    UUID findCustomerIdByOwnerId(@Param("ownerId") UUID ownerId, @Param("closed") TransportRegistrationStatus closed);
+}

@@ -5,6 +5,7 @@ import com.travel_system.backend_app.exceptions.RateLimitExceededException;
 import com.travel_system.backend_app.model.dtos.security.RateLimitResult;
 import com.travel_system.backend_app.model.enums.KeyType;
 import com.travel_system.backend_app.model.enums.RateLimitPolicy;
+import com.travel_system.backend_app.resolvers.ClientIpResolver;
 import com.travel_system.backend_app.service.HmacTokenService;
 import com.travel_system.backend_app.service.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;

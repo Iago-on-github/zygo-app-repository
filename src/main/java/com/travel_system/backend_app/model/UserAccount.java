@@ -31,11 +31,13 @@ public class UserAccount {
     private Set<PushNotificationDeviceToken> PushNotificationDeviceTokens = new HashSet<>();
     private Instant emailVerifiedAt;
     private LocalDate termsAcceptedAt;
+    private Instant lastActivityAt;
+    private Instant inactiveAt;
 
     public UserAccount() {
     }
 
-    public UserAccount(UUID id, String email, String password, UserAccountType userAccountType, boolean emailVerified, Instant emailVerifiedAt, LocalDate termsAcceptedAt) {
+    public UserAccount(UUID id, String email, String password, UserAccountType userAccountType, boolean emailVerified, Instant emailVerifiedAt, LocalDate termsAcceptedAt, Instant lastActivityAt, Instant inactiveAt) {
         this.id = id;
         this.email = email;
         this.password = password;
@@ -43,6 +45,8 @@ public class UserAccount {
         this.emailVerified = emailVerified;
         this.emailVerifiedAt = emailVerifiedAt;
         this.termsAcceptedAt = termsAcceptedAt;
+        this.lastActivityAt = lastActivityAt;
+        this.inactiveAt = inactiveAt;
     }
 
     public List<String> getRoles() {
@@ -123,6 +127,22 @@ public class UserAccount {
 
     public void setTermsAcceptedAt(LocalDate termsAcceptedAt) {
         this.termsAcceptedAt = termsAcceptedAt;
+    }
+
+    public Instant getLastActivityAt() {
+        return lastActivityAt;
+    }
+
+    public void setLastActivityAt(Instant lastActivityAt) {
+        this.lastActivityAt = lastActivityAt;
+    }
+
+    public Instant getInactiveAt() {
+        return inactiveAt;
+    }
+
+    public void setInactiveAt(Instant inactiveAt) {
+        this.inactiveAt = inactiveAt;
     }
 }
 

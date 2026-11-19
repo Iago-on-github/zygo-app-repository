@@ -3,12 +3,10 @@ package com.travel_system.backend_app.security;
 import com.travel_system.backend_app.config.TokenConfig;
 import com.travel_system.backend_app.exceptions.DomainValidationException;
 import com.travel_system.backend_app.infrastructure.TenantContext;
-import com.travel_system.backend_app.model.Customer;
 import com.travel_system.backend_app.model.UserAccount;
 import com.travel_system.backend_app.repository.CustomerRepository;
 import com.travel_system.backend_app.repository.UserAccountRepository;
-import com.travel_system.backend_app.service.CurrentUserService;
-import com.travel_system.backend_app.service.UserProfileResolverService;
+import com.travel_system.backend_app.resolvers.UserProfileResolver;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,19 +20,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.UUID;
 
+import static com.travel_system.backend_app.resolvers.AuthenticatedUserResolver.isPlatformAdmin;
+
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenConfig tokenConfig;
-    private final CurrentUserService currentUserService;
-    private final UserProfileResolverService userProfileResolverService;
+    private final UserProfileResolver userProfileResolver;
 
     private final CustomerRepository customerRepository;
     private final UserAccountRepository userAccountRepository;
 
-    public JwtAuthenticationFilter(TokenConfig tokenConfig, CurrentUserService currentUserService, UserProfileResolverService userProfileResolverService, CustomerRepository customerRepository, UserAccountRepository userAccountRepository) {
+    public JwtAuthenticationFilter(TokenConfig tokenConfig, UserProfileResolver userProfileResolver, CustomerRepository customerRepository, UserAccountRepository userAccountRepository) {
         this.tokenConfig = tokenConfig;
-        this.currentUserService = currentUserService;
-        this.userProfileResolverService = userProfileResolverService;
+        this.userProfileResolver = userProfileResolver;
         this.customerRepository = customerRepository;
         this.userAccountRepository = userAccountRepository;
     }
@@ -75,7 +73,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         System.out.println("processing resolveTenantContext");
 
-        boolean isPlatformAdmin = currentUserService.isPlatformAdmin();
+        boolean isPlatformAdmin = isPlatformAdmin();
 
         // platformAdmin atuando em um Customer específico
         if (isPlatformAdmin) {
@@ -117,7 +115,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throw new EntityNotFoundException("UserAccount não encontrada");
         }
 
-        UUID customerId = userProfileResolverService.resolveCustomerId(userAccount);
+        UUID customerId = userProfileResolver.resolveCustomerId(userAccount);
 
         System.out.println("customerId from resolveTenantContext: " + customerId);
 
@@ -131,19 +129,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         TenantContext.setCurrentTenant(customerId);
     }
-
-    /*
-    * GUIDE DOC:
-    *
-    * tenant = Usuário/entidade de persistência e isolada por cliente, extends de BaseTenantEntity
-    * platformAdmin = Super admin restritos apenas aos devs do Zyggo
-    * impersonação = quando alguém tenta de passar por outra pessoa, nesse caso, um usuário por outro. O HEADER "X-Customer-ID" cobre esse cenário
-    *
-    * metodo "resolveTenantContext" = realiza o processamento de verificação de Tenants
-    *
-    * TESTES: INSOMNIA / POSTMAN / BRUNO
-    * é necessário que, em requisições para Tenants, o header contenha "X-Customer-ID".
-    * para reqs de PltaformAdmin não deve ser inserido esse header
-    *
-    * */
 }
+
+/*
+ * GUIDE DOC:
+ *
+ * tenant = Usuário/entidade de persistência e isolada por cliente, extends de BaseTenantEntity
+ * platformAdmin = Super admin restritos apenas aos devs do Zyggo
+ * impersonação = quando alguém tenta de passar por outra pessoa, nesse caso, um usuário por outro. O HEADER "X-Customer-ID" cobre esse cenário
+ *
+ * metodo "resolveTenantContext" = realiza o processamento de verificação de Tenants
+ *
+ * TESTES: INSOMNIA / POSTMAN / BRUNO
+ * é necessário que, em requisições para Tenants, o header contenha "X-Customer-ID".
+ * para reqs de PltaformAdmin não deve ser inserido esse header
+ *
+ * */

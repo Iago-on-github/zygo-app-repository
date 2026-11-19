@@ -1,7 +1,7 @@
 package com.travel_system.backend_app.listeners;
 
 import com.travel_system.backend_app.events.StudentAwayStateCheckEvent;
-import com.travel_system.backend_app.infrastructure.TenantFilterAspect;
+import com.travel_system.backend_app.infrastructure.aspects.TenantFilterAspect;
 import com.travel_system.backend_app.service.LocationService;
 import com.travel_system.backend_app.service.RedisTrackingService;
 import org.slf4j.Logger;
